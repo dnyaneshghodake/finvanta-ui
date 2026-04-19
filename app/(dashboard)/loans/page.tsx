@@ -101,12 +101,16 @@ export default function LoanInquiryPage() {
                   <th>Loan Account</th>
                   <th>Customer</th>
                   <th>Product</th>
+                  <th className="text-right">Sanctioned</th>
                   <th className="text-right">Disbursed</th>
                   <th className="text-right">Outstanding</th>
                   <th className="text-right">Rate %</th>
                   <th className="text-right">EMI</th>
+                  <th>Tenure</th>
                   <th>Next Due</th>
                   <th className="text-right">Overdue</th>
+                  <th>DPD</th>
+                  <th>NPA Class</th>
                   <th>Status</th>
                 </tr>
               </thead>
@@ -114,15 +118,34 @@ export default function LoanInquiryPage() {
                 {loans.map((l) => (
                   <tr key={l.id}>
                     <td className="cbs-tabular font-semibold text-cbs-navy-700">{l.accountNumber}</td>
-                    <td className="text-cbs-ink">{l.customerName || '—'}</td>
+                    <td className="text-cbs-ink">
+                      {l.customerName || '—'}
+                      {l.customerNumber && (
+                        <div className="text-[10px] text-cbs-steel-500 cbs-tabular">{l.customerNumber}</div>
+                      )}
+                    </td>
                     <td className="cbs-tabular text-cbs-steel-600">{l.productCode}</td>
+                    <td className="cbs-amount">{l.sanctionedAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
                     <td className="cbs-amount">{l.disbursedAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
                     <td className="cbs-amount">{l.outstandingPrincipal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
                     <td className="cbs-amount">{l.interestRate.toFixed(2)}</td>
                     <td className="cbs-amount">{l.emiAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
-                    <td className="cbs-tabular">{l.nextDueDate || '—'}</td>
+                    <td className="cbs-tabular">{l.tenureMonths ? `${l.tenureMonths}M` : '—'}</td>
+                    <td className="cbs-tabular">{l.nextDueDate ? formatCbsDate(l.nextDueDate) : '—'}</td>
                     <td className={`cbs-amount ${l.overdueAmount > 0 ? 'cbs-amount-debit' : ''}`}>
                       {l.overdueAmount > 0 ? l.overdueAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 }) : '—'}
+                    </td>
+                    <td className={`cbs-tabular text-xs ${(l.dpd ?? 0) > 0 ? 'font-semibold text-cbs-crimson-700' : 'text-cbs-steel-500'}`}>
+                      {l.dpd != null ? l.dpd : '—'}
+                    </td>
+                    <td>
+                      {l.npaClassification ? (
+                        <span className={`cbs-ribbon ${NPA_TONE[l.npaClassification] || 'text-cbs-steel-700 bg-cbs-mist border-cbs-steel-300'}`}>
+                          {l.npaClassification.replace(/_/g, ' ')}
+                        </span>
+                      ) : (
+                        <span className="text-xs text-cbs-steel-500">—</span>
+                      )}
                     </td>
                     <td><StatusRibbon status={l.status} /></td>
                   </tr>
