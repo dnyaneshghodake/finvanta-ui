@@ -45,7 +45,7 @@ const MAX_RATE_LIMIT_RETRIES = 3;
  * Generate unique request ID for tracing
  */
 const generateRequestId = (): string => {
-  return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+  return `${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
 };
 
 /**

@@ -28,7 +28,7 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
   }
 
   static getDerivedStateFromError(): ErrorBoundaryState {
-    const errorId = `ERR-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`;
+    const errorId = `ERR-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     return { hasError: true, errorId };
   }
 
