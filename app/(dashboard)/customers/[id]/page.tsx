@@ -23,7 +23,7 @@ import Link from 'next/link';
 import { apiClient } from '@/services/api/apiClient';
 import {
   StatusRibbon, KeyValue, ApprovalTrail, CorrelationRefBadge,
-  maskPan, maskAadhaar, maskAccountNo,
+  maskPan, maskAadhaar, maskAccountNo, Breadcrumb,
   type ApprovalTrailEntry,
 } from '@/components/cbs';
 import { Button, Spinner } from '@/components/atoms';
@@ -124,6 +124,8 @@ export default function CustomerDetailPage() {
 
   return (
     <div className="space-y-4">
+      <Breadcrumb items={[{ label: 'Dashboard', href: '/dashboard' }, { label: 'Customers', href: '/customers' }, { label: `CIF: ${customer.customerNumber}` }]} />
+
       {/* CIF Header */}
       <div className="flex items-center justify-between">
         <div>

@@ -16,7 +16,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import Link from 'next/link';
 import { apiClient } from '@/services/api/apiClient';
-import { StatusRibbon, KeyValue, maskPan, maskAadhaar } from '@/components/cbs';
+import { StatusRibbon, KeyValue, maskPan, maskAadhaar, Breadcrumb } from '@/components/cbs';
 import { Button, Spinner } from '@/components/atoms';
 
 const searchSchema = z.object({
@@ -68,6 +68,7 @@ export default function CustomerSearchPage() {
 
   return (
     <div className="space-y-4">
+      <Breadcrumb items={[{ label: 'Dashboard', href: '/dashboard' }, { label: 'Customers' }]} />
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-semibold text-cbs-ink">Customer Search</h1>

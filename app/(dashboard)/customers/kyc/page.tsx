@@ -20,7 +20,7 @@ import Link from 'next/link';
 import { apiClient } from '@/services/api/apiClient';
 import {
   StatusRibbon, KeyValue, maskPan, maskAadhaar,
-  CorrelationRefBadge,
+  CorrelationRefBadge, Breadcrumb,
 } from '@/components/cbs';
 import { Button, Spinner } from '@/components/atoms';
 
@@ -129,6 +129,7 @@ export default function KycVerificationPage() {
 
   return (
     <div className="space-y-4">
+      <Breadcrumb items={[{ label: 'Dashboard', href: '/dashboard' }, { label: 'Customers', href: '/customers' }, { label: 'KYC Verification' }]} />
       <div>
         <h1 className="text-xl font-semibold text-cbs-ink">KYC Verification</h1>
         <p className="text-xs text-cbs-steel-600 mt-0.5">
@@ -138,15 +139,17 @@ export default function KycVerificationPage() {
       </div>
 
       {/* Status Messages */}
-      {error && (
-        <div className="border border-cbs-crimson-600 bg-cbs-crimson-50 text-cbs-crimson-700 p-3 text-sm">
-          <div className="font-semibold">Verification failed</div>
-          <div>{error}</div>
-          {correlationId && (
-            <div className="mt-1 text-xs cbs-tabular">Ref: {correlationId}</div>
-          )}
-        </div>
-      )}
+      <div aria-live="polite" aria-atomic="true">
+        {error && (
+          <div role="alert" className="cbs-alert cbs-alert-error">
+            <div className="font-semibold text-sm">Verification failed</div>
+            <div className="mt-1 text-sm">{error}</div>
+            {correlationId && (
+              <div className="mt-1 text-xs cbs-tabular">Ref: {correlationId}</div>
+            )}
+          </div>
+        )}
+      </div>
 
       {success && (
         <div className="border border-cbs-olive-600 bg-cbs-olive-50 text-cbs-olive-700 p-3 text-sm">
@@ -229,7 +232,7 @@ export default function KycVerificationPage() {
                 <span className="text-cbs-crimson-700">(mandatory for rejection)</span>
               </label>
               <textarea
-                className="cbs-input h-20 py-2"
+                className="cbs-textarea"
                 placeholder="Enter verification remarks..."
                 value={remarks}
                 onChange={(e) => setRemarks(e.target.value)}
