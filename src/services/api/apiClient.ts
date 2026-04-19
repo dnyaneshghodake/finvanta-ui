@@ -81,15 +81,16 @@ apiClient.interceptors.request.use(
     if (!SAFE_METHODS.has(method)) {
       const csrf = readCsrfFromCookie() ?? useAuthStore.getState().csrfToken;
       if (csrf) config.headers['X-CSRF-Token'] = csrf;
-      // Stable Idempotency-Key for financial POST retries — regenerated
-      // per logical submit, not per retry. Callers may override by
-      // setting headers['X-Idempotency-Key'] before invoking.
-      if (!config.headers['X-Idempotency-Key']) {
-        config.headers['X-Idempotency-Key'] =
-          typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
-            ? crypto.randomUUID()
-            : generateRequestId();
-      }
+      // Idempotency-Key is NOT auto-generated here. Auto-generating a
+      // fresh key per request defeats de-duplication: a double-click
+      // would produce two distinct keys and two postings. Financial
+      // callers (transferService.confirm) must mint a stable key at
+      // the point of the first "Confirm" click and pass it via
+      // headers['X-Idempotency-Key']. The BFF proxy generates a
+      // server-side fallback key for calls that arrive without one
+      // (src/lib/server/proxy.ts:131-133), which protects against
+      // network-level retries but not against application-level
+      // double-submits — that is the caller's responsibility.
     }
 
     // Branch / tenant context is injected server-side by the Next.js BFF

@@ -48,7 +48,7 @@ function buildCsp(nonce: string, isDev: boolean): string {
   return [
     `default-src ${self}`,
     `base-uri ${self}`,
-    `frame-ancestors 'none'`,
+    `frame-ancestors 'self'`,
     `form-action ${self}`,
     `object-src 'none'`,
     `img-src ${self} data: blob:`,
@@ -82,13 +82,19 @@ export function proxy(req: NextRequest): NextResponse {
   res.headers.set("Content-Security-Policy", buildCsp(nonce, isDev));
   res.headers.set("X-Content-Type-Options", "nosniff");
   res.headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
-  res.headers.set("X-Frame-Options", "DENY");
+  // SAMEORIGIN (not DENY) so the legacy JSP bridge iframe at
+  // /legacy/[...slug] can embed same-origin Spring MVC screens.
+  res.headers.set("X-Frame-Options", "SAMEORIGIN");
   res.headers.set(
     "Permissions-Policy",
     "accelerometer=(), camera=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), payment=(), usb=()",
   );
   res.headers.set("Cross-Origin-Opener-Policy", "same-origin");
-  res.headers.set("Cross-Origin-Embedder-Policy", "require-corp");
+  // credentialless (not require-corp) so the legacy JSP bridge iframe
+  // can load Spring MVC pages that lack Cross-Origin-Resource-Policy
+  // headers. credentialless still enables cross-origin isolation for
+  // SharedArrayBuffer etc. while allowing same-origin sub-resources.
+  res.headers.set("Cross-Origin-Embedder-Policy", "credentialless");
   res.headers.set("Cross-Origin-Resource-Policy", "same-origin");
   if (!isDev) {
     res.headers.set(

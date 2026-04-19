@@ -52,8 +52,12 @@ export async function POST(req: NextRequest) {
   const body = (await req.json().catch(() => ({}))) as VerifyBody;
 
   const jar = await cookies();
+  // Prefer the HttpOnly fv_mfa cookie over the body field so XSS
+  // cannot supply an attacker-controlled challengeId. The body
+  // fallback is retained only for the in-session step-up path where
+  // the cookie may not be set (the caller already holds a session).
   const challengeId =
-    body.challengeId ?? jar.get(env.mfaChallengeCookieName)?.value;
+    jar.get(env.mfaChallengeCookieName)?.value ?? body.challengeId;
 
   if (!challengeId || !body.otp) {
     return NextResponse.json(

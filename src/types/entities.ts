@@ -4,7 +4,14 @@
  */
 
 /**
- * User entity representing a bank customer or staff member.
+ * Authenticated operator profile as returned by the BFF session.
+ *
+ * This is NOT a full CIF customer record — it is the subset of the
+ * Spring `UserDetails` / `CbsSessionUser` that the BFF materialises
+ * into the encrypted fv_sid cookie and returns via /api/cbs/auth/me.
+ * Most fields are optional because the Spring auth response may only
+ * include {username, roles} for service accounts or freshly-seeded
+ * dev users.
  *
  * CBS-critical fields:
  * - branchCode: assigned at login, injected into every API request
@@ -13,19 +20,20 @@
  * - permissions: field-level permission enforcement
  */
 export interface User {
-  id: string;
-  email: string;
-  firstName: string;
-  lastName: string;
-  phoneNumber: string;
-  dateOfBirth: Date;
-  gender: 'MALE' | 'FEMALE' | 'OTHER';
-  address: Address;
-  kycStatus: KYCStatus;
-  amlStatus: AMLStatus;
-  createdAt: Date;
-  updatedAt: Date;
-  lastLogin: Date | null;
+  id?: string;
+  username: string;
+  email?: string;
+  firstName?: string;
+  lastName?: string;
+  phoneNumber?: string;
+  dateOfBirth?: Date;
+  gender?: 'MALE' | 'FEMALE' | 'OTHER';
+  address?: Address;
+  kycStatus?: KYCStatus;
+  amlStatus?: AMLStatus;
+  createdAt?: Date;
+  updatedAt?: Date;
+  lastLogin?: Date | null;
 
   // CBS-specific fields
   branchCode?: string;
@@ -33,6 +41,7 @@ export interface User {
   tenantId?: string;
   roles: UserRole[];
   permissions?: string[];
+  mfaEnrolled?: boolean;
 }
 
 /**

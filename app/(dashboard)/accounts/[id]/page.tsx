@@ -1,16 +1,23 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { useAccountStore } from '@/store/accountStore';
 import { useUIStore } from '@/store/uiStore';
+import { accountService } from '@/services/api/accountService';
 import { StatisticCard, TransactionRow } from '@/components/molecules';
 import { Card, Button, Spinner, Badge } from '@/components/atoms';
 import { formatCurrency, formatAccountNumber, formatDate, formatAccountType } from '@/utils/formatters';
+import type { Account } from '@/types/entities';
 
 /**
- * Account details page
+ * Account details page.
+ *
+ * CBS operators routinely bookmark account URLs or share them via
+ * internal chat. On a direct hit the Zustand store may be empty
+ * (accounts haven't been fetched yet), so we fall back to a
+ * single-account API call rather than showing "Not Found".
  */
 export default function AccountDetailsPage() {
   const params = useParams();
@@ -19,8 +26,42 @@ export default function AccountDetailsPage() {
   const { accounts, transactions, fetchTransactions, isLoading } = useAccountStore();
   const { addToast } = useUIStore();
 
-  // Select account from list
-  const account = accounts.find(acc => acc.id === accountId);
+  // Try the in-memory store first (instant if the list page was visited).
+  const storeAccount = accounts.find(acc => acc.id === accountId);
+
+  // Fall back to a direct API fetch when the store is empty (direct
+  // navigation, page refresh, shared link).
+  const [directAccount, setDirectAccount] = useState<Account | null>(null);
+  const [directLoading, setDirectLoading] = useState(false);
+  const [directError, setDirectError] = useState(false);
+
+  useEffect(() => {
+    if (storeAccount || directAccount) return;
+    let cancelled = false;
+    setDirectLoading(true);
+    setDirectError(false);
+    accountService.getAccount(accountId).then((res) => {
+      if (cancelled) return;
+      if (res.success && res.data) {
+        setDirectAccount(res.data);
+        // Seed the store so subsequent navigations are instant.
+        useAccountStore.setState((s) => ({
+          accounts: s.accounts.some((a) => a.id === res.data!.id)
+            ? s.accounts
+            : [...s.accounts, res.data!],
+        }));
+      } else {
+        setDirectError(true);
+      }
+    }).catch(() => {
+      if (!cancelled) setDirectError(true);
+    }).finally(() => {
+      if (!cancelled) setDirectLoading(false);
+    });
+    return () => { cancelled = true; };
+  }, [accountId, storeAccount, directAccount]);
+
+  const account = storeAccount ?? directAccount;
 
   useEffect(() => {
     if (account) {
@@ -29,7 +70,7 @@ export default function AccountDetailsPage() {
     }
   }, [account, fetchTransactions]);
 
-  if (isLoading) {
+  if (isLoading || directLoading) {
     return (
       <div className="flex justify-center py-12">
         <Spinner size="lg" message="Loading account details..." />

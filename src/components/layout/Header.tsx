@@ -99,11 +99,19 @@ const Header: FC<HeaderProps> = ({ className }) => {
               className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-100 transition-colors"
             >
               <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center text-white text-sm font-semibold">
-                {user?.firstName?.[0]}{user?.lastName?.[0]}
+                {/* Show first-name/last-name initials when available,
+                    otherwise fall back to first two chars of username
+                    (which is always present from the BFF session). */}
+                {user?.firstName?.[0] || user?.username?.[0]?.toUpperCase() || '?'}
+                {user?.lastName?.[0] || user?.username?.[1]?.toUpperCase() || ''}
               </div>
               <div className="text-left hidden sm:block">
-                <p className="text-sm font-medium text-gray-900">{user?.firstName}</p>
-                <p className="text-xs text-gray-500">{user?.email}</p>
+                <p className="text-sm font-medium text-gray-900">
+                  {user?.firstName || user?.username || 'Operator'}
+                </p>
+                <p className="text-xs text-gray-500">
+                  {user?.email || user?.branchCode || ''}
+                </p>
               </div>
               <svg
                 className={clsx(

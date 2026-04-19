@@ -7,6 +7,8 @@ import { useAuthStore } from '@/store/authStore';
 import { Spinner } from '@/components/atoms';
 import { useSessionTimeout } from '@/hooks/useSessionTimeout';
 import { SessionTimeoutWarning } from '@/components/molecules/SessionTimeoutWarning';
+import { authService } from '@/services/api/authService';
+import { logger } from '@/utils/logger';
 
 /**
  * Authenticated layout for all dashboard pages.
@@ -40,7 +42,18 @@ export default function DashboardLayout({
     }
   }, [isInitialized, isAuthenticated, router]);
 
-  const handleStayLoggedIn = () => {
+  const handleStayLoggedIn = async () => {
+    try {
+      // Extend the server-side session first (pushes fv_sid expiresAt
+      // forward, capped at the absolute TTL ceiling anchored to
+      // issuedAt). Without this the server session expires even though
+      // the client timer was reset, causing surprise 401s.
+      await authService.extendSession();
+    } catch (err) {
+      logger.warn('Session extend failed — server session may have expired', err);
+    }
+    // Reset the client-side inactivity timer regardless so the
+    // warning overlay dismisses immediately for good UX.
     resetTimer();
   };
 
