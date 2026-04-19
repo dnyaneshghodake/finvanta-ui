@@ -183,7 +183,11 @@ function adapt<TSpring, TUi>(
   body: SpringEnvelope<TSpring>,
   mapper: (d: TSpring) => TUi,
 ): ApiResponse<TUi> {
-  if (body.status === 'SUCCESS' && body.data !== undefined) {
+  // Use loose inequality (`!= null`) so that both `null` and `undefined`
+  // are rejected. Spring can return `"data": null` on empty result sets
+  // (e.g. no accounts for a branch), and `null !== undefined` is `true`
+  // which would pass the old guard and crash the mapper with a TypeError.
+  if (body.status === 'SUCCESS' && body.data != null) {
     return okEnvelope(mapper(body.data));
   }
   return errEnvelope(body.errorCode || 'UNKNOWN', body.message || 'Request failed', 400);

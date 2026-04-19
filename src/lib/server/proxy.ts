@@ -17,7 +17,7 @@
 import "server-only";
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
-import { readSession, type CbsSession } from "./session";
+import { readSession, writeSession, type CbsSession } from "./session";
 import { assertCsrf } from "./csrf";
 import { readCorrelationId } from "./correlation";
 import { serverEnv } from "./env";
@@ -95,6 +95,40 @@ export async function proxyToBackend(
         },
         { status: 403, headers: { "x-correlation-id": correlationId } },
       );
+    }
+  }
+
+  // ── Sliding-window session extension ────────────────────────────
+  // Every authenticated API call through the BFF resets the idle
+  // clock on the server-side session. Without this, the session blob's
+  // `expiresAt` (set from the JWT's `expiresIn` at login, typically
+  // 900s) would expire even while the operator is actively using the
+  // system — the client-side `useSessionTimeout` tracks inactivity
+  // for the warning UX, but the server cookie must independently
+  // stay alive for the same window.
+  //
+  // The new `expiresAt` is capped at the absolute TTL ceiling
+  // (issuedAt + sessionTtlSeconds) so an active user cannot extend
+  // indefinitely. This mirrors the logic in the explicit
+  // `/api/cbs/session/extend` route but runs transparently on every
+  // proxied call.
+  if (session) {
+    const env2 = serverEnv();
+    const now = Date.now();
+    const absoluteCeiling = session.issuedAt + env2.sessionTtlSeconds * 1000;
+    const idleExtension = now + env2.sessionIdleExtensionSeconds * 1000;
+    const newExpiresAt = Math.min(idleExtension, absoluteCeiling);
+
+    // Only write if the extension is meaningful (>30s gain) to avoid
+    // re-encrypting + re-setting cookies on every single request when
+    // the operator is clicking rapidly.
+    if (newExpiresAt - session.expiresAt > 30_000) {
+      await writeSession({
+        ...session,
+        expiresAt: newExpiresAt,
+        issuedAt: session.issuedAt,
+        csrfToken: session.csrfToken,
+      });
     }
   }
 
