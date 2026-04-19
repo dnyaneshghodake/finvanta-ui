@@ -70,7 +70,8 @@ interface SpringTxn {
   id: number;
   transactionRef: string;
   transactionType: string;
-  debitCredit: 'D' | 'C' | string;
+  /** REST_API_COMPLETE_CATALOGUE uses "DR"/"CR" (not single-char "D"/"C"). */
+  debitCredit: 'DR' | 'CR' | 'D' | 'C' | string;
   amount: number | string;
   balanceAfter?: number | string | null;
   valueDate?: string | null;
@@ -136,14 +137,16 @@ function mapAccount(a: SpringAccount): Account {
 
 function mapTxn(t: SpringTxn, accountNumber: string): Transaction {
   const abs = Math.abs(toNumber(t.amount));
-  const signed = t.debitCredit === 'D' ? -abs : abs;
+  // REST_API_COMPLETE_CATALOGUE uses "DR"/"CR"; older code used "D"/"C".
+  const isDebit = t.debitCredit === 'DR' || t.debitCredit === 'D';
+  const signed = isDebit ? -abs : abs;
   return {
     id: t.transactionRef,
     transactionId: t.transactionRef,
     accountId: accountNumber,
     amount: signed,
     currency: 'INR',
-    transactionType: t.debitCredit === 'D' ? 'DEBIT' : 'CREDIT',
+    transactionType: isDebit ? 'DEBIT' : 'CREDIT',
     status: t.reversed ? 'REVERSED' : 'COMPLETED',
     description: t.narration || t.transactionType,
     valueDate: toDateOrNow(t.valueDate),
