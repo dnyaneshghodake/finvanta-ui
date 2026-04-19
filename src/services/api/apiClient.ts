@@ -17,8 +17,14 @@ import { errorHandler, AppError } from '@/utils/errorHandler';
  */
 interface CustomAxiosRequestConfig extends InternalAxiosRequestConfig {
   _retry?: boolean;
+  _retryCount?: number;
   _startTime?: number;
 }
+
+/**
+ * Maximum number of retries for 429 rate-limit responses
+ */
+const MAX_RATE_LIMIT_RETRIES = 3;
 
 /**
  * Generate unique request ID for tracing
@@ -137,10 +143,17 @@ apiClient.interceptors.response.use(
       }
     }
 
-    // Handle 429 Too Many Requests - Exponential backoff
+    // Handle 429 Too Many Requests - Exponential backoff with max retries
     if (error.response?.status === 429) {
+      const retryCount = (config._retryCount || 0) + 1;
+      if (retryCount > MAX_RATE_LIMIT_RETRIES) {
+        logger.error('Max rate-limit retries exceeded');
+        return Promise.reject(appError);
+      }
+      config._retryCount = retryCount;
+
       const retryAfter = parseInt(error.response.headers['retry-after'] || '5', 10);
-      logger.warn(`Rate limited. Retrying after ${retryAfter}s`);
+      logger.warn(`Rate limited. Retry ${retryCount}/${MAX_RATE_LIMIT_RETRIES} after ${retryAfter}s`);
       
       await new Promise(resolve => setTimeout(resolve, retryAfter * 1000));
       return apiClient(config);

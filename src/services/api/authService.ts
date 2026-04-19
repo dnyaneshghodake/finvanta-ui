@@ -1,29 +1,47 @@
 /**
  * Authentication service for CBS Banking Application
  * @file src/services/api/authService.ts
+ *
+ * Login endpoint is at the server root (/login), not under the /api prefix.
+ * All other auth endpoints use the standard apiClient baseURL.
  */
 
+import axios from 'axios';
 import { apiClient } from './apiClient';
-import { 
-  LoginRequest, 
-  RegisterRequest, 
+import {
+  LoginRequest,
+  RegisterRequest,
   PasswordResetRequest,
   PasswordResetConfirm,
-  ApiResponse 
+  ApiResponse,
 } from '@/types/api';
 import { User, AuthToken } from '@/types/entities';
+
+/**
+ * Base URL for the backend server (without /api prefix).
+ * Login sits at the server root: POST http://localhost:8080/login
+ */
+const SERVER_BASE_URL = process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:8080';
 
 /**
  * Authentication API service
  */
 class AuthService {
   /**
-   * Login user with email and password
+   * Login user with email and password.
+   *
+   * The Spring Boot login endpoint lives at /login on the server root,
+   * NOT under the /api prefix, so we use a standalone axios call.
    */
   async login(credentials: LoginRequest): Promise<ApiResponse<AuthToken>> {
-    const response = await apiClient.post<ApiResponse<AuthToken>>(
-      '/auth/login',
-      credentials
+    const response = await axios.post<ApiResponse<AuthToken>>(
+      `${SERVER_BASE_URL}/login`,
+      credentials,
+      {
+        headers: { 'Content-Type': 'application/json' },
+        withCredentials: true,
+        timeout: 30000,
+      }
     );
     return response.data;
   }

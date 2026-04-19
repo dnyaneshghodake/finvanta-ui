@@ -154,12 +154,14 @@ export default function LoginPage() {
           </Link>
         </Card>
 
-        {/* Demo Credentials */}
-        <div className="mt-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
-          <p className="text-sm font-medium text-blue-900 mb-2">Demo Credentials:</p>
-          <p className="text-xs text-blue-700">Email: demo@example.com</p>
-          <p className="text-xs text-blue-700">Password: Demo@1234</p>
-        </div>
+        {/* Demo Credentials - development only */}
+        {process.env.NODE_ENV === 'development' && (
+          <div className="mt-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <p className="text-sm font-medium text-blue-900 mb-2">Demo Credentials:</p>
+            <p className="text-xs text-blue-700">Email: demo@example.com</p>
+            <p className="text-xs text-blue-700">Password: Demo@1234</p>
+          </div>
+        )}
       </div>
     </div>
   );
