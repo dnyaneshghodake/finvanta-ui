@@ -1,7 +1,7 @@
 /**
  * BFF login endpoint -- step 1 of the Spring MFA step-up flow.
  *
- * The Spring API `POST /v1/auth/token` accepts {username, password}
+ * The Spring API `POST /api/v1/auth/token` accepts {username, password}
  * as JSON and either:
  *   200  -> {accessToken, refreshToken, tokenType, expiresAt}     (no MFA)
  *   428  -> errorCode=MFA_REQUIRED, data={challengeId, channel}   (MFA on)
@@ -73,7 +73,7 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const upstream = await fetch(`${env.backendBaseUrl}/v1/auth/token`, {
+  const upstream = await fetch(`${env.backendBaseUrl}/api/v1/auth/token`, {
     method: "POST",
     headers: {
       "content-type": "application/json",

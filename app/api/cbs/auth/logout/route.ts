@@ -16,7 +16,7 @@ export async function POST(req: NextRequest) {
   const env = serverEnv();
   const session = await readSession();
   if (session?.accessToken) {
-    await fetch(`${env.backendBaseUrl}/v1/auth/logout`, {
+    await fetch(`${env.backendBaseUrl}/api/v1/auth/logout`, {
       method: "POST",
       headers: {
         authorization: `${session.tokenType} ${session.accessToken}`,
