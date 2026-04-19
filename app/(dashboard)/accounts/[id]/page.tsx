@@ -149,17 +149,17 @@ export default function AccountDetailsPage() {
         <StatisticCard
           label="Total Balance"
           value={formatCurrency(account.balance, account.currency)}
-          color="blue"
+          color="navy"
         />
         <StatisticCard
           label="Available Balance"
           value={formatCurrency(account.availableBalance, account.currency)}
-          color="green"
+          color="olive"
         />
         <StatisticCard
           label="Account Opened"
           value={formatCbsDate(account.openedDate)}
-          color="yellow"
+          color="gold"
         />
       </div>
 
