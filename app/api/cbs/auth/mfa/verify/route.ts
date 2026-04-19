@@ -6,7 +6,7 @@
  * /login/mfa where the user enters the 6-digit TOTP. That page POSTs
  * {otp} to this route. We read the challengeId from fv_mfa (so XSS
  * cannot steal it), POST {challengeId, otp} to Spring's
- * `/api/v1/auth/mfa/verify`, and on 200 materialise the encrypted
+ * `/v1/auth/mfa/verify`, and on 200 materialise the encrypted
  * fv_sid session exactly like the non-MFA path -- then clear fv_mfa.
  *
  * When called from inside an authenticated session (in-app sensitive
@@ -84,7 +84,7 @@ export async function POST(req: NextRequest) {
   }
 
   const upstream = await fetch(
-    `${env.backendBaseUrl}/api/v1/auth/mfa/verify`,
+    `${env.backendBaseUrl}/v1/auth/mfa/verify`,
     {
       method: "POST",
       headers,

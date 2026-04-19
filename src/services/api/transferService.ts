@@ -2,7 +2,7 @@
  * FINVANTA CBS Transfers client (browser-side).
  *
  * Maps 1:1 to Spring `DepositAccountController.transfer`
- * (`/api/v1/accounts/transfer`). Every call routes through the BFF
+ * (`/v1/accounts/transfer`). Every call routes through the BFF
  * at `/api/cbs/**` which injects session JWT, tenant, branch,
  * correlation id, and the double-submit CSRF header.
  *
@@ -83,7 +83,7 @@ function errEnvelope<T>(code: string, message: string, status: number): ApiRespo
 
 class TransferService {
   /**
-   * Post an internal transfer. POSTs to `/api/v1/accounts/transfer`
+   * Post an internal transfer. POSTs to `/v1/accounts/transfer`
    * with a stable X-Idempotency-Key so a retry after a transient
    * network error cannot double-post through `TransactionEngine`.
    * The backend DepositAccountController.TransferRequest contract

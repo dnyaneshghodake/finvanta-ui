@@ -44,7 +44,7 @@ export async function POST(req: NextRequest) {
   }
 
   const upstream = await fetch(
-    `${env.backendBaseUrl}/api/v1/session/switch-branch`,
+    `${env.backendBaseUrl}/v1/session/switch-branch`,
     {
       method: "POST",
       headers: {

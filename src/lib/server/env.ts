@@ -45,8 +45,8 @@ export function serverEnv(): CbsServerEnv {
 
   cached = {
     // Spring server root only -- no trailing path. The BFF appends
-    // `/api/v1/<resource>` to reach the Tier-1 versioned REST surface
-    // (Tier-1 CBS versioned REST surface).
+    // `/v1/<resource>` to reach the Spring REST controllers which are
+    // mapped at `/v1/**` per the audited API Endpoint Catalogue.
     backendBaseUrl:
       process.env.CBS_BACKEND_URL || "http://localhost:8080",
     sessionSecret: requireSecret(

@@ -1,7 +1,7 @@
 /**
  * FINVANTA CBS - Deposit Account client (browser-side).
  *
- * Maps 1:1 to Spring `DepositAccountController` at `/api/v1/accounts/**`.
+ * Maps 1:1 to Spring `DepositAccountController` at `/v1/accounts/**`.
  * Every call routes through the BFF at `/api/cbs/**` which injects the
  * server-side JWT, tenant, branch, correlation id and double-submit
  * CSRF header (see src/lib/server/proxy.ts).
@@ -316,7 +316,7 @@ class AccountService {
 
   /**
    * Account opening is a MAKER-only action on Spring
-   * (`POST /api/v1/accounts/open`). The JSP-originating self-service
+   * (`POST /v1/accounts/open`). The JSP-originating self-service
    * form is not part of the Tier-1 branch workflow, so the React
    * stub intentionally defers to the branch account-opening flow
    * and returns a structured NOT_IMPLEMENTED envelope.

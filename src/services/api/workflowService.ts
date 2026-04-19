@@ -1,7 +1,7 @@
 /**
  * FINVANTA CBS Maker-Checker Workflow client.
  *
- * Maps to Spring `/api/v1/workflow/*` (approvals, rejections, recalls).
+ * Maps to Spring `/v1/workflow/*` (approvals, rejections, recalls).
  * Every mutation is guarded by @Version optimistic locking on the
  * backend; a stale version triggers a 409 VERSION_CONFLICT which the
  * UI surfaces verbatim so the maker can refresh and retry.
