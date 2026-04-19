@@ -206,7 +206,7 @@ function LoginInner() {
             <button
               type="submit"
               disabled={isSubmitting}
-              className="w-full h-10 bg-cbs-navy-700 hover:bg-cbs-navy-800 disabled:opacity-60 text-white text-sm font-semibold uppercase tracking-wider"
+              className="cbs-btn cbs-btn-primary w-full h-10 text-sm uppercase tracking-wider"
             >
               {isSubmitting ? 'Signing in...' : 'Sign in'}
             </button>

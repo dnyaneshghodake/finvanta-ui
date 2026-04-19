@@ -41,6 +41,7 @@ const Alert = React.forwardRef<HTMLDivElement, AlertProps>(
     return (
       <div
         ref={ref}
+        role="alert"
         className={clsx(
           'p-3 border rounded-sm flex items-start justify-between text-sm',
           tone.bg,
