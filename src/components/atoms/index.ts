@@ -9,3 +9,5 @@ export { Card, type CardProps } from './Card';
 export { Badge, type BadgeProps } from './Badge';
 export { Spinner, type SpinnerProps } from './Spinner';
 export { Alert, type AlertProps } from './Alert';
+export { ErrorBoundary } from './ErrorBoundary';
+export { RoleGate, type RoleGateProps } from './RoleGate';
