@@ -99,7 +99,7 @@ export default function MfaPage() {
   };
 
   return (
-    <main className="min-h-screen flex items-center justify-center bg-cbs-mist p-6">
+    <main id="cbs-main" className="min-h-screen flex items-center justify-center bg-cbs-mist p-6">
       <div className="w-full max-w-md cbs-surface">
         <div className="cbs-surface-header">
           <div className="text-sm font-semibold tracking-wide uppercase text-cbs-steel-700">
@@ -155,9 +155,10 @@ export default function MfaPage() {
             <button
               type="submit"
               disabled={isSubmitting}
-              className="cbs-btn cbs-btn-primary w-full h-10 text-sm uppercase tracking-wider"
+              className="cbs-btn cbs-btn-primary w-full text-sm uppercase tracking-wider"
+              style={{ height: 36 }}
             >
-              {isSubmitting ? 'Verifying...' : 'Verify and sign in'}
+              {isSubmitting ? 'Verifying\u2009…' : 'Verify & Sign In'}
             </button>
           </form>
 

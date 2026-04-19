@@ -8,6 +8,9 @@
  * the HttpOnly fv_mfa cookie; the browser is simply redirected to
  * /login/mfa which will POST the TOTP to complete the step-up and
  * materialise the session.
+ *
+ * Note: page-level metadata is exported from a separate layout or
+ * generateMetadata in the route segment because this file is 'use client'.
  */
 
 import { Suspense, useState } from 'react';
@@ -122,7 +125,7 @@ function LoginInner() {
   };
 
   return (
-    <main className="min-h-screen grid md:grid-cols-2 bg-cbs-mist">
+    <main id="cbs-main" className="min-h-screen grid md:grid-cols-2 bg-cbs-mist">
       <aside className="hidden md:flex flex-col justify-between bg-cbs-navy-900 text-white p-10">
         <div>
           <div className="flex items-center gap-3">
@@ -218,9 +221,10 @@ function LoginInner() {
             <button
               type="submit"
               disabled={isSubmitting}
-              className="cbs-btn cbs-btn-primary w-full h-10 text-sm uppercase tracking-wider"
+              className="cbs-btn cbs-btn-primary w-full text-sm uppercase tracking-wider"
+              style={{ height: 36 }}
             >
-              {isSubmitting ? 'Signing in...' : 'Sign in'}
+              {isSubmitting ? 'Signing in\u2009…' : 'Sign in'}
             </button>
 
             {/* Tier-1 CBS: password resets are admin-initiated through the
@@ -231,8 +235,23 @@ function LoginInner() {
               <span>v{process.env.NEXT_PUBLIC_APP_VERSION || '1.0.0'}</span>
             </div>
           </form>
+
+          {/* Environment indicator — prevents accidental prod logins during testing */}
+          {process.env.NEXT_PUBLIC_ENVIRONMENT &&
+            process.env.NEXT_PUBLIC_ENVIRONMENT !== 'production' && (
+              <div className="mt-4 text-center">
+                <span className="cbs-ribbon text-cbs-gold-700 bg-cbs-gold-50">
+                  {process.env.NEXT_PUBLIC_ENVIRONMENT.toUpperCase()} ENVIRONMENT
+                </span>
+              </div>
+            )}
         </div>
       </section>
+
+      {/* Copyright footer — CBS regulatory requirement */}
+      <footer className="fixed bottom-0 inset-x-0 py-2 text-center text-[10px] text-cbs-steel-400 bg-cbs-mist border-t border-cbs-steel-100">
+        © {new Date().getFullYear()} FINVANTA Financial Technologies Pvt. Ltd. All rights reserved.
+      </footer>
     </main>
   );
 }
