@@ -154,7 +154,7 @@ export default function MfaPage() {
                 autoComplete="one-time-code"
                 maxLength={6}
                 pattern="\d{6}"
-                className="cbs-input cbs-tabular tracking-[0.5em] text-center text-lg"
+                className="cbs-input cbs-input-login cbs-tabular tracking-[0.5em] text-center text-lg"
                 aria-invalid={!!errors.otp}
                 aria-describedby={errors.otp ? 'otp-error' : undefined}
                 {...register('otp')}
@@ -170,7 +170,7 @@ export default function MfaPage() {
               type="submit"
               disabled={isSubmitting}
               className="cbs-btn cbs-btn-primary w-full text-sm uppercase tracking-wider"
-              style={{ height: 36 }}
+              style={{ height: 40 }}
             >
               {isSubmitting ? (
                 <>

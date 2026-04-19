@@ -205,7 +205,7 @@ function LoginInner() {
 
           <form
             onSubmit={handleSubmit(onSubmit)}
-            className="mt-6 space-y-4"
+            className="mt-6 space-y-5"
             noValidate
           >
             <div>
@@ -219,7 +219,7 @@ function LoginInner() {
                 autoComplete="username"
                 spellCheck={false}
                 autoCapitalize="none"
-                className="cbs-input"
+                className="cbs-input cbs-input-login"
                 aria-invalid={!!errors.username}
                 aria-describedby={errors.username ? 'username-error' : undefined}
                 {...register('username')}
@@ -239,7 +239,7 @@ function LoginInner() {
                 id="password"
                 type="password"
                 autoComplete="current-password"
-                className="cbs-input"
+                className="cbs-input cbs-input-login"
                 aria-invalid={!!errors.password}
                 aria-describedby={
                   [errors.password ? 'password-error' : '', capsLockOn ? 'caps-lock-warn' : '']
@@ -270,7 +270,7 @@ function LoginInner() {
               type="submit"
               disabled={isSubmitting}
               className="cbs-btn cbs-btn-primary w-full text-sm uppercase tracking-wider"
-              style={{ height: 36 }}
+              style={{ height: 40 }}
             >
               {isSubmitting ? (
                 <>
