@@ -9,6 +9,7 @@
 'use client';
 
 import React from 'react';
+import { AlertTriangle } from 'lucide-react';
 
 export interface SessionTimeoutWarningProps {
   secondsRemaining: number;
@@ -30,9 +31,7 @@ const SessionTimeoutWarning: React.FC<SessionTimeoutWarningProps> = ({
         <div className="text-center">
           {/* Warning Icon */}
           <div className="mx-auto flex items-center justify-center h-10 w-10 rounded-sm bg-cbs-gold-50 border border-cbs-gold-600 mb-3">
-            <svg className="h-5 w-5 text-cbs-gold-700" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
-            </svg>
+            <AlertTriangle size={20} strokeWidth={1.75} className="text-cbs-gold-700" />
           </div>
 
           <h2 className="text-lg font-semibold text-cbs-ink mb-1">

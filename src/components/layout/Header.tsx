@@ -20,6 +20,7 @@ import { useState, useEffect, useRef, useCallback, FC } from 'react';
 import Link from 'next/link';
 import { useAuthStore } from '@/store/authStore';
 import { useUIStore } from '@/store/uiStore';
+import { Menu, ChevronDown, LogOut, User, Shield } from 'lucide-react';
 
 export interface HeaderProps {
   className?: string;
@@ -83,9 +84,7 @@ const Header: FC<HeaderProps> = ({ className }) => {
             className="p-1.5 rounded hover:bg-cbs-navy-700 lg:hidden"
             aria-label="Toggle sidebar"
           >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-            </svg>
+            <Menu size={18} strokeWidth={1.75} />
           </button>
 
           <Link href="/" className="flex items-center gap-2">
@@ -131,12 +130,11 @@ const Header: FC<HeaderProps> = ({ className }) => {
               {initials}
             </div>
             <span className="text-xs font-medium hidden sm:inline">{displayName}</span>
-            <svg
-              className={`w-3 h-3 transition-transform duration-150 ${isDropdownOpen ? 'rotate-180' : ''}`}
-              fill="none" stroke="currentColor" viewBox="0 0 24 24"
-            >
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-            </svg>
+            <ChevronDown
+              size={14}
+              strokeWidth={2}
+              className={`transition-transform duration-150 ${isDropdownOpen ? 'rotate-180' : ''}`}
+            />
           </button>
 
           {isDropdownOpen && (
@@ -154,17 +152,20 @@ const Header: FC<HeaderProps> = ({ className }) => {
                   <span className="cbs-tabular font-medium text-cbs-ink">{bizDate}</span>
                 </div>
               </div>
-              <Link href="/profile" className="block px-3 py-2 text-sm text-cbs-ink hover:bg-cbs-mist">
+              <Link href="/profile" className="flex items-center gap-2 px-3 py-2 text-sm text-cbs-ink hover:bg-cbs-mist">
+                <User size={14} strokeWidth={1.75} className="text-cbs-steel-500" />
                 Profile Settings
               </Link>
-              <Link href="/security" className="block px-3 py-2 text-sm text-cbs-ink hover:bg-cbs-mist">
+              <Link href="/security" className="flex items-center gap-2 px-3 py-2 text-sm text-cbs-ink hover:bg-cbs-mist">
+                <Shield size={14} strokeWidth={1.75} className="text-cbs-steel-500" />
                 Security
               </Link>
               <div className="border-t border-cbs-steel-100 mt-1 pt-1">
                 <button
                   onClick={handleLogout}
-                  className="block w-full text-left px-3 py-2 text-sm text-cbs-crimson-700 hover:bg-cbs-crimson-50"
+                  className="flex items-center gap-2 w-full text-left px-3 py-2 text-sm text-cbs-crimson-700 hover:bg-cbs-crimson-50"
                 >
+                  <LogOut size={14} strokeWidth={1.75} />
                   Logout
                 </button>
               </div>

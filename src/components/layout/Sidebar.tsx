@@ -1,6 +1,15 @@
 /**
- * Sidebar component for CBS Banking Application
+ * CBS Sidebar — Tier-1 navigation panel.
  * @file src/components/layout/Sidebar.tsx
+ *
+ * Icon conventions (CBS standard):
+ *   - 18px stroke icons (lucide-react), strokeWidth 1.75
+ *   - Semantic mapping: LayoutDashboard for dashboard,
+ *     Landmark for accounts (bank building), ArrowLeftRight
+ *     for transfers, Users for beneficiaries, ClipboardCheck
+ *     for workflow/approvals, Monitor for legacy bridge.
+ *   - No filled icons on navigation — stroke only.
+ *   - Active state inherits text color from parent (navy-700).
  */
 
 'use client';
@@ -10,115 +19,59 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useUIStore } from '@/store/uiStore';
 import clsx from 'clsx';
+import {
+  LayoutDashboard,
+  Landmark,
+  ArrowLeftRight,
+  Users,
+  ClipboardCheck,
+  Monitor,
+} from 'lucide-react';
 
-/**
- * Navigation item interface
- */
+/** CBS icon size: 18px, strokeWidth 1.75 for data-dense sidebar. */
+const ICON_SIZE = 18;
+const ICON_STROKE = 1.75;
+
 interface NavItem {
   label: string;
   href: string;
   icon: React.ReactNode;
-  children?: NavItem[];
 }
 
 /**
- * Navigation items
+ * CBS navigation items — ordered by teller workflow frequency.
+ * Dashboard → Accounts → Transfers → Workflow → Beneficiaries → Legacy.
  */
 const navItems: NavItem[] = [
   {
     label: 'Dashboard',
     href: '/dashboard',
-    icon: (
-      <svg
-        className="w-5 h-5"
-        fill="none"
-        stroke="currentColor"
-        viewBox="0 0 24 24"
-      >
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth={2}
-          d="M3 12l2-3m0 0l7-4 7 4M5 9v10a1 1 0 001 1h12a1 1 0 001-1V9m-9 16l4-4m0 0l4 4m-4-4v4m0-11l4 2m0 0l4-2"
-        />
-      </svg>
-    ),
+    icon: <LayoutDashboard size={ICON_SIZE} strokeWidth={ICON_STROKE} />,
   },
   {
     label: 'Accounts',
     href: '/accounts',
-    icon: (
-      <svg
-        className="w-5 h-5"
-        fill="none"
-        stroke="currentColor"
-        viewBox="0 0 24 24"
-      >
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth={2}
-          d="M3 6a3 3 0 013-3h2.25a3 3 0 013 3v2.25a3 3 0 01-3 3H6a3 3 0 01-3-3V6zM9 3.75A2.25 2.25 0 0011.25 6v2.25A2.25 2.25 0 009 10.5H6.75A2.25 2.25 0 014.5 8.25V6A2.25 2.25 0 016.75 3.75H9z"
-        />
-      </svg>
-    ),
+    icon: <Landmark size={ICON_SIZE} strokeWidth={ICON_STROKE} />,
   },
   {
     label: 'Transfers',
     href: '/transfers',
-    icon: (
-      <svg
-        className="w-5 h-5"
-        fill="none"
-        stroke="currentColor"
-        viewBox="0 0 24 24"
-      >
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth={2}
-          d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3v-6"
-        />
-      </svg>
-    ),
+    icon: <ArrowLeftRight size={ICON_SIZE} strokeWidth={ICON_STROKE} />,
+  },
+  {
+    label: 'Workflow',
+    href: '/workflow',
+    icon: <ClipboardCheck size={ICON_SIZE} strokeWidth={ICON_STROKE} />,
   },
   {
     label: 'Beneficiaries',
     href: '/beneficiaries',
-    icon: (
-      <svg
-        className="w-5 h-5"
-        fill="none"
-        stroke="currentColor"
-        viewBox="0 0 24 24"
-      >
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth={2}
-          d="M12 4.354a4 4 0 110 5.292M15 12H9m4 13H7a2 2 0 01-2-2V5a2 2 0 012-2h10a2 2 0 012 2v16a2 2 0 01-2 2z"
-        />
-      </svg>
-    ),
+    icon: <Users size={ICON_SIZE} strokeWidth={ICON_STROKE} />,
   },
   {
-    label: 'Cards',
-    href: '/cards',
-    icon: (
-      <svg
-        className="w-5 h-5"
-        fill="none"
-        stroke="currentColor"
-        viewBox="0 0 24 24"
-      >
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth={2}
-          d="M3 10h18M7 15h8m4 0a4 4 0 11-8 0 4 4 0 018 0z"
-        />
-      </svg>
-    ),
+    label: 'Legacy Screens',
+    href: '/legacy',
+    icon: <Monitor size={ICON_SIZE} strokeWidth={ICON_STROKE} />,
   },
 ];
 
