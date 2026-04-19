@@ -48,8 +48,12 @@ export async function POST(req: NextRequest) {
   // JWT when it is within 20% of its lifetime remaining. The BFF
   // holds the refreshToken in the encrypted session blob and calls
   // Spring's /api/v1/auth/refresh to rotate both tokens silently.
-  // On failure we keep the existing tokens — the next API call will
-  // fail with 401 and the client interceptor redirects to /login.
+  // On REFRESH_TOKEN_REUSED (token theft detection) we force-clear
+  // the session and return 401 so the client redirects to /login.
+  let sessionBusinessDay = session.businessDay;
+  let sessionOpConfig = session.operationalConfig;
+  let sessionTxnLimits = session.transactionLimits;
+
   if (refreshToken && session.expiresAt - now < env.sessionIdleExtensionSeconds * 1000 * 0.2) {
     try {
       const upstream = await fetch(`${env.backendBaseUrl}/api/v1/auth/refresh`, {
@@ -63,14 +67,61 @@ export async function POST(req: NextRequest) {
         body: JSON.stringify({ refreshToken }),
         cache: "no-store",
       });
-      if (upstream.ok) {
+
+      if (!upstream.ok) {
+        const errBody = await upstream.json().catch(() => ({}));
+        // REFRESH_TOKEN_REUSED → possible token theft. Force logout.
+        if (errBody?.errorCode === "REFRESH_TOKEN_REUSED") {
+          const { clearSession } = await import("@/lib/server/session");
+          await clearSession();
+          return NextResponse.json(
+            { success: false, errorCode: "REFRESH_TOKEN_REUSED", message: "Session interrupted for security. Please sign in again.", correlationId },
+            { status: 401, headers: { "x-correlation-id": correlationId } },
+          );
+        }
+        // Other refresh failures — keep existing tokens silently.
+      } else {
         const json = await upstream.json().catch(() => ({}));
-        if (json.data?.accessToken) {
-          accessToken = json.data.accessToken;
-          refreshToken = json.data.refreshToken ?? refreshToken;
-          tokenType = json.data.tokenType ?? tokenType;
-          if (json.data.businessDate) businessDate = json.data.businessDate;
-          if (json.data.user) sessionUser = json.data.user;
+        const d = json.data;
+        // Handle both nested (data.token.accessToken) and flat (data.accessToken) shapes
+        const newAccessToken = d?.token?.accessToken || d?.accessToken;
+        if (newAccessToken) {
+          accessToken = newAccessToken;
+          refreshToken = d?.token?.refreshToken ?? d?.refreshToken ?? refreshToken;
+          tokenType = d?.token?.tokenType ?? d?.tokenType ?? tokenType;
+          // Update business date from refreshed response
+          const newBizDate = d?.businessDay?.businessDate || d?.businessDate;
+          if (newBizDate) businessDate = newBizDate;
+          // Update businessDay context (dayStatus may have changed)
+          if (d?.businessDay) {
+            sessionBusinessDay = {
+              businessDate: d.businessDay.businessDate || businessDate || "",
+              dayStatus: d.businessDay.dayStatus || "UNKNOWN",
+              isHoliday: d.businessDay.isHoliday ?? false,
+              previousBusinessDate: d.businessDay.previousBusinessDate,
+              nextBusinessDate: d.businessDay.nextBusinessDate,
+            };
+          }
+          // Update user profile if refreshed
+          if (d?.user) {
+            const u = d.user;
+            sessionUser = {
+              ...sessionUser,
+              id: u.userId ?? u.id ?? sessionUser.id,
+              username: u.username || sessionUser.username,
+              firstName: u.firstName || sessionUser.firstName,
+              lastName: u.lastName || sessionUser.lastName,
+              email: u.email || sessionUser.email,
+              displayName: u.displayName || sessionUser.displayName,
+              roles: (d?.role?.role ? [d.role.role] : u.roles) || sessionUser.roles,
+              branchCode: d?.branch?.branchCode || u.branchCode || sessionUser.branchCode,
+              branchName: d?.branch?.branchName || u.branchName || sessionUser.branchName,
+              mfaEnrolled: u.mfaEnabled ?? u.mfaEnrolled ?? sessionUser.mfaEnrolled,
+            };
+          }
+          // Update operational config + limits if present
+          if (d?.operationalConfig) sessionOpConfig = d.operationalConfig;
+          if (d?.limits?.transactionLimits) sessionTxnLimits = d.limits.transactionLimits;
         }
       }
     } catch {
@@ -87,6 +138,9 @@ export async function POST(req: NextRequest) {
     tokenType,
     user: sessionUser,
     businessDate,
+    businessDay: sessionBusinessDay,
+    operationalConfig: sessionOpConfig,
+    transactionLimits: sessionTxnLimits,
     expiresAt: Math.min(idleExtension, absoluteCeiling),
     csrfToken: session.csrfToken,
     // Preserve the original issuedAt so the absolute TTL ceiling
