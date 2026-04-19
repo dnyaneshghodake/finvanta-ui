@@ -3,13 +3,12 @@
 import { useEffect, useMemo, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/authStore';
-import { useUIStore } from '@/store/uiStore';
 import { Breadcrumb, CbsTableSkeleton } from '@/components/cbs';
 import { Button } from '@/components/atoms';
 import { formatCurrency, formatCbsTimestamp, formatCbsDate } from '@/utils/formatters';
 import { useCbsKeyboard } from '@/hooks/useCbsKeyboard';
 import { apiClient } from '@/services/api/apiClient';
-import { isMaker, isChecker } from '@/security/roleGuard';
+import { isMaker } from '@/security/roleGuard';
 import Link from 'next/link';
 import {
   ArrowLeftRight, Landmark, UserPlus, Banknote, CreditCard,
@@ -100,7 +99,6 @@ export default function DashboardPage() {
   const router = useRouter();
   const user = useAuthStore((s) => s.user);
   const businessDate = useAuthStore((s) => s.businessDate);
-  const { addToast } = useUIStore();
   const [dashboard, setDashboard] = useState<BranchDashboard | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
