@@ -23,6 +23,8 @@ export interface LoginBffResponse {
   user: User;
   expiresAt: number;
   csrfToken: string;
+  /** Epoch ms when MFA was last verified; null if not yet verified. */
+  mfaVerifiedAt?: number | null;
 }
 
 export interface MfaVerifyRequest {

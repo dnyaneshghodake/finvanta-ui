@@ -95,4 +95,10 @@ export async function clearSession(): Promise<void> {
   const jar = await cookies();
   jar.delete(env.sessionCookieName);
   jar.delete(env.csrfCookieName);
+  // Also clear the MFA challenge bridge cookie. If a user logs out
+  // while an fv_mfa cookie is still alive (started MFA but abandoned),
+  // the stale challengeId must not survive into a subsequent login
+  // attempt — otherwise it could be consumed by a different user's
+  // MFA verify step (session fixation vector).
+  jar.delete(env.mfaChallengeCookieName);
 }

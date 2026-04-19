@@ -59,13 +59,20 @@ export const isAuditor = (): boolean => hasRole('AUDITOR');
 
 /**
  * Self-approval prevention: check if user can approve a record
- * they did NOT create. Returns false if userId matches makerId.
+ * they did NOT create. Returns false if userId matches makerId,
+ * or if the user's id is unknown (fail-safe: when we cannot
+ * confirm the operator is a different person, hide the button).
  *
  * Tier-1 CBS requirement: maker and checker must be different users.
+ * The backend is the authoritative gate — this is UI-only.
  */
 export const canApprove = (makerId: string): boolean => {
   const user = useAuthStore.getState().user;
   if (!user) return false;
+  // Fail-safe: if we don't know the operator's id we cannot confirm
+  // they are a different person from the maker. Hide the button and
+  // let the backend reject if they attempt via an API call.
+  if (!user.id) return false;
   if (user.id === makerId) return false; // Self-approval blocked
   return isChecker();
 };
