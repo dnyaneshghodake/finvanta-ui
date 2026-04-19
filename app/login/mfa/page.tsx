@@ -115,18 +115,18 @@ export default function MfaPage() {
             authenticator app. The code refreshes every 30 seconds.
           </p>
 
-          {error && (
-            <div
-              role="alert"
-              className="border border-cbs-crimson-600 bg-cbs-crimson-50 text-cbs-crimson-700 p-3 text-sm"
-            >
-              <div className="font-semibold">MFA verification failed</div>
-              <div>{error}</div>
-              {correlationId && (
-                <div className="mt-1 text-xs cbs-tabular">Ref: {correlationId}</div>
-              )}
-            </div>
-          )}
+          {/* WCAG 4.1.3 — live region always in DOM so AT announces dynamically */}
+          <div aria-live="polite" aria-atomic="true">
+            {error && (
+              <div role="alert" className="cbs-alert cbs-alert-error">
+                <div className="font-semibold text-sm">MFA verification failed</div>
+                <div className="mt-1 text-sm">{error}</div>
+                {correlationId && (
+                  <div className="mt-1 text-xs cbs-tabular">Ref: {correlationId}</div>
+                )}
+              </div>
+            )}
+          </div>
 
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" noValidate>
             <div>
@@ -136,6 +136,7 @@ export default function MfaPage() {
               <input
                 id="otp"
                 type="text"
+                autoFocus
                 inputMode="numeric"
                 autoComplete="one-time-code"
                 maxLength={6}

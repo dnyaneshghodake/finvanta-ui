@@ -63,6 +63,8 @@ function LoginInner() {
   const [error, setError] = useState<string | null>(() => {
     const reason = search.get('reason');
     if (reason === 'session_expired') return 'Your session has expired. Please sign in again.';
+    if (reason === 'mfa_expired') return 'MFA challenge expired. Please sign in again to receive a new code.';
+    if (reason === 'unauthorized') return 'You must sign in to access that page.';
     return null;
   });
   const [correlationId, setCorrelationId] = useState<string | null>(null);
@@ -129,14 +131,17 @@ function LoginInner() {
       <aside className="hidden md:flex flex-col justify-between bg-cbs-navy-900 text-white p-10">
         <div>
           <div className="flex items-center gap-3">
-            <div className="h-10 w-10 bg-white text-cbs-navy-900 flex items-center justify-center font-bold tracking-tight">
+            <div
+              aria-hidden="true"
+              className="h-10 w-10 bg-white text-cbs-navy-900 flex items-center justify-center font-bold tracking-tight select-none"
+            >
               FV
             </div>
             <div>
               <div className="text-sm uppercase tracking-widest text-cbs-navy-200">
                 FINVANTA
               </div>
-              <div className="text-xl font-semibold">Core Banking Platform</div>
+              <h2 className="text-xl font-semibold">Core Banking Platform</h2>
             </div>
           </div>
           <p className="mt-10 text-cbs-navy-100 text-sm leading-relaxed max-w-sm">
@@ -160,18 +165,18 @@ function LoginInner() {
             Use your FINVANTA corporate credentials.
           </p>
 
-          {error && (
-            <div
-              role="alert"
-              className="mt-6 border border-cbs-crimson-600 bg-cbs-crimson-50 text-cbs-crimson-700 p-3 text-sm"
-            >
-              <div className="font-semibold">Sign-in failed</div>
-              <div>{error}</div>
-              {correlationId && (
-                <div className="mt-1 text-xs cbs-tabular">Ref: {correlationId}</div>
-              )}
-            </div>
-          )}
+          {/* WCAG 4.1.3 — live region always in DOM so AT announces dynamically */}
+          <div aria-live="polite" aria-atomic="true">
+            {error && (
+              <div role="alert" className="mt-6 cbs-alert cbs-alert-error">
+                <div className="font-semibold text-sm">Sign-in failed</div>
+                <div className="mt-1 text-sm">{error}</div>
+                {correlationId && (
+                  <div className="mt-1 text-xs cbs-tabular">Ref: {correlationId}</div>
+                )}
+              </div>
+            )}
+          </div>
 
           <form
             onSubmit={handleSubmit(onSubmit)}
@@ -185,7 +190,10 @@ function LoginInner() {
               <input
                 id="username"
                 type="text"
+                autoFocus
                 autoComplete="username"
+                spellCheck={false}
+                autoCapitalize="none"
                 className="cbs-input"
                 aria-invalid={!!errors.username}
                 aria-describedby={errors.username ? 'username-error' : undefined}

@@ -189,6 +189,38 @@ body {
   color: var(--color-cbs-olive-700);
 }
 
+/* CBS inline alert — error/warning/info feedback within forms. */
+.cbs-alert {
+  padding: 10px 12px;
+  font-size: 13px;
+  border: 1px solid;
+  border-radius: var(--radius-cbs);
+}
+
+.cbs-alert-error {
+  background: var(--color-cbs-crimson-50);
+  border-color: var(--color-cbs-crimson-600);
+  color: var(--color-cbs-crimson-700);
+}
+
+.cbs-alert-warning {
+  background: var(--color-cbs-gold-50);
+  border-color: var(--color-cbs-gold-600);
+  color: var(--color-cbs-gold-700);
+}
+
+.cbs-alert-info {
+  background: var(--color-cbs-navy-50);
+  border-color: var(--color-cbs-navy-200);
+  color: var(--color-cbs-navy-700);
+}
+
+.cbs-alert-success {
+  background: var(--color-cbs-olive-50);
+  border-color: var(--color-cbs-olive-600);
+  color: var(--color-cbs-olive-700);
+}
+
 .cbs-field-label {
   font-size: 11px;
   letter-spacing: 0.04em;
@@ -289,6 +321,15 @@ body {
 .cbs-input:focus {
   border-color: var(--color-cbs-navy-500);
   box-shadow: 0 0 0 2px var(--color-cbs-navy-100);
+}
+
+.cbs-input[aria-invalid="true"] {
+  border-color: var(--color-cbs-crimson-600);
+}
+
+.cbs-input[aria-invalid="true"]:focus {
+  border-color: var(--color-cbs-crimson-600);
+  box-shadow: 0 0 0 2px var(--color-cbs-crimson-100);
 }
 
 .cbs-input[disabled],
