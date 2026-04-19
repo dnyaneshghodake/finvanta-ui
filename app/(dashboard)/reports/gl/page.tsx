@@ -9,6 +9,7 @@
  */
 
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { apiClient } from '@/services/api/apiClient';
 import { StatusRibbon } from '@/components/cbs';
 import { Spinner } from '@/components/atoms';
@@ -46,11 +47,14 @@ export default function GlInquiryPage() {
 
   return (
     <div className="space-y-4">
-      <div>
-        <h1 className="text-xl font-semibold text-cbs-ink">GL Inquiry — Chart of Accounts</h1>
-        <p className="text-xs text-cbs-steel-600 mt-0.5">
-          General Ledger chart of accounts with current balances.
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-xl font-semibold text-cbs-ink">GL Inquiry — Chart of Accounts</h1>
+          <p className="text-xs text-cbs-steel-600 mt-0.5">
+            General Ledger chart of accounts with current balances.
+          </p>
+        </div>
+        <Link href="/reports/trial-balance" className="cbs-btn cbs-btn-secondary">Trial Balance</Link>
       </div>
 
       {loading ? (
