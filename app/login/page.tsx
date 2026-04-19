@@ -155,7 +155,7 @@ function LoginInner() {
               <div className="font-semibold">Sign-in failed</div>
               <div>{error}</div>
               {correlationId && (
-                <div className="mt-1 text-xs font-mono">Ref: {correlationId}</div>
+                <div className="mt-1 text-xs cbs-tabular">Ref: {correlationId}</div>
               )}
             </div>
           )}

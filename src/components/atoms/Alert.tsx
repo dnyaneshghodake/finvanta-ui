@@ -59,8 +59,9 @@ const Alert = React.forwardRef<HTMLDivElement, AlertProps>(
           <button
             onClick={handleDismiss}
             className="text-cbs-steel-400 hover:text-cbs-steel-700 ml-3 flex-shrink-0"
+            aria-label="Dismiss alert"
           >
-            <span className="text-lg leading-none">&times;</span>
+            <span className="text-lg leading-none" aria-hidden="true">&times;</span>
           </button>
         )}
       </div>
