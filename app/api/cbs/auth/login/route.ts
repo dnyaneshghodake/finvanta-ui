@@ -170,6 +170,12 @@ export async function POST(req: NextRequest) {
     correlationId,
   });
 
+  // Clean up any stale fv_mfa cookie from a previous abandoned MFA
+  // flow. Without this, a leftover challengeId could be consumed by
+  // the MFA verify route in a context where it no longer belongs.
+  const jar = await cookies();
+  jar.delete(env.mfaChallengeCookieName);
+
   return NextResponse.json(
     {
       success: true,
