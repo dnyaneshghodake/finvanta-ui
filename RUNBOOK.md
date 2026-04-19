@@ -4,7 +4,8 @@ End-to-end guide for running, wiring, and debugging the two repos that
 make up the Tier-1 CBS stack:
 
 - **Backend (Spring Boot)** -- `dnyaneshghodake/finvanta`, JSP legacy UI
-  + REST surface under `/api/v{N}/**`.
+  + REST surface under `/v1/**` (controllers use `/v1/` prefix;
+  Tomcat context path `/api` is prepended externally).
 - **Frontend (Next.js BFF)** -- `dnyaneshghodake/finvanta-ui`, React +
   Next.js 16 App Router, Backend-for-Frontend pattern. The browser
   **only** talks to `/api/cbs/**` on Next.js; Next.js holds the JWT in
@@ -38,17 +39,16 @@ If something is broken, start at [Debugging](#debugging).
                                                   +----------------+
 ```
 
-The Spring server is deployed under Tomcat context path `/api`. The
-REST controllers are mapped at `/v1/**` (Tier-1 standard after the
-April 2026 refactor), so the externally reachable REST URL is
-`http://localhost:8080/api/v1/<resource>` -- a single `/api/v1` prefix,
-following the standard Tier-1 CBS versioned REST convention. The JSP
-legacy UI is unchanged and still served
-from `http://localhost:8080/api/<jsp-path>` (e.g. `/api/login`).
+**Path convention (per API Endpoint Catalogue — audited):**
 
-> If you still see `/api/api/v1/...` URLs anywhere, pull `master` on
-> the backend -- controllers pre-April-2026 had `@RequestMapping("/api/v1/...")`
-> which doubled the prefix.
+- Spring REST controllers are mapped at **`/v1/**`** (e.g.
+  `@RequestMapping("/v1/auth")`, `@RequestMapping("/v1/accounts")`).
+- Spring Security `RequestMatchers` use **`/v1/**`** (SecurityConfig
+  line 87).
+- The BFF catch-all proxy (`app/api/cbs/[...path]/route.ts`) forwards
+  browser calls from `/api/cbs/<x>` to `<CBS_BACKEND_URL>/v1/<x>`.
+- `CBS_BACKEND_URL` must be set to the Spring server root
+  (e.g. `http://localhost:8080`) — the BFF prepends `/v1/` to the path.
 
 ---
 
@@ -146,8 +146,8 @@ Seeded accounts: `SB-HQ001-000001` (Rajesh Sharma), `SB-DEL001-000001`
 curl http://localhost:8080/api/actuator/health
 # -> {"status":"UP"}
 
-# Login (REST, bypass BFF)
-curl -i -X POST http://localhost:8080/api/v1/auth/token \
+# Login (REST, bypass BFF — direct to Spring /v1/auth/token)
+curl -i -X POST http://localhost:8080/v1/auth/token \
      -H "Content-Type: application/json" \
      -H "X-Tenant-Id: DEFAULT" \
      -d '{"username":"maker1","password":"finvanta123"}'
@@ -192,7 +192,7 @@ Copy `.env.example` to `.env.local` (never committed):
 # auth/CSRF/correlation. Never point the browser directly at Spring.
 NEXT_PUBLIC_API_URL=/api/cbs
 
-# Server-side only. BFF appends /api/v1/<resource> to this URL.
+# Server-side only. BFF appends /v1/<resource> to this URL.
 CBS_BACKEND_URL=http://localhost:8080
 
 # Session + CSRF secrets. Must be >= 32 chars, high-entropy.
@@ -278,7 +278,7 @@ open http://localhost:3000/    # redirects to /login
    `X-CSRF-Token` (double-submit cookie).
 2. Next.js `app/api/cbs/auth/login/route.ts`:
    - Generates / reads correlation id.
-   - Calls Spring `POST http://localhost:8080/api/v1/auth/token` with
+   - Calls Spring `POST http://localhost:8080/v1/auth/token` with
      `X-Tenant-Id: DEFAULT` and `X-Correlation-Id`.
 3. Spring `AuthController.issueToken(...)` issues an access JWT +
    refresh JWT.
@@ -359,7 +359,7 @@ Browser DevTools -> Application -> Cookies -> `http://localhost:3000`:
 | Symptom | Cause | Fix |
 |---|---|---|
 | Backend startup: `FINVANTA_PII_KEY is set but invalid: expected 64 hex chars, got 65 chars` | Trailing whitespace / newline in env var. | Already trimmed by April 2026 build. Either pull latest or `Remove-Item Env:FINVANTA_PII_KEY` to use the dev default. |
-| `curl POST /api/v1/auth/token` -> `302 Location: /api/error/403` + `FINVANTA_SESSION` cookie | JSP form-login caught the request instead of the API filter chain. | Rebuild backend from April 2026+. SecurityConfig must use `/v1/**` matchers (context path `/api` is stripped before matchers run). |
+| `curl POST /v1/auth/token` -> `302 Location: /error/403` + `FINVANTA_SESSION` cookie | JSP form-login caught the request instead of the API filter chain. | Rebuild backend from latest. SecurityConfig must use `/v1/**` matchers. |
 | `POST /api/cbs/auth/login` -> `502 LOGIN_FAILED` but Spring is UP | `CBS_BACKEND_URL` misconfigured (e.g. still `http://localhost:8080/api` from the pre-Tier-1 workaround). | Set `CBS_BACKEND_URL=http://localhost:8080` in **both** `.env.local` and `.env.development`, restart `pnpm dev`. |
 | `403 CSRF_REJECTED` on all POSTs | Browser didn't send `X-CSRF-Token` or the value doesn't match the `fv_csrf` cookie. | Make sure the UI uses `apiClient` (it reads `fv_csrf` automatically). For curl, pass `-b jar.txt -H "X-CSRF-Token: $(awk '$6=="fv_csrf"{print $7}' jar.txt)"`. |
 | `401 MISSING_SESSION` on authenticated endpoints | `fv_sid` missing, expired, or decrypted with a different `CBS_SESSION_SECRET`. | Sign in again. Never rotate `CBS_SESSION_SECRET` between dev restarts or all live sessions invalidate. |
@@ -430,4 +430,4 @@ pnpm build
 | **Maker-Checker** | Dual-authorisation workflow. Maker submits, Checker approves. |
 | **Correlation Id** | UUID threaded through every request for cross-system tracing. |
 | **Double-submit CSRF** | CSRF strategy where the same token is sent in both a cookie (`fv_csrf`) and a header (`X-CSRF-Token`); the server requires them to match. |
-| **Context path** | Tomcat prefix (`/api`) stripped before Spring MVC / Spring Security see the path. Matchers must use the context-relative path (e.g. `/v1/**`, not `/api/v1/**`). |
+| **Controller path** | REST controllers use `/v1/**` prefix (e.g. `/v1/auth/token`). Spring Security matchers use `/v1/**`. The BFF proxy prepends `/v1/` when forwarding browser requests to Spring. |
