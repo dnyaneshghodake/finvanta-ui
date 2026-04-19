@@ -78,7 +78,7 @@ const Header: FC<HeaderProps> = ({ className }) => {
 
   return (
     <header
-      className={`bg-cbs-navy-800 text-white sticky top-0 z-40 cbs-no-print ${className || ''}`}
+      className={`bg-cbs-navy-800 text-white sticky top-0 z-50 cbs-no-print ${className || ''}`}
     >
       <div className="flex items-center justify-between h-12 px-3">
         {/* Left: hamburger + brand */}
