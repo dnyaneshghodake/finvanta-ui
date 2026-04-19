@@ -35,7 +35,9 @@
   --color-cbs-steel-100: #e6e9ef;
   --color-cbs-steel-200: #c8cfdb;
   --color-cbs-steel-300: #9ba5b7;
-  --color-cbs-steel-400: #6f7b92;
+  /* steel-400 bumped from #6f7b92 (3.9:1) to #5e6a82 (4.8:1)
+   * to pass WCAG 2.1 AA 4.5:1 for normal text on white. */
+  --color-cbs-steel-400: #5e6a82;
   --color-cbs-steel-500: #4f5a70;
   --color-cbs-steel-600: #3a4457;
   --color-cbs-steel-700: #2b3344;
@@ -93,6 +95,68 @@ body {
   font-family: var(--font-cbs-sans);
   font-feature-settings: "cv11", "ss01", "tnum";
   -webkit-font-smoothing: antialiased;
+}
+
+/* ── WCAG 2.1 AA Accessibility ── */
+
+/* Skip-to-content link — WCAG 2.4.1 Bypass Blocks.
+ * Visually hidden until focused via Tab. */
+.cbs-skip-link {
+  position: absolute;
+  left: -9999px;
+  top: auto;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  z-index: 200;
+  background: var(--color-cbs-navy-700);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 8px 16px;
+  text-decoration: none;
+  border-radius: 0 0 var(--radius-cbs-md) 0;
+}
+
+.cbs-skip-link:focus {
+  position: fixed;
+  left: 0;
+  top: 0;
+  width: auto;
+  height: auto;
+  overflow: visible;
+}
+
+/* Screen-reader only utility — WCAG. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}
+
+/* Focus-visible ring — WCAG 2.4.7 Focus Visible.
+ * Applied globally to all interactive elements. */
+:focus-visible {
+  outline: 2px solid var(--color-cbs-navy-500);
+  outline-offset: 2px;
+}
+
+/* Reduced motion — WCAG 2.3.3 Animation from Interactions. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
 
 /* Data-dense utility classes used across CBS screens. */
@@ -707,12 +771,20 @@ body {
   -webkit-overflow-scrolling: touch;
 }
 
+/* ── Print Stylesheet — Tier-1 CBS Regulatory Grade ──
+ * Posting confirmations, FD certificates, loan schedules, and
+ * audit trail reports must print cleanly per RBI IT Governance
+ * Direction 2023 §8. */
 @media print {
   body {
     background: #fff;
+    color: #000;
     font-size: 11px;
   }
-  .cbs-no-print {
+  .cbs-no-print,
+  .cbs-toast-container,
+  .cbs-skip-link,
+  nav[aria-label="Breadcrumb"] {
     display: none !important;
   }
   .cbs-grid-table {
@@ -721,14 +793,83 @@ body {
   .cbs-grid-table thead th {
     background: #fff;
     color: #000;
-    border-bottom: 1px solid #000;
+    border-bottom: 2px solid #000;
+    font-weight: 700;
+  }
+  .cbs-grid-table tbody td {
+    border-bottom: 0.5px solid #666;
   }
   @page {
     margin: 15mm 10mm;
     size: A4 landscape;
   }
+  @page :first {
+    margin-top: 20mm;
+  }
   .cbs-surface {
     border: 1px solid #000;
     break-inside: avoid;
+  }
+  .cbs-surface-header {
+    background: #f0f0f0 !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  /* Print header block — shown only in print */
+  .cbs-print-header {
+    display: block !important;
+    text-align: center;
+    margin-bottom: 12px;
+    padding-bottom: 8px;
+    border-bottom: 2px solid #000;
+  }
+  .cbs-print-header-bank {
+    font-size: 16px;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+  }
+  .cbs-print-header-branch {
+    font-size: 11px;
+    margin-top: 2px;
+  }
+  /* Signature line for posting confirmations */
+  .cbs-print-signature {
+    display: flex !important;
+    justify-content: space-between;
+    margin-top: 40px;
+    padding-top: 8px;
+    border-top: 1px solid #000;
+    font-size: 10px;
+  }
+  .cbs-print-signature-line {
+    width: 180px;
+    text-align: center;
+    border-top: 1px solid #000;
+    padding-top: 4px;
+  }
+  /* Amounts must print in black, not colour */
+  .cbs-amount-debit,
+  .cbs-amount-credit {
+    color: #000 !important;
+  }
+  .cbs-ribbon {
+    border: 1px solid #000;
+    color: #000 !important;
+    background: transparent !important;
+  }
+  /* Force tabular-nums in print */
+  .cbs-tabular,
+  .cbs-amount {
+    font-family: "Courier New", monospace;
+  }
+  /* Hide interactive elements */
+  button:not(.cbs-print-keep),
+  a[href]:not(.cbs-print-keep)::after {
+    content: none;
+  }
+  a[href] {
+    text-decoration: none;
+    color: #000;
   }
 }

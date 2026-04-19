@@ -41,6 +41,14 @@ type BaseProps = Omit<InputHTMLAttributes<HTMLInputElement>, 'type'> & {
  * next to the label. The `required` prop is read from the child
  * input's props and threaded through.
  */
+/**
+ * Derive stable IDs for aria-describedby linking.
+ * WCAG 1.3.1 — programmatic association of errors/hints to inputs.
+ */
+function descId(fieldId: string, type: 'error' | 'hint'): string {
+  return `${fieldId}-${type}`;
+}
+
 function FieldShell({
   id,
   label,
@@ -60,13 +68,14 @@ function FieldShell({
     <div>
       <label htmlFor={id} className="cbs-field-label block mb-1">
         {label}
-        {required && <span className="text-cbs-crimson-700 ml-0.5">*</span>}
+        {required && <span className="text-cbs-crimson-700 ml-0.5" aria-hidden="true">*</span>}
+        {required && <span className="sr-only"> (required)</span>}
       </label>
       {children}
       {error ? (
-        <div className="mt-1 text-xs text-cbs-crimson-700">{error}</div>
+        <div id={descId(id, 'error')} className="mt-1 text-xs text-cbs-crimson-700" role="alert">{error}</div>
       ) : hint ? (
-        <div className="mt-1 text-xs text-cbs-steel-600">{hint}</div>
+        <div id={descId(id, 'hint')} className="mt-1 text-xs text-cbs-steel-600">{hint}</div>
       ) : null}
     </div>
   );
@@ -131,6 +140,7 @@ export const AmountInr = forwardRef<HTMLInputElement, BaseProps>(
             placeholder="0.00"
             className="flex-1 cbs-amount bg-transparent outline-none px-2 h-[32px]"
             aria-invalid={!!error}
+            aria-describedby={error ? descId(fieldId, 'error') : hint ? descId(fieldId, 'hint') : undefined}
             onBlur={handleBlur}
             onFocus={handleFocus}
             onKeyDown={handleKeyDown}

@@ -29,6 +29,10 @@ export default function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
+        {/* WCAG 2.4.1 — skip-to-content bypass link */}
+        <a href="#cbs-main" className="cbs-skip-link">
+          Skip to main content
+        </a>
         <ClientProviders>{children}</ClientProviders>
       </body>
     </html>
