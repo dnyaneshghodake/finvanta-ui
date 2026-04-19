@@ -6,6 +6,7 @@ import { useAccountStore } from '@/store/accountStore';
 import { useUIStore } from '@/store/uiStore';
 import { AccountCard, StatisticCard } from '@/components/molecules';
 import { Card, Button, Spinner } from '@/components/atoms';
+import { formatCurrency } from '@/utils/formatters';
 
 /**
  * Accounts page
@@ -58,7 +59,7 @@ export default function AccountsPage() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <StatisticCard
               label="Total Balance"
-              value={`₹${(totalBalance / 100000).toFixed(1)}L`}
+              value={formatCurrency(totalBalance)}
               color="blue"
             />
             <StatisticCard

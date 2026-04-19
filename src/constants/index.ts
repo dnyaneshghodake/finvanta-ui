@@ -91,22 +91,23 @@ export const API_TIMEOUT = parseInt(process.env.API_TIMEOUT || '30000', 10);
 export const API_RETRY_ATTEMPTS = parseInt(process.env.API_RETRY_ATTEMPTS || '3', 10);
 
 /**
- * JWT expiry in seconds
+ * Session TTL is controlled server-side by CBS_SESSION_TTL_SECONDS.
+ * JWTs are held in the encrypted fv_sid HttpOnly cookie and never
+ * exposed to the browser. These constants are retained only for
+ * UI-side countdown display (e.g. session timeout warning) and must
+ * NOT be used for any security decision.
  */
-export const JWT_EXPIRY = parseInt(process.env.NEXT_PUBLIC_JWT_EXPIRY || '3600', 10);
+export const SESSION_DISPLAY_TTL_SECONDS = 28800; // 8 hours — mirrors CBS_SESSION_TTL_SECONDS default
 
 /**
- * Refresh token expiry in seconds
- */
-export const REFRESH_TOKEN_EXPIRY = parseInt(process.env.NEXT_PUBLIC_REFRESH_TOKEN_EXPIRY || '2592000', 10);
-
-/**
- * Storage keys
+ * Storage keys.
+ *
+ * Token and refresh-token keys are intentionally absent — JWTs are
+ * held server-side in the encrypted fv_sid HttpOnly cookie and must
+ * never be stored in localStorage or sessionStorage. Only UI
+ * preferences that carry no security sensitivity belong here.
  */
 export const STORAGE_KEYS = {
-  TOKEN: 'cbs_access_token',
-  REFRESH_TOKEN: 'cbs_refresh_token',
-  USER: 'cbs_user',
   THEME: 'cbs_theme',
   LANGUAGE: 'cbs_language',
   LAST_LOGIN: 'cbs_last_login',

@@ -5,6 +5,7 @@ import { useAccountStore } from '@/store/accountStore';
 import { useUIStore } from '@/store/uiStore';
 import { StatisticCard, AccountCard, TransactionRow } from '@/components/molecules';
 import { Card, Button, Spinner } from '@/components/atoms';
+import { formatCurrency } from '@/utils/formatters';
 import Link from 'next/link';
 
 /**
@@ -58,12 +59,12 @@ export default function DashboardPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <StatisticCard
               label="Total Balance"
-              value={`₹${(totalBalance / 100000).toFixed(1)}L`}
+              value={formatCurrency(totalBalance)}
               color="blue"
             />
             <StatisticCard
               label="Available Balance"
-              value={`₹${(totalAvailable / 100000).toFixed(1)}L`}
+              value={formatCurrency(totalAvailable)}
               color="green"
             />
             <StatisticCard
