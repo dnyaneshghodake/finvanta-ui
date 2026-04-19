@@ -34,6 +34,15 @@ export default function AccountDetailsPage() {
   const [directAccount, setDirectAccount] = useState<Account | null>(null);
   const [directLoading, setDirectLoading] = useState(false);
 
+  // Reset direct-fetch state when the route param changes so a
+  // client-side navigation from /accounts/A → /accounts/B does not
+  // keep showing A's data. Without this, the stale `directAccount`
+  // short-circuits the fetch and the operator sees the wrong account.
+  useEffect(() => {
+    setDirectAccount(null);
+    setDirectLoading(false);
+  }, [accountId]);
+
   useEffect(() => {
     if (storeAccount || directAccount) return;
     let cancelled = false;

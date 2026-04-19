@@ -261,11 +261,17 @@ class AccountService {
    * Retained here so the accountStore preserves its existing
    * signature; callers should prefer `transferService.confirm` for
    * new code.
+   *
+   * A stable idempotency key is minted per call. Callers that need
+   * retry-safe semantics (double-click protection) must use
+   * `transferService.confirm()` which separates key minting from
+   * submission.
    */
   async transfer(
     accountNumber: string,
     data: UiTransferRequest,
   ): Promise<ApiResponse<Transaction>> {
+    const idempotencyKey = crypto.randomUUID();
     const response = await apiClient.post<SpringEnvelope<SpringTxn>>(
       '/accounts/transfer',
       {
@@ -273,6 +279,10 @@ class AccountService {
         toAccount: data.toAccountNumber,
         amount: data.amount,
         narration: data.description,
+        idempotencyKey,
+      },
+      {
+        headers: { 'X-Idempotency-Key': idempotencyKey },
       },
     );
     return adapt(response.data, (t) => mapTxn(t, accountNumber));

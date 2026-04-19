@@ -17,13 +17,17 @@ export const dynamic = "force-dynamic";
 
 type Ctx = { params: Promise<{ path: string[] }> };
 
+const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
+
 async function handle(req: NextRequest, ctx: Ctx) {
   const { path } = await ctx.params;
   const search = req.nextUrl.search || "";
   const targetPath = "/api/v1/" + path.join("/");
   return proxyToBackend(req, targetPath, search, {
     requireAuth: true,
-    requireCsrf: true,
+    // CSRF double-submit is required on mutating calls only.
+    // Safe methods (GET/HEAD/OPTIONS) are exempt per OWASP guidelines.
+    requireCsrf: !SAFE_METHODS.has(req.method.toUpperCase()),
   });
 }
 

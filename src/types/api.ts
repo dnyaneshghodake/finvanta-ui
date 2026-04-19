@@ -63,21 +63,11 @@ export interface LoginRequest {
   rememberMe?: boolean;
 }
 
-/**
- * Password reset request
- */
-export interface PasswordResetRequest {
-  email: string;
-}
-
-/**
- * Password reset confirmation
- */
-export interface PasswordResetConfirm {
-  token: string;
-  newPassword: string;
-  confirmPassword: string;
-}
+// NOTE: PasswordResetRequest and PasswordResetConfirm types were
+// intentionally removed. Tier-1 CBS platforms never expose a public
+// "forgot password" flow — operator credential resets are admin-
+// initiated maker-checker actions under User Management per RBI IT
+// Governance Direction 2023 §8.
 
 /**
  * Transfer request payload

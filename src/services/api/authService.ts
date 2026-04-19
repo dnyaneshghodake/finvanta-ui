@@ -57,10 +57,12 @@ class AuthService {
   }
 
   async logout(): Promise<ApiResponse<null>> {
-    const response = await axios.post<ApiResponse<null>>(
-      "/api/cbs/auth/logout",
+    // Routed through apiClient so the CSRF interceptor attaches
+    // X-CSRF-Token — the BFF logout route now enforces CSRF to
+    // prevent cross-origin logout attacks (CWE-352).
+    const response = await apiClient.post<ApiResponse<null>>(
+      "/auth/logout",
       {},
-      { withCredentials: true },
     );
     return response.data;
   }

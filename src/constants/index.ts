@@ -138,13 +138,20 @@ export const PASSWORD_POLICY = {
 } as const;
 
 /**
- * Transaction limits
+ * Transaction limits — UI DISPLAY HINTS ONLY.
+ *
+ * ⚠️  DO NOT use these for validation or enforcement. Actual limits
+ * are computed by Spring `TransactionEngine` based on product code,
+ * branch SOL, operator role, customer segment, and day-open state.
+ * Using these for Zod schemas or pre-submit checks will silently
+ * diverge from the backend truth — explicitly forbidden per RBI IT
+ * Governance Direction 2023.
  */
 export const TRANSACTION_LIMITS = {
   MIN_AMOUNT: 1,
-  MAX_AMOUNT: 100000000, // 10 crore
-  DAILY_LIMIT: 500000, // 5 lakhs per day
-  MONTHLY_LIMIT: 5000000, // 50 lakhs per month
+  MAX_AMOUNT: 100000000, // 10 crore — indicative only
+  DAILY_LIMIT: 500000, // 5 lakhs per day — indicative only
+  MONTHLY_LIMIT: 5000000, // 50 lakhs per month — indicative only
 } as const;
 
 /**

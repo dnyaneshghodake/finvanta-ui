@@ -40,7 +40,10 @@ function requireSecret(name: string, devDefault: string, isProd: boolean): strin
 let cached: CbsServerEnv | null = null;
 
 export function serverEnv(): CbsServerEnv {
-  if (cached !== null) return cached;
+  // In development, skip the cache so env var changes via HMR or
+  // dotenv reloads are picked up without a full server restart.
+  // In production the cache is safe (cold start, immutable env).
+  if (cached !== null && process.env.NODE_ENV === "production") return cached;
   const isProduction = process.env.NODE_ENV === "production";
 
   cached = {

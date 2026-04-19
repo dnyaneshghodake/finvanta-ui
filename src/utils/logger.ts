@@ -13,8 +13,15 @@ interface LogEntry {
 }
 
 class Logger {
+  /**
+   * In-memory ring buffer — development only. In production, no log
+   * entries are retained in browser memory to prevent PII exfiltration
+   * via XSS (CWE-532). Production logging should be routed to a
+   * server-side collector via the BFF.
+   */
   private logs: LogEntry[] = [];
   private isDevelopment = process.env.NEXT_PUBLIC_DEBUG_MODE === 'true';
+  private static readonly MAX_ENTRIES = 200;
 
   private formatMessage(level: LogLevel, message: string, data?: unknown): string {
     const timestamp = new Date().toISOString();
@@ -27,17 +34,22 @@ class Logger {
   }
 
   private addLog(level: LogLevel, message: string, data?: unknown): void {
+    // Only retain in-memory logs in development to prevent PII
+    // accumulation in production browser sessions (CWE-532).
+    if (!this.isDevelopment) return;
+
     const entry: LogEntry = {
       level,
       timestamp: new Date().toISOString(),
       message,
-      data,
+      // Strip data payload from stored entries to limit PII surface.
+      // The full payload is still written to console for dev debugging.
+      data: undefined,
     };
     this.logs.push(entry);
 
-    // Keep only last 1000 logs in memory
-    if (this.logs.length > 1000) {
-      this.logs = this.logs.slice(-1000);
+    if (this.logs.length > Logger.MAX_ENTRIES) {
+      this.logs = this.logs.slice(-Logger.MAX_ENTRIES);
     }
   }
 

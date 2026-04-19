@@ -65,14 +65,9 @@ export const validatePasswordStrength = (password: string): {
   feedback: string[];
 } => {
   const feedback: string[] = [];
-  let strength: 'weak' | 'medium' | 'strong' = 'weak';
 
   if (password.length < 8) {
     feedback.push('Password must be at least 8 characters long');
-  } else if (password.length >= 12) {
-    strength = 'strong';
-  } else {
-    strength = 'medium';
   }
 
   if (!/[A-Z]/.test(password)) {
@@ -91,8 +86,17 @@ export const validatePasswordStrength = (password: string): {
     feedback.push('Include at least one special character');
   }
 
+  const isValid = feedback.length === 0;
+
+  // Strength is derived from BOTH length AND policy compliance.
+  // A long password that fails policy checks is not "strong".
+  let strength: 'weak' | 'medium' | 'strong' = 'weak';
+  if (isValid) {
+    strength = password.length >= 12 ? 'strong' : 'medium';
+  }
+
   return {
-    isValid: feedback.length === 0,
+    isValid,
     strength,
     feedback,
   };
