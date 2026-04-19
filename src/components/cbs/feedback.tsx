@@ -11,6 +11,7 @@
 'use client';
 
 import { type ReactNode } from 'react';
+import { formatCbsTimestamp } from '@/utils/formatters';
 
 export type CbsStatus =
   | 'PENDING_APPROVAL'
@@ -93,7 +94,7 @@ export function ApprovalTrail({ entries }: { entries: ApprovalTrailEntry[] }) {
               {e.role ? <span className="text-cbs-steel-600"> &middot; {e.role}</span> : null}
             </div>
             <div className="text-xs cbs-tabular text-cbs-steel-600">
-              {isNaN(when.getTime()) ? String(e.at) : when.toISOString().replace('T', ' ').slice(0, 19)}
+              {formatCbsTimestamp(when)}
             </div>
             {e.remarks ? (
               <div className="text-xs text-cbs-ink mt-0.5">&ldquo;{e.remarks}&rdquo;</div>

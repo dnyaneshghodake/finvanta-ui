@@ -45,6 +45,7 @@ import {
   Breadcrumb,
 } from '@/components/cbs';
 import { useCbsKeyboard } from '@/hooks/useCbsKeyboard';
+import { formatCbsTimestamp } from '@/utils/formatters';
 
 const ACCOUNT_NUMBER_RE = /^[A-Z0-9][A-Z0-9-]{5,24}$/;
 
@@ -210,6 +211,7 @@ export default function TransfersPage() {
             </div>
           </div>
           <form
+            ref={formRef}
             onSubmit={handleSubmit(onConfirm)}
             className="cbs-surface-body space-y-4"
           >
@@ -287,9 +289,7 @@ export default function TransfersPage() {
               </KeyValue>
               <KeyValue label="Posted at">
                 <span className="cbs-tabular">
-                  {posted.postedAt
-                    ? new Date(posted.postedAt).toISOString().replace('T', ' ').slice(0, 19)
-                    : '--'}
+                  {posted.postedAt ? formatCbsTimestamp(posted.postedAt) : '--'}
                 </span>
               </KeyValue>
               <KeyValue label="Debit account">{posted.fromAccountNumber}</KeyValue>

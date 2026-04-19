@@ -25,7 +25,8 @@
  */
 'use client';
 
-import { forwardRef, type InputHTMLAttributes } from 'react';
+import { forwardRef, useCallback, type InputHTMLAttributes, type FocusEvent } from 'react';
+import { formatAmountInr } from '@/utils/formatters';
 
 type BaseProps = Omit<InputHTMLAttributes<HTMLInputElement>, 'type'> & {
   label: string;
@@ -33,23 +34,33 @@ type BaseProps = Omit<InputHTMLAttributes<HTMLInputElement>, 'type'> & {
   hint?: string;
 };
 
+/**
+ * FieldShell — shared wrapper for all CBS form primitives.
+ *
+ * Tier-1 CBS convention: mandatory fields show a crimson asterisk
+ * next to the label. The `required` prop is read from the child
+ * input's props and threaded through.
+ */
 function FieldShell({
   id,
   label,
   error,
   hint,
+  required,
   children,
 }: {
   id: string;
   label: string;
   error?: string;
   hint?: string;
+  required?: boolean;
   children: React.ReactNode;
 }) {
   return (
     <div>
       <label htmlFor={id} className="cbs-field-label block mb-1">
         {label}
+        {required && <span className="text-cbs-crimson-700 ml-0.5">*</span>}
       </label>
       {children}
       {error ? (
@@ -61,12 +72,54 @@ function FieldShell({
   );
 }
 
-/** Amount in INR. Always two decimals, ASCII INR prefix, right-aligned. */
+/**
+ * Amount in INR. Always two decimals, ASCII INR prefix, right-aligned.
+ *
+ * On blur: auto-appends ".00" if no decimals, formats with Indian
+ * lakh/crore comma grouping (e.g. "1,50,000.00"). On focus: strips
+ * commas so the user edits raw digits. Prevents non-numeric input
+ * at the keystroke level.
+ */
 export const AmountInr = forwardRef<HTMLInputElement, BaseProps>(
-  function AmountInr({ label, error, hint, id, ...rest }, ref) {
+  function AmountInr({ label, error, hint, id, onBlur, onFocus, onKeyDown, required, ...rest }, ref) {
     const fieldId = id || `amt-${label.replace(/\s+/g, '-').toLowerCase()}`;
+
+    const handleBlur = useCallback(
+      (e: FocusEvent<HTMLInputElement>) => {
+        const raw = e.target.value.replace(/,/g, '');
+        if (raw && /^\d+(\.\d{0,2})?$/.test(raw)) {
+          e.target.value = formatAmountInr(raw);
+        }
+        onBlur?.(e);
+      },
+      [onBlur],
+    );
+
+    const handleFocus = useCallback(
+      (e: FocusEvent<HTMLInputElement>) => {
+        // Strip commas on focus so user edits raw digits
+        e.target.value = e.target.value.replace(/,/g, '');
+        onFocus?.(e);
+      },
+      [onFocus],
+    );
+
+    const handleKeyDown = useCallback(
+      (e: React.KeyboardEvent<HTMLInputElement>) => {
+        // Allow: backspace, delete, tab, escape, enter, arrows, home, end, decimal point
+        const allowed = ['Backspace', 'Delete', 'Tab', 'Escape', 'Enter', 'ArrowLeft', 'ArrowRight', 'Home', 'End', '.'];
+        if (allowed.includes(e.key)) { onKeyDown?.(e); return; }
+        // Allow Ctrl/Cmd+A/C/V/X
+        if ((e.ctrlKey || e.metaKey) && ['a', 'c', 'v', 'x'].includes(e.key.toLowerCase())) { onKeyDown?.(e); return; }
+        // Block non-digit keys
+        if (!/^\d$/.test(e.key)) { e.preventDefault(); return; }
+        onKeyDown?.(e);
+      },
+      [onKeyDown],
+    );
+
     return (
-      <FieldShell id={fieldId} label={label} error={error} hint={hint}>
+      <FieldShell id={fieldId} label={label} error={error} hint={hint} required={required}>
         <div className="flex cbs-input p-0 overflow-hidden">
           <span className="inline-flex items-center px-3 bg-cbs-mist border-r border-cbs-steel-200 text-cbs-steel-700 text-xs font-semibold uppercase tracking-wider">
             INR
@@ -78,6 +131,10 @@ export const AmountInr = forwardRef<HTMLInputElement, BaseProps>(
             placeholder="0.00"
             className="flex-1 cbs-amount bg-transparent outline-none px-2 h-[32px]"
             aria-invalid={!!error}
+            onBlur={handleBlur}
+            onFocus={handleFocus}
+            onKeyDown={handleKeyDown}
+            required={required}
             {...rest}
           />
         </div>
@@ -88,10 +145,10 @@ export const AmountInr = forwardRef<HTMLInputElement, BaseProps>(
 
 /** IFSC 11-char code, forced uppercase. */
 export const Ifsc = forwardRef<HTMLInputElement, BaseProps>(
-  function Ifsc({ label, error, hint, id, ...rest }, ref) {
+  function Ifsc({ label, error, hint, id, required, ...rest }, ref) {
     const fieldId = id || `ifsc-${label.replace(/\s+/g, '-').toLowerCase()}`;
     return (
-      <FieldShell id={fieldId} label={label} error={error} hint={hint}>
+      <FieldShell id={fieldId} label={label} error={error} hint={hint} required={required}>
         <input
           ref={ref}
           id={fieldId}
@@ -100,6 +157,7 @@ export const Ifsc = forwardRef<HTMLInputElement, BaseProps>(
           minLength={11}
           pattern="[A-Z]{4}0[A-Z0-9]{6}"
           inputMode="text"
+          required={required}
           className="cbs-input cbs-tabular uppercase tracking-wider"
           aria-invalid={!!error}
           {...rest}
@@ -111,10 +169,10 @@ export const Ifsc = forwardRef<HTMLInputElement, BaseProps>(
 
 /** PAN: 10 chars ABCDE1234F. Forced uppercase. */
 export const Pan = forwardRef<HTMLInputElement, BaseProps>(
-  function Pan({ label, error, hint, id, ...rest }, ref) {
+  function Pan({ label, error, hint, id, required, ...rest }, ref) {
     const fieldId = id || `pan-${label.replace(/\s+/g, '-').toLowerCase()}`;
     return (
-      <FieldShell id={fieldId} label={label} error={error} hint={hint}>
+      <FieldShell id={fieldId} label={label} error={error} hint={hint} required={required}>
         <input
           ref={ref}
           id={fieldId}
@@ -123,6 +181,7 @@ export const Pan = forwardRef<HTMLInputElement, BaseProps>(
           minLength={10}
           pattern="[A-Z]{5}[0-9]{4}[A-Z]"
           inputMode="text"
+          required={required}
           className="cbs-input cbs-tabular uppercase tracking-wider"
           aria-invalid={!!error}
           {...rest}
@@ -134,10 +193,10 @@ export const Pan = forwardRef<HTMLInputElement, BaseProps>(
 
 /** Aadhaar: 12 digits (unmasked entry, masked display elsewhere). */
 export const Aadhaar = forwardRef<HTMLInputElement, BaseProps>(
-  function Aadhaar({ label, error, hint, id, ...rest }, ref) {
+  function Aadhaar({ label, error, hint, id, required, ...rest }, ref) {
     const fieldId = id || `aadhaar-${label.replace(/\s+/g, '-').toLowerCase()}`;
     return (
-      <FieldShell id={fieldId} label={label} error={error} hint={hint}>
+      <FieldShell id={fieldId} label={label} error={error} hint={hint} required={required}>
         <input
           ref={ref}
           id={fieldId}
@@ -147,6 +206,7 @@ export const Aadhaar = forwardRef<HTMLInputElement, BaseProps>(
           pattern="\d{12}"
           inputMode="numeric"
           autoComplete="off"
+          required={required}
           className="cbs-input cbs-tabular tracking-widest"
           aria-invalid={!!error}
           {...rest}
@@ -164,10 +224,10 @@ export const Aadhaar = forwardRef<HTMLInputElement, BaseProps>(
  * schema on the transfer form (`[A-Z0-9][A-Z0-9-]{5,24}`).
  */
 export const AccountNo = forwardRef<HTMLInputElement, BaseProps>(
-  function AccountNo({ label, error, hint, id, ...rest }, ref) {
+  function AccountNo({ label, error, hint, id, required, ...rest }, ref) {
     const fieldId = id || `acct-${label.replace(/\s+/g, '-').toLowerCase()}`;
     return (
-      <FieldShell id={fieldId} label={label} error={error} hint={hint}>
+      <FieldShell id={fieldId} label={label} error={error} hint={hint} required={required}>
         <input
           ref={ref}
           id={fieldId}
@@ -178,6 +238,7 @@ export const AccountNo = forwardRef<HTMLInputElement, BaseProps>(
           inputMode="text"
           autoCapitalize="characters"
           spellCheck={false}
+          required={required}
           className="cbs-input cbs-tabular uppercase tracking-widest"
           aria-invalid={!!error}
           {...rest}
@@ -187,20 +248,48 @@ export const AccountNo = forwardRef<HTMLInputElement, BaseProps>(
   },
 );
 
-/** Value date: dd-MMM-yyyy, ASCII-only. */
+/**
+ * Value date: dd-MMM-yyyy, ASCII-only.
+ *
+ * Uses native date input. The "today" shortcut button fills the
+ * current date — the most common CBS value-date selection.
+ */
 export const ValueDate = forwardRef<HTMLInputElement, BaseProps>(
-  function ValueDate({ label, error, hint, id, ...rest }, ref) {
+  function ValueDate({ label, error, hint, id, required, ...rest }, ref) {
     const fieldId = id || `vdate-${label.replace(/\s+/g, '-').toLowerCase()}`;
+
+    const fillToday = useCallback(() => {
+      const el = document.getElementById(fieldId) as HTMLInputElement | null;
+      if (el) {
+        const today = new Date().toISOString().slice(0, 10);
+        // Trigger react-hook-form's onChange by using native setter
+        const nativeSetter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
+        nativeSetter?.call(el, today);
+        el.dispatchEvent(new Event('input', { bubbles: true }));
+      }
+    }, [fieldId]);
+
     return (
-      <FieldShell id={fieldId} label={label} error={error} hint={hint}>
-        <input
-          ref={ref}
-          id={fieldId}
-          type="date"
-          className="cbs-input cbs-tabular"
-          aria-invalid={!!error}
-          {...rest}
-        />
+      <FieldShell id={fieldId} label={label} error={error} hint={hint} required={required}>
+        <div className="flex gap-1">
+          <input
+            ref={ref}
+            id={fieldId}
+            type="date"
+            required={required}
+            className="cbs-input cbs-tabular flex-1"
+            aria-invalid={!!error}
+            {...rest}
+          />
+          <button
+            type="button"
+            onClick={fillToday}
+            className="cbs-btn cbs-btn-secondary h-[34px] px-2 text-[10px] uppercase tracking-wider whitespace-nowrap"
+            title="Set to today"
+          >
+            Today
+          </button>
+        </div>
       </FieldShell>
     );
   },

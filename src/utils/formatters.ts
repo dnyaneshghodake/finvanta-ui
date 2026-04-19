@@ -173,3 +173,74 @@ export const formatAccountType = (type: string): string => {
   };
   return typeMap[type] || type;
 };
+
+/**
+ * Format date in CBS canonical audit format: DD-MMM-YYYY HH:mm
+ *
+ * Tier-1 CBS convention (Finacle / T24 / Flexcube): timestamps in
+ * audit trails, posting confirmations, and approval events use
+ * DD-MMM-YYYY HH:mm (e.g. "19-APR-2026 10:42"). The month is
+ * always 3-letter uppercase English, ASCII-only.
+ */
+const MONTHS = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
+
+export const formatCbsTimestamp = (date: string | number | Date): string => {
+  try {
+    const d = date instanceof Date ? date : new Date(date);
+    if (isNaN(d.getTime())) return String(date);
+    const dd = String(d.getDate()).padStart(2, '0');
+    const mmm = MONTHS[d.getMonth()];
+    const yyyy = d.getFullYear();
+    const hh = String(d.getHours()).padStart(2, '0');
+    const mm = String(d.getMinutes()).padStart(2, '0');
+    return `${dd}-${mmm}-${yyyy} ${hh}:${mm}`;
+  } catch {
+    return String(date);
+  }
+};
+
+/**
+ * Format date in CBS canonical date-only format: DD-MMM-YYYY
+ * (e.g. "19-APR-2026"). Used for value dates, opening dates, etc.
+ */
+export const formatCbsDate = (date: string | number | Date): string => {
+  try {
+    const d = date instanceof Date ? date : new Date(date);
+    if (isNaN(d.getTime())) return String(date);
+    const dd = String(d.getDate()).padStart(2, '0');
+    const mmm = MONTHS[d.getMonth()];
+    const yyyy = d.getFullYear();
+    return `${dd}-${mmm}-${yyyy}`;
+  } catch {
+    return String(date);
+  }
+};
+
+/**
+ * Format amount with Indian lakh/crore grouping for display.
+ * Returns raw formatted number string without currency symbol.
+ * Used for inline amount formatting in input fields on blur.
+ */
+export const formatAmountInr = (value: string): string => {
+  const cleaned = value.replace(/[^0-9.]/g, '');
+  if (!cleaned) return '';
+  const parts = cleaned.split('.');
+  const intPart = parts[0];
+  const decPart = (parts[1] ?? '').slice(0, 2).padEnd(2, '0');
+  // Indian grouping: last 3 digits, then groups of 2
+  let formatted = '';
+  if (intPart.length <= 3) {
+    formatted = intPart;
+  } else {
+    formatted = intPart.slice(-3);
+    let remaining = intPart.slice(0, -3);
+    while (remaining.length > 2) {
+      formatted = remaining.slice(-2) + ',' + formatted;
+      remaining = remaining.slice(0, -2);
+    }
+    if (remaining.length > 0) {
+      formatted = remaining + ',' + formatted;
+    }
+  }
+  return `${formatted}.${decPart}`;
+};
