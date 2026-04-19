@@ -46,7 +46,7 @@ export function serverEnv(): CbsServerEnv {
   cached = {
     // Spring server root only -- no trailing path. The BFF appends
     // `/api/v1/<resource>` to reach the Tier-1 versioned REST surface
-    // (Finacle DIGITAL API / Temenos IRIS / Oracle Banking APIs).
+    // (Tier-1 CBS versioned REST surface).
     backendBaseUrl:
       process.env.CBS_BACKEND_URL || "http://localhost:8080",
     sessionSecret: requireSecret(

@@ -2,7 +2,7 @@
  * CBS Sidebar — Tier-1 module → sub-navigation panel.
  * @file src/components/layout/Sidebar.tsx
  *
- * Finacle / T24 / Flexcube convention:
+ * Tier-1 CBS convention (RBI IT Governance 2023):
  *   - Module headers expand/collapse to reveal operation sub-items.
  *   - Accordion: only one module open at a time.
  *   - Sub-items are role-gated (MAKER/CHECKER/ADMIN).

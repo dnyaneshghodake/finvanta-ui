@@ -6,7 +6,7 @@
  *   - AuditHashChip: monospaced 12-char prefix of the SHA-256 hash
  *     chain anchor for a posting; identity trust at a glance.
  *   - CorrelationRefBadge: short "Ref: <id>" chip so an operator can
- *     read it back to the support desk, Finacle-style.
+ *     read it back to the support desk.
  */
 'use client';
 

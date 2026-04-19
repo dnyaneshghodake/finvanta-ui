@@ -2,7 +2,7 @@
  * CBS Header — Tier-1 chrome bar.
  * @file src/components/layout/Header.tsx
  *
- * Mandatory elements per Finacle / T24 / Flexcube convention:
+ * Mandatory elements per Tier-1 CBS convention:
  *   - Brand mark (left)
  *   - Branch code + branch name (center-left, always visible)
  *   - Business date (center-right, always visible)

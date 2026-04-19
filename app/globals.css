@@ -3,8 +3,8 @@
 /**
  * FINVANTA CBS Tier-1 Design Tokens
  *
- * Palette follows the Finacle / Temenos T24 / Oracle Flexcube /
- * TCS BaNCS convention for a regulated-bank workspace:
+ * Palette follows Tier-1 CBS convention for a regulated-bank
+ * workspace per RBI IT Governance Direction 2023:
  *   - cbs-navy  : primary chrome (header, nav, CTAs)
  *   - cbs-steel : secondary surfaces (table headers, form borders)
  *   - cbs-ink   : body copy

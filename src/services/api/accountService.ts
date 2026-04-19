@@ -188,7 +188,7 @@ function adapt<TSpring, TUi>(
 
 class AccountService {
   /**
-   * Branch-scoped paginated list (Finacle CUSTACCT_LOOKUP).
+   * Branch-scoped paginated account list.
    * Backend enforces branch isolation using the authenticated
    * operator's SOL; HO users can cross branches only via an explicit
    * `branchId` query parameter whose authorisation is checked server-
@@ -228,7 +228,7 @@ class AccountService {
   }
 
   /**
-   * Transaction history (Finacle STMT_DETAIL via mini-statement).
+   * Transaction history (mini-statement).
    * Spring exposes `GET /accounts/{n}/mini-statement?count=N`; the UI
    * paginates client-side over the returned slice.
    */

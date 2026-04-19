@@ -3,8 +3,7 @@
 /**
  * FINVANTA CBS - Fund Transfer (capture -> confirm).
  *
- * Tier-1 two-leg CBS transfer workflow, aligned with Finacle "Funds
- * Transfer" and Temenos T24 AC.FUNDS.TRANSFER. The UI never computes
+ * Tier-1 two-leg CBS transfer workflow. The UI never computes
  * fees, cutoffs, NPCI windows, or limit checks -- that is the sole
  * responsibility of Spring `TransactionEngine.execute()`. We simply:
  *

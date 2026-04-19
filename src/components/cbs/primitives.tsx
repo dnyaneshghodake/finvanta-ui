@@ -1,8 +1,8 @@
 /**
  * FINVANTA CBS Tier-1 form primitives.
  *
- * Thin, accessible, deterministic inputs aligned with Finacle /
- * Temenos T24 / Oracle Flexcube / TCS BaNCS conventions:
+ * Thin, accessible, deterministic inputs aligned with Tier-1 CBS
+ * conventions per RBI IT Governance Direction 2023:
  *
  *   - Amounts: INR only (ASCII "INR" prefix), tabular-nums, 2-decimal
  *     display, right-aligned, negative values rendered in red.
