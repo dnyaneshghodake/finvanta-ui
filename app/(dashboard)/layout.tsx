@@ -5,12 +5,16 @@ import { useRouter } from 'next/navigation';
 import { Header, Sidebar } from '@/components/layout';
 import { useAuthStore } from '@/store/authStore';
 import { Spinner } from '@/components/atoms';
+import { useSessionTimeout } from '@/hooks/useSessionTimeout';
+import { SessionTimeoutWarning } from '@/components/molecules/SessionTimeoutWarning';
 
 /**
  * Authenticated layout for all dashboard pages.
  *
- * Uses an `isInitialized` flag to prevent the redirect effect from
- * firing before loadUserFromStorage has had a chance to hydrate state.
+ * Enforces:
+ * - Auth hydration before rendering
+ * - Redirect to /login if not authenticated
+ * - Session inactivity timeout with countdown warning
  */
 export default function DashboardLayout({
   children,
@@ -18,8 +22,11 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   const router = useRouter();
-  const { isAuthenticated, loadUserFromStorage } = useAuthStore();
+  const { isAuthenticated, loadUserFromStorage, logout } = useAuthStore();
   const [isInitialized, setIsInitialized] = useState(false);
+
+  // Session timeout — 15 min inactivity, 2 min warning
+  const { secondsRemaining, isWarningActive, resetTimer } = useSessionTimeout();
 
   useEffect(() => {
     // Hydrate auth state from localStorage, then mark as ready
@@ -33,6 +40,17 @@ export default function DashboardLayout({
       router.push('/login');
     }
   }, [isInitialized, isAuthenticated, router]);
+
+  const handleStayLoggedIn = () => {
+    resetTimer();
+  };
+
+  const handleLogoutNow = async () => {
+    await logout();
+    if (typeof window !== 'undefined') {
+      window.location.href = '/login';
+    }
+  };
 
   // Still hydrating — show spinner, not a redirect
   if (!isInitialized) {
@@ -61,6 +79,15 @@ export default function DashboardLayout({
           <div className="p-4 sm:p-6 lg:p-8">{children}</div>
         </main>
       </div>
+
+      {/* Session timeout warning overlay */}
+      {isWarningActive && secondsRemaining !== null && (
+        <SessionTimeoutWarning
+          secondsRemaining={secondsRemaining}
+          onStayLoggedIn={handleStayLoggedIn}
+          onLogout={handleLogoutNow}
+        />
+      )}
     </div>
   );
 }

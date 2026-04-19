@@ -60,11 +60,28 @@ apiClient.interceptors.request.use(
       config.headers.Authorization = `Bearer ${token}`;
     }
 
-    // Add request ID for tracing
+    // Correlation ID for distributed tracing (unique per request)
+    config.headers['X-Correlation-ID'] = generateRequestId();
+
+    // Request ID for backend audit trail
     config.headers['X-Request-ID'] = generateRequestId();
 
     // Add client version
     config.headers['X-Client-Version'] = process.env.NEXT_PUBLIC_APP_VERSION || '1.0.0';
+
+    // Branch context injection — Tier-1 CBS requirement
+    // Branch is set at login time and must never be overridden by the UI.
+    // The backend validates this against the JWT claims.
+    const authState = useAuthStore.getState();
+    if (authState.user) {
+      const user = authState.user as Record<string, unknown>;
+      if (user.branchCode) {
+        config.headers['X-Branch-Code'] = String(user.branchCode);
+      }
+      if (user.tenantId) {
+        config.headers['X-Tenant-ID'] = String(user.tenantId);
+      }
+    }
 
     logger.debug(`[REQUEST] ${config.method?.toUpperCase()} ${config.url}`, {
       params: config.params,

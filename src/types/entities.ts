@@ -4,7 +4,13 @@
  */
 
 /**
- * User entity representing a bank customer
+ * User entity representing a bank customer or staff member.
+ *
+ * CBS-critical fields:
+ * - branchCode: assigned at login, injected into every API request
+ * - tenantId: multi-tenant isolation key
+ * - roles: used for role-based UI rendering and route guards
+ * - permissions: field-level permission enforcement
  */
 export interface User {
   id: string;
@@ -20,7 +26,30 @@ export interface User {
   createdAt: Date;
   updatedAt: Date;
   lastLogin: Date | null;
+
+  // CBS-specific fields
+  branchCode?: string;
+  branchName?: string;
+  tenantId?: string;
+  roles: UserRole[];
+  permissions?: string[];
 }
+
+/**
+ * User role — determines UI visibility and action authorization.
+ * The backend is the source of truth; UI only renders based on these.
+ */
+export type UserRole =
+  | 'TELLER'
+  | 'OFFICER'
+  | 'MANAGER'
+  | 'BRANCH_ADMIN'
+  | 'ADMIN_HO'
+  | 'AUDITOR'
+  | 'MAKER'
+  | 'CHECKER'
+  | 'APPROVER'
+  | 'VIEWER';
 
 /**
  * Bank account entity
