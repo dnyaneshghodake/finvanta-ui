@@ -30,22 +30,51 @@ export const hasAllRoles = (...requiredRoles: UserRole[]): boolean => {
 
 /**
  * Check if the current user has a specific permission string.
+ * Searches both the flat `permissions[]` array and the structured
+ * `permissionsByModule` map from the new Spring login response.
  */
 export const hasPermission = (permission: string): boolean => {
   const user = useAuthStore.getState().user;
-  if (!user || !user.permissions) return false;
-  return user.permissions.includes(permission);
+  if (!user) return false;
+  // Check flat permissions array first (legacy + derived)
+  if (user.permissions?.includes(permission)) return true;
+  // Check structured permissionsByModule map
+  if (user.permissionsByModule) {
+    return Object.values(user.permissionsByModule)
+      .some((perms) => perms.includes(permission));
+  }
+  return false;
+};
+
+/**
+ * Check if the current user has access to a specific CBS module.
+ * Uses `allowedModules[]` from the new Spring login response.
+ */
+export const hasModuleAccess = (module: string): boolean => {
+  const user = useAuthStore.getState().user;
+  if (!user?.allowedModules) return true; // No restriction data → allow (backend gates)
+  return user.allowedModules.includes(module);
 };
 
 /**
  * Check if user is a maker (can create/submit records).
+ * Checks both the role array and the makerCheckerRole field.
  */
-export const isMaker = (): boolean => hasRole('MAKER', 'TELLER', 'OFFICER');
+export const isMaker = (): boolean => {
+  const user = useAuthStore.getState().user;
+  if (user?.makerCheckerRole === 'MAKER') return true;
+  return hasRole('MAKER', 'TELLER', 'OFFICER');
+};
 
 /**
  * Check if user is a checker (can verify/approve records).
+ * Checks both the role array and the makerCheckerRole field.
  */
-export const isChecker = (): boolean => hasRole('CHECKER', 'MANAGER', 'APPROVER');
+export const isChecker = (): boolean => {
+  const user = useAuthStore.getState().user;
+  if (user?.makerCheckerRole === 'CHECKER') return true;
+  return hasRole('CHECKER', 'MANAGER', 'APPROVER');
+};
 
 /**
  * Check if user is HO admin (head office admin — can see all branches).

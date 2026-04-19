@@ -76,6 +76,24 @@ const Header: FC<HeaderProps> = ({ className }) => {
   const displayName = user?.displayName || user?.firstName || user?.username || 'Operator';
   const primaryRole = user?.roles?.[0] || '';
 
+  // Day status from the server-authoritative businessDay context.
+  const businessDay = useAuthStore((s) => s.businessDay);
+  const dayStatus = businessDay?.dayStatus || null;
+  const DAY_STATUS_LABEL: Record<string, string> = {
+    DAY_OPEN: 'Day Open',
+    DAY_CLOSED: 'Day Closed',
+    DAY_CLOSE: 'Day Closed',
+    EOD_IN_PROGRESS: 'EOD In Progress',
+    BOD_IN_PROGRESS: 'BOD In Progress',
+  };
+  const DAY_STATUS_TONE: Record<string, string> = {
+    DAY_OPEN: 'text-cbs-olive-700 bg-cbs-olive-50',
+    DAY_CLOSED: 'text-cbs-crimson-700 bg-cbs-crimson-50',
+    DAY_CLOSE: 'text-cbs-crimson-700 bg-cbs-crimson-50',
+    EOD_IN_PROGRESS: 'text-cbs-gold-700 bg-cbs-gold-50',
+    BOD_IN_PROGRESS: 'text-cbs-gold-700 bg-cbs-gold-50',
+  };
+
   return (
     <header
       className={`bg-cbs-navy-800 text-white sticky top-0 z-50 cbs-no-print ${className || ''}`}
@@ -117,10 +135,14 @@ const Header: FC<HeaderProps> = ({ className }) => {
             <span className="text-cbs-navy-300 uppercase tracking-wider text-[10px] font-semibold">Biz Date</span>
             <span className="cbs-tabular font-semibold text-white">{bizDate}</span>
           </div>
-          <div className="w-px h-4 bg-cbs-navy-600" />
-          <span className="cbs-ribbon text-cbs-olive-700 bg-cbs-olive-50 text-[10px]">
-            Day Open
-          </span>
+          {dayStatus && (
+            <>
+              <div className="w-px h-4 bg-cbs-navy-600" />
+              <span className={`cbs-ribbon text-[10px] ${DAY_STATUS_TONE[dayStatus] || 'text-cbs-steel-700 bg-cbs-mist'}`}>
+                {DAY_STATUS_LABEL[dayStatus] || dayStatus.replace(/_/g, ' ')}
+              </span>
+            </>
+          )}
         </div>
 
         {/* Right: operator identity */}

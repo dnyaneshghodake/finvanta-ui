@@ -43,6 +43,26 @@ interface BffLoginOk {
     expiresAt: number;
     csrfToken: string;
     businessDate?: string;
+    businessDay?: {
+      businessDate: string;
+      dayStatus: string;
+      isHoliday: boolean;
+      previousBusinessDate?: string;
+      nextBusinessDate?: string;
+    } | null;
+    operationalConfig?: {
+      baseCurrency: string;
+      decimalPrecision: number;
+      roundingMode: string;
+      fiscalYearStartMonth: number;
+      businessDayPolicy: string;
+    } | null;
+    transactionLimits?: Array<{
+      transactionType: string;
+      channel: string | null;
+      perTransactionLimit: number;
+      dailyAggregateLimit: number;
+    }> | null;
   };
   correlationId?: string;
 }
@@ -146,6 +166,8 @@ function LoginInner() {
         csrfToken: response.data.data.csrfToken,
         expiresAt: response.data.data.expiresAt,
         businessDate: response.data.data.businessDate ?? null,
+        businessDay: response.data.data.businessDay ?? null,
+        operationalConfig: response.data.data.operationalConfig ?? null,
         isAuthenticated: true,
         isHydrated: true,
         isLoading: false,
