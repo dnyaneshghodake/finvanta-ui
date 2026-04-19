@@ -7,9 +7,10 @@ import { format, parseISO } from 'date-fns';
 import { enIN } from 'date-fns/locale';
 
 /**
- * Format date to readable string
+ * Format date to readable string.
+ * Default: CBS canonical DD-MMM-YYYY (e.g. 19-APR-2026).
  */
-export const formatDate = (date: string | Date, dateFormat: string = 'dd/MM/yyyy'): string => {
+export const formatDate = (date: string | Date, dateFormat: string = 'dd-MMM-yyyy'): string => {
   try {
     const dateObj = typeof date === 'string' ? parseISO(date) : date;
     return format(dateObj, dateFormat, { locale: enIN });
@@ -19,9 +20,10 @@ export const formatDate = (date: string | Date, dateFormat: string = 'dd/MM/yyyy
 };
 
 /**
- * Format date with time
+ * Format date with time.
+ * Default: CBS canonical DD-MMM-YYYY HH:mm (e.g. 19-APR-2026 14:30).
  */
-export const formatDateTime = (date: string | Date, dateTimeFormat: string = 'dd/MM/yyyy HH:mm'): string => {
+export const formatDateTime = (date: string | Date, dateTimeFormat: string = 'dd-MMM-yyyy HH:mm'): string => {
   return formatDate(date, dateTimeFormat);
 };
 

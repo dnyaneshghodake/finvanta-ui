@@ -100,7 +100,19 @@ export default function MfaPage() {
   };
 
   return (
-    <main id="cbs-main" className="min-h-screen flex items-center justify-center bg-cbs-mist p-6">
+    <main id="cbs-main" className="min-h-screen flex flex-col items-center justify-center bg-cbs-mist p-6">
+      {/* Minimal branding — confirms the operator is on the FINVANTA platform */}
+      <div className="flex items-center gap-2 mb-4">
+        <div
+          aria-hidden="true"
+          className="h-7 w-7 bg-cbs-navy-800 text-white flex items-center justify-center text-[10px] font-bold select-none"
+        >
+          FV
+        </div>
+        <span className="text-xs font-semibold text-cbs-steel-600 uppercase tracking-wider">
+          FINVANTA CBS
+        </span>
+      </div>
       <div className="w-full max-w-md cbs-surface">
         <div className="cbs-surface-header">
           <div className="text-sm font-semibold tracking-wide uppercase text-cbs-steel-700">
@@ -174,7 +186,7 @@ export default function MfaPage() {
           <button
             type="button"
             onClick={() => router.push('/login')}
-            className="w-full text-xs text-cbs-steel-600 hover:underline"
+            className="cbs-btn cbs-btn-secondary w-full text-xs"
           >
             Cancel and return to sign-in
           </button>

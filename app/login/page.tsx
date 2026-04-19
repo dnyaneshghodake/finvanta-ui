@@ -146,11 +146,14 @@ function LoginInner() {
               <h2 className="text-xl font-semibold">Core Banking Platform</h2>
             </div>
           </div>
-          <p className="mt-10 text-cbs-navy-100 text-sm leading-relaxed max-w-sm">
-            RBI-compliant Tier-1 core banking for CASA, Term Deposits, Loans,
-            General Ledger, Clearing, and Maker-Checker workflow. All sign-ins
-            are audited on an immutable SHA-256 hash chain.
-          </p>
+          <div className="mt-10 flex items-start gap-3 max-w-sm">
+            <ShieldCheck size={20} strokeWidth={1.5} className="text-cbs-navy-300 mt-0.5 shrink-0" aria-hidden="true" />
+            <p className="text-cbs-navy-100 text-sm leading-relaxed">
+              RBI-compliant Tier-1 core banking for CASA, Term Deposits, Loans,
+              General Ledger, Clearing, and Maker-Checker workflow. All sign-ins
+              are audited on an immutable SHA-256 hash chain.
+            </p>
+          </div>
         </div>
         <div className="text-xs text-cbs-navy-200 leading-relaxed">
           This system is for authorised users only. Activity is monitored and
@@ -162,6 +165,26 @@ function LoginInner() {
 
       <section className="flex items-center justify-center p-6 md:p-12">
         <div className="w-full max-w-md">
+          {/* Mobile-only branding — aside is hidden below md breakpoint */}
+          <div className="md:hidden mb-6">
+            <div className="flex items-center gap-2 mb-3">
+              <div
+                aria-hidden="true"
+                className="h-8 w-8 bg-cbs-navy-800 text-white flex items-center justify-center text-xs font-bold select-none"
+              >
+                FV
+              </div>
+              <div>
+                <div className="text-[10px] uppercase tracking-widest text-cbs-steel-500">FINVANTA</div>
+                <div className="text-sm font-semibold text-cbs-ink">Core Banking Platform</div>
+              </div>
+            </div>
+            <p className="text-[10px] text-cbs-steel-400 leading-relaxed">
+              Authorised users only. Activity monitored per RBI IT Governance
+              Direction 2023. Unauthorised access prosecuted under IT Act, 2000.
+            </p>
+          </div>
+
           <h1 className="text-2xl font-semibold text-cbs-ink">Sign in</h1>
           <p className="mt-1 text-sm text-cbs-steel-600">
             Use your FINVANTA corporate credentials.
@@ -293,7 +316,21 @@ function LoginInner() {
 
 export default function LoginPage() {
   return (
-    <Suspense fallback={<main className="min-h-screen bg-cbs-mist" />}>
+    <Suspense
+      fallback={
+        <main className="min-h-screen flex items-center justify-center bg-cbs-mist">
+          <div className="text-center">
+            <div
+              aria-hidden="true"
+              className="mx-auto h-10 w-10 bg-cbs-navy-800 text-white flex items-center justify-center font-bold select-none mb-3"
+            >
+              FV
+            </div>
+            <div className="cbs-skeleton cbs-skeleton-heading mx-auto" style={{ width: 120 }} />
+          </div>
+        </main>
+      }
+    >
       <LoginInner />
     </Suspense>
   );
