@@ -40,6 +40,8 @@ import {
   CorrelationRefBadge,
   KeyValue,
   StatusRibbon,
+  CbsFieldset,
+  CbsTextarea,
 } from '@/components/cbs';
 
 const ACCOUNT_NUMBER_RE = /^[A-Z0-9][A-Z0-9-]{5,24}$/;
@@ -48,11 +50,13 @@ const schema = z.object({
   fromAccountNumber: z
     .string()
     .trim()
-    .regex(ACCOUNT_NUMBER_RE, 'Enter a valid debit account number'),
+    .transform((v) => v.toUpperCase())
+    .pipe(z.string().regex(ACCOUNT_NUMBER_RE, 'Enter a valid debit account number')),
   toAccountNumber: z
     .string()
     .trim()
-    .regex(ACCOUNT_NUMBER_RE, 'Enter a valid credit account number'),
+    .transform((v) => v.toUpperCase())
+    .pipe(z.string().regex(ACCOUNT_NUMBER_RE, 'Enter a valid credit account number')),
   amount: z
     .string()
     .regex(/^\d+(\.\d{1,2})?$/, 'Enter a valid amount')
@@ -190,48 +194,55 @@ export default function TransfersPage() {
           </div>
           <form
             onSubmit={handleSubmit(onConfirm)}
-            className="cbs-surface-body grid md:grid-cols-2 gap-4"
+            className="cbs-surface-body space-y-4"
           >
-            <AccountNo
-              label="Debit account"
-              {...register('fromAccountNumber')}
-              error={errors.fromAccountNumber?.message}
-            />
-            <AccountNo
-              label="Credit account"
-              {...register('toAccountNumber')}
-              error={errors.toAccountNumber?.message}
-            />
-            <AmountInr label="Amount" {...register('amount')} error={errors.amount?.message} />
-            <ValueDate
-              label="Value date"
-              hint="Defaults to today if left blank."
-              {...register('valueDate')}
-            />
-            <div className="md:col-span-2">
-              <label htmlFor="narration" className="cbs-field-label block mb-1">
-                Narration
-              </label>
-              <input
-                id="narration"
-                type="text"
-                maxLength={140}
-                className="cbs-input"
-                {...register('narration')}
-              />
-              {errors.narration && (
-                <div className="mt-1 text-xs text-cbs-crimson-700">
-                  {errors.narration.message}
+            <CbsFieldset legend="Debit Leg">
+              <div className="grid md:grid-cols-2 gap-4">
+                <AccountNo
+                  label="Debit account"
+                  {...register('fromAccountNumber')}
+                  error={errors.fromAccountNumber?.message}
+                />
+              </div>
+            </CbsFieldset>
+
+            <CbsFieldset legend="Credit Leg">
+              <div className="grid md:grid-cols-2 gap-4">
+                <AccountNo
+                  label="Credit account"
+                  {...register('toAccountNumber')}
+                  error={errors.toAccountNumber?.message}
+                />
+              </div>
+            </CbsFieldset>
+
+            <CbsFieldset legend="Transaction Details">
+              <div className="grid md:grid-cols-2 gap-4">
+                <AmountInr label="Amount" {...register('amount')} error={errors.amount?.message} />
+                <ValueDate
+                  label="Value date"
+                  hint="Defaults to today if left blank."
+                  {...register('valueDate')}
+                />
+                <div className="md:col-span-2">
+                  <CbsTextarea
+                    label="Narration"
+                    maxLength={140}
+                    placeholder="e.g. Rent payment — Apr 2026"
+                    {...register('narration')}
+                    error={errors.narration?.message}
+                  />
                 </div>
-              )}
-            </div>
-            <div className="md:col-span-2 text-xs text-cbs-steel-600 border-t border-cbs-steel-100 pt-3">
+              </div>
+            </CbsFieldset>
+
+            <div className="text-xs text-cbs-steel-600 border-t border-cbs-steel-100 pt-3">
               By clicking Confirm you authorise the TransactionEngine to post a
               double-entry journal into the general ledger. A stable idempotency
               key protects against retries. This action is maker-checker gated
               when the amount exceeds your role limit.
             </div>
-            <div className="md:col-span-2 flex gap-2 justify-end pt-2 border-t border-cbs-steel-100">
+            <div className="flex gap-2 justify-end pt-2 border-t border-cbs-steel-100">
               <button
                 type="submit"
                 disabled={isSubmitting}

@@ -4,3 +4,4 @@
  */
 
 export { useSessionTimeout } from './useSessionTimeout';
+export { useCbsKeyboard, kbdLabel, type CbsShortcutMap } from './useCbsKeyboard';

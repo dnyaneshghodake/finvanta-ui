@@ -7,6 +7,7 @@ import { useAuthStore } from '@/store/authStore';
 import { Spinner } from '@/components/atoms';
 import { useSessionTimeout } from '@/hooks/useSessionTimeout';
 import { SessionTimeoutWarning } from '@/components/molecules/SessionTimeoutWarning';
+import { CbsToastContainer } from '@/components/cbs/ToastContainer';
 import { authService } from '@/services/api/authService';
 import { logger } from '@/utils/logger';
 
@@ -91,6 +92,9 @@ export default function DashboardLayout({
           <div className="p-3 sm:p-4 lg:p-6">{children}</div>
         </main>
       </div>
+
+      {/* Toast notifications — positioned top-right below header */}
+      <CbsToastContainer />
 
       {/* Session timeout warning overlay */}
       {isWarningActive && secondsRemaining !== null && (
