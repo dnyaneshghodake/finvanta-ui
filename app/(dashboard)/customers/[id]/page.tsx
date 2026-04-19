@@ -27,27 +27,65 @@ import {
   type ApprovalTrailEntry,
 } from '@/components/cbs';
 import { Button, Spinner } from '@/components/atoms';
+import { formatCbsDate } from '@/utils/formatters';
 
+/** Full CIF record — matches the creation schema for 360° view. */
 interface CustomerDetail {
   id: number;
   customerNumber: string;
+  /* Personal (CKYC Part I) */
+  customerType: string;
   firstName: string;
+  middleName?: string;
   lastName: string;
+  fatherOrSpouseName?: string;
+  motherName?: string;
   dob?: string;
+  gender?: string;
+  maritalStatus?: string;
+  nationality?: string;
+  residentStatus?: string;
+  /* KYC / OVD */
   pan?: string;
   aadhaar?: string;
-  mobile?: string;
-  email?: string;
-  customerType: string;
+  ckycNumber?: string;
+  passportNumber?: string;
+  passportExpiry?: string;
+  voterId?: string;
+  drivingLicense?: string;
   kycStatus: string;
+  /* Contact */
+  mobile?: string;
+  alternateMobile?: string;
+  email?: string;
+  communicationPref?: string;
+  /* Occupation & Income */
+  occupation?: string;
+  annualIncomeRange?: string;
+  sourceOfFunds?: string;
+  /* Risk & Compliance */
+  riskCategory?: string;
+  pepFlag?: boolean;
+  fatcaCountry?: string;
+  customerSegment?: string;
+  /* Cross-Module */
+  sourceOfIntroduction?: string;
+  relationshipManagerId?: string;
+  /* Corporate */
+  companyName?: string;
+  cin?: string;
+  gstin?: string;
+  dateOfIncorporation?: string;
+  constitutionType?: string;
+  natureOfBusiness?: string;
+  /* Addresses */
+  permanentAddress?: { line1?: string; line2?: string; city?: string; district?: string; state?: string; pincode?: string; country?: string };
+  correspondenceAddress?: { line1?: string; line2?: string; city?: string; district?: string; state?: string; pincode?: string; country?: string };
+  /* Legacy single address fallback */
+  address?: { street?: string; city?: string; state?: string; pincode?: string };
+  /* Meta */
   status: string;
   branchCode?: string;
-  address?: {
-    street?: string;
-    city?: string;
-    state?: string;
-    pincode?: string;
-  };
   createdAt?: string;
   updatedAt?: string;
 }
@@ -58,6 +96,25 @@ interface LinkedAccount {
   status: string;
   ledgerBalance: number | string;
   currencyCode?: string;
+}
+
+/** Fixed deposit linked to this CIF. */
+interface LinkedFD {
+  fdNumber: string;
+  principal: number;
+  rate: number;
+  maturityDate: string;
+  status: string;
+}
+
+/** Loan linked to this CIF. */
+interface LinkedLoan {
+  loanAccountNumber: string;
+  loanType: string;
+  sanctionedAmount: number;
+  outstandingAmount: number;
+  emiAmount?: number;
+  status: string;
 }
 
 export default function CustomerDetailPage() {
@@ -152,79 +209,107 @@ export default function CustomerDetailPage() {
         </div>
       </div>
 
-      {/* Personal Details */}
-      <section className="cbs-surface">
-        <div className="cbs-surface-header">
-          <span className="text-sm font-semibold uppercase tracking-wider text-cbs-steel-700">
-            Personal Details
-          </span>
-        </div>
+      {/* 1. Personal Identification (CKYC Part I) */}
+      <section className="cbs-surface"><div className="cbs-surface-header"><span className="text-sm font-semibold uppercase tracking-wider text-cbs-steel-700">Personal Identification — CKYC Part I</span></div>
         <div className="cbs-surface-body grid grid-cols-1 md:grid-cols-4 gap-4">
-          <KeyValue label="First Name">
-            <span className="font-medium">{customer.firstName}</span>
-          </KeyValue>
-          <KeyValue label="Last Name">
-            <span className="font-medium">{customer.lastName}</span>
-          </KeyValue>
-          <KeyValue label="Date of Birth">
-            <span className="cbs-tabular">{customer.dob || '—'}</span>
-          </KeyValue>
-          <KeyValue label="Customer Type">
-            <span>{customer.customerType}</span>
-          </KeyValue>
-        </div>
-      </section>
+          <KeyValue label="Customer Type"><span>{customer.customerType}</span></KeyValue>
+          <KeyValue label="First Name"><span className="font-medium">{customer.firstName}</span></KeyValue>
+          {customer.middleName && <KeyValue label="Middle Name"><span>{customer.middleName}</span></KeyValue>}
+          <KeyValue label="Last Name"><span className="font-medium">{customer.lastName}</span></KeyValue>
+          <KeyValue label="Father / Spouse Name"><span>{customer.fatherOrSpouseName || '—'}</span></KeyValue>
+          <KeyValue label="Mother Name"><span>{customer.motherName || '—'}</span></KeyValue>
+          <KeyValue label="Date of Birth"><span className="cbs-tabular">{customer.dob ? formatCbsDate(customer.dob) : '—'}</span></KeyValue>
+          <KeyValue label="Gender"><span>{customer.gender || '—'}</span></KeyValue>
+          <KeyValue label="Marital Status"><span>{customer.maritalStatus || '—'}</span></KeyValue>
+          <KeyValue label="Nationality"><span>{customer.nationality || '—'}</span></KeyValue>
+          <KeyValue label="Resident Status"><span>{customer.residentStatus || '—'}</span></KeyValue>
+        </div></section>
 
-      {/* KYC Details — PII masked */}
-      <section className="cbs-surface">
-        <div className="cbs-surface-header">
-          <span className="text-sm font-semibold uppercase tracking-wider text-cbs-steel-700">
-            KYC Details
-          </span>
-          <StatusRibbon status={
-            customer.kycStatus === 'VERIFIED' ? 'APPROVED' :
-            customer.kycStatus === 'PENDING' ? 'PENDING_VERIFICATION' : 'REJECTED'
-          } />
-        </div>
+      {/* 2. KYC / OVD Documents */}
+      <section className="cbs-surface"><div className="cbs-surface-header"><span className="text-sm font-semibold uppercase tracking-wider text-cbs-steel-700">KYC / OVD Documents</span>
+          <StatusRibbon status={customer.kycStatus === 'VERIFIED' ? 'APPROVED' : customer.kycStatus === 'PENDING' ? 'PENDING_VERIFICATION' : 'REJECTED'} /></div>
         <div className="cbs-surface-body grid grid-cols-1 md:grid-cols-4 gap-4">
-          <KeyValue label="PAN">
-            <span className="cbs-tabular">{customer.pan ? maskPan(customer.pan) : '—'}</span>
-          </KeyValue>
-          <KeyValue label="Aadhaar">
-            <span className="cbs-tabular">{customer.aadhaar ? maskAadhaar(customer.aadhaar) : '—'}</span>
-          </KeyValue>
-          <KeyValue label="Mobile">
-            <span className="cbs-tabular">{customer.mobile || '—'}</span>
-          </KeyValue>
-          <KeyValue label="Email">
-            <span>{customer.email || '—'}</span>
-          </KeyValue>
-        </div>
-      </section>
+          <KeyValue label="PAN"><span className="cbs-tabular">{customer.pan ? maskPan(customer.pan) : '—'}</span></KeyValue>
+          <KeyValue label="Aadhaar"><span className="cbs-tabular">{customer.aadhaar ? maskAadhaar(customer.aadhaar) : '—'}</span></KeyValue>
+          {customer.ckycNumber && <KeyValue label="CKYC Number"><span className="cbs-tabular">{customer.ckycNumber}</span></KeyValue>}
+          {customer.passportNumber && <KeyValue label="Passport"><span className="cbs-tabular">{customer.passportNumber}</span></KeyValue>}
+          {customer.voterId && <KeyValue label="Voter ID"><span className="cbs-tabular">{customer.voterId}</span></KeyValue>}
+          {customer.drivingLicense && <KeyValue label="Driving License"><span className="cbs-tabular">{customer.drivingLicense}</span></KeyValue>}
+        </div></section>
 
-      {/* Address */}
-      {customer.address && (
-        <section className="cbs-surface">
-          <div className="cbs-surface-header">
-            <span className="text-sm font-semibold uppercase tracking-wider text-cbs-steel-700">
-              Address
-            </span>
-          </div>
+      {/* 3. Contact */}
+      <section className="cbs-surface"><div className="cbs-surface-header"><span className="text-sm font-semibold uppercase tracking-wider text-cbs-steel-700">Contact Details</span></div>
+        <div className="cbs-surface-body grid grid-cols-1 md:grid-cols-4 gap-4">
+          <KeyValue label="Mobile"><span className="cbs-tabular">{customer.mobile || '—'}</span></KeyValue>
+          {customer.alternateMobile && <KeyValue label="Alternate Mobile"><span className="cbs-tabular">{customer.alternateMobile}</span></KeyValue>}
+          <KeyValue label="Email"><span>{customer.email || '—'}</span></KeyValue>
+          {customer.communicationPref && <KeyValue label="Communication Pref"><span>{customer.communicationPref}</span></KeyValue>}
+        </div></section>
+
+      {/* 4. Occupation & Income (CKYC Part II) */}
+      {(customer.occupation || customer.annualIncomeRange) && (
+        <section className="cbs-surface"><div className="cbs-surface-header"><span className="text-sm font-semibold uppercase tracking-wider text-cbs-steel-700">Occupation &amp; Income</span></div>
           <div className="cbs-surface-body grid grid-cols-1 md:grid-cols-4 gap-4">
-            <KeyValue label="Street">
-              <span>{customer.address.street || '—'}</span>
-            </KeyValue>
-            <KeyValue label="City">
-              <span>{customer.address.city || '—'}</span>
-            </KeyValue>
-            <KeyValue label="State">
-              <span>{customer.address.state || '—'}</span>
-            </KeyValue>
-            <KeyValue label="Pincode">
-              <span className="cbs-tabular">{customer.address.pincode || '—'}</span>
-            </KeyValue>
-          </div>
-        </section>
+            {customer.occupation && <KeyValue label="Occupation"><span>{customer.occupation.replace(/_/g, ' ')}</span></KeyValue>}
+            {customer.annualIncomeRange && <KeyValue label="Annual Income"><span>{customer.annualIncomeRange.replace(/_/g, ' ')}</span></KeyValue>}
+            {customer.sourceOfFunds && <KeyValue label="Source of Funds"><span>{customer.sourceOfFunds}</span></KeyValue>}
+          </div></section>
+      )}
+
+      {/* 5. Risk & Compliance */}
+      <section className="cbs-surface"><div className="cbs-surface-header"><span className="text-sm font-semibold uppercase tracking-wider text-cbs-steel-700">Risk &amp; Compliance</span></div>
+        <div className="cbs-surface-body grid grid-cols-1 md:grid-cols-4 gap-4">
+          <KeyValue label="Risk Category"><span className={customer.riskCategory === 'HIGH' ? 'text-cbs-crimson-700 font-semibold' : ''}>{customer.riskCategory || 'LOW'}</span></KeyValue>
+          <KeyValue label="PEP"><span className={customer.pepFlag ? 'text-cbs-crimson-700 font-semibold' : ''}>{customer.pepFlag ? 'Yes' : 'No'}</span></KeyValue>
+          {customer.fatcaCountry && <KeyValue label="FATCA Country"><span>{customer.fatcaCountry}</span></KeyValue>}
+          {customer.customerSegment && <KeyValue label="Segment"><span>{customer.customerSegment}</span></KeyValue>}
+        </div></section>
+
+      {/* 6. Corporate Details (conditional) */}
+      {customer.customerType === 'CORPORATE' && customer.companyName && (
+        <section className="cbs-surface"><div className="cbs-surface-header"><span className="text-sm font-semibold uppercase tracking-wider text-cbs-steel-700">Corporate Details</span></div>
+          <div className="cbs-surface-body grid grid-cols-1 md:grid-cols-4 gap-4">
+            <KeyValue label="Company Name"><span className="font-medium">{customer.companyName}</span></KeyValue>
+            {customer.cin && <KeyValue label="CIN"><span className="cbs-tabular">{customer.cin}</span></KeyValue>}
+            {customer.gstin && <KeyValue label="GSTIN"><span className="cbs-tabular">{customer.gstin}</span></KeyValue>}
+            {customer.constitutionType && <KeyValue label="Constitution"><span>{customer.constitutionType.replace(/_/g, ' ')}</span></KeyValue>}
+            {customer.natureOfBusiness && <KeyValue label="Nature of Business"><span>{customer.natureOfBusiness}</span></KeyValue>}
+          </div></section>
+      )}
+
+      {/* 7. Permanent Address */}
+      {(customer.permanentAddress || customer.address) && (
+        <section className="cbs-surface"><div className="cbs-surface-header"><span className="text-sm font-semibold uppercase tracking-wider text-cbs-steel-700">Permanent Address</span></div>
+          <div className="cbs-surface-body grid grid-cols-1 md:grid-cols-4 gap-4">
+            {customer.permanentAddress ? (<>
+              <KeyValue label="Line 1"><span>{customer.permanentAddress.line1 || '—'}</span></KeyValue>
+              {customer.permanentAddress.line2 && <KeyValue label="Line 2"><span>{customer.permanentAddress.line2}</span></KeyValue>}
+              <KeyValue label="City"><span>{customer.permanentAddress.city || '—'}</span></KeyValue>
+              <KeyValue label="District"><span>{customer.permanentAddress.district || '—'}</span></KeyValue>
+              <KeyValue label="State"><span>{customer.permanentAddress.state || '—'}</span></KeyValue>
+              <KeyValue label="Pincode"><span className="cbs-tabular">{customer.permanentAddress.pincode || '—'}</span></KeyValue>
+              <KeyValue label="Country"><span>{customer.permanentAddress.country || '—'}</span></KeyValue>
+            </>) : customer.address ? (<>
+              <KeyValue label="Street"><span>{customer.address.street || '—'}</span></KeyValue>
+              <KeyValue label="City"><span>{customer.address.city || '—'}</span></KeyValue>
+              <KeyValue label="State"><span>{customer.address.state || '—'}</span></KeyValue>
+              <KeyValue label="Pincode"><span className="cbs-tabular">{customer.address.pincode || '—'}</span></KeyValue>
+            </>) : null}
+          </div></section>
+      )}
+
+      {/* 8. Correspondence Address */}
+      {customer.correspondenceAddress && (
+        <section className="cbs-surface"><div className="cbs-surface-header"><span className="text-sm font-semibold uppercase tracking-wider text-cbs-steel-700">Correspondence Address</span></div>
+          <div className="cbs-surface-body grid grid-cols-1 md:grid-cols-4 gap-4">
+            <KeyValue label="Line 1"><span>{customer.correspondenceAddress.line1 || '—'}</span></KeyValue>
+            {customer.correspondenceAddress.line2 && <KeyValue label="Line 2"><span>{customer.correspondenceAddress.line2}</span></KeyValue>}
+            <KeyValue label="City"><span>{customer.correspondenceAddress.city || '—'}</span></KeyValue>
+            <KeyValue label="District"><span>{customer.correspondenceAddress.district || '—'}</span></KeyValue>
+            <KeyValue label="State"><span>{customer.correspondenceAddress.state || '—'}</span></KeyValue>
+            <KeyValue label="Pincode"><span className="cbs-tabular">{customer.correspondenceAddress.pincode || '—'}</span></KeyValue>
+            <KeyValue label="Country"><span>{customer.correspondenceAddress.country || '—'}</span></KeyValue>
+          </div></section>
       )}
 
       {/* Linked Accounts */}
