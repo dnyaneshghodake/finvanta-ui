@@ -163,8 +163,8 @@ function LoginInner() {
         </div>
       </aside>
 
-      <section className="flex items-center justify-center p-6 md:p-12">
-        <div className="w-full max-w-md">
+      <section className="flex items-center justify-center p-6 md:p-8 lg:p-12">
+        <div className="w-full max-w-lg">
           {/* Mobile-only branding — aside is hidden below md breakpoint */}
           <div className="md:hidden mb-6">
             <div className="flex items-center gap-2 mb-3">
