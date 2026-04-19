@@ -75,9 +75,10 @@ export default function CustomerSearchPage() {
             Search by CIF number, PAN, Aadhaar, name, or mobile number.
           </p>
         </div>
-        <Link href="/customers/new" className="cbs-btn cbs-btn-primary">
-          + New Customer
-        </Link>
+        <div className="flex gap-2">
+          <Link href="/customers/kyc" className="cbs-btn cbs-btn-secondary">KYC Verification</Link>
+          <Link href="/customers/new" className="cbs-btn cbs-btn-primary">+ New Customer</Link>
+        </div>
       </div>
 
       {/* Search Form */}

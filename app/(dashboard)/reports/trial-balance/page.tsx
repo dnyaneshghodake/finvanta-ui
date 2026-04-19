@@ -10,6 +10,7 @@
  */
 
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { apiClient } from '@/services/api/apiClient';
 import { Spinner } from '@/components/atoms';
 
@@ -51,8 +52,11 @@ export default function TrialBalancePage() {
             General Ledger trial balance as of {asOfDate || 'today'}.
           </p>
         </div>
-        <div className={`cbs-ribbon ${isBalanced ? 'text-cbs-olive-700 bg-cbs-olive-50 border-cbs-olive-600' : 'text-cbs-crimson-700 bg-cbs-crimson-50 border-cbs-crimson-600'}`}>
-          {isBalanced ? 'BALANCED' : 'MISMATCH'}
+        <div className="flex items-center gap-2">
+          <Link href="/reports/gl" className="cbs-btn cbs-btn-secondary">GL Inquiry</Link>
+          <div className={`cbs-ribbon ${isBalanced ? 'text-cbs-olive-700 bg-cbs-olive-50 border-cbs-olive-600' : 'text-cbs-crimson-700 bg-cbs-crimson-50 border-cbs-crimson-600'}`}>
+            {isBalanced ? 'BALANCED' : 'MISMATCH'}
+          </div>
         </div>
       </div>
 

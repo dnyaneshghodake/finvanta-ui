@@ -44,9 +44,10 @@ export default function AccountsPage() {
           <h1 className="text-xl font-semibold text-cbs-ink">Accounts</h1>
           <p className="text-xs text-cbs-steel-600 mt-0.5">Branch deposit account portfolio.</p>
         </div>
-        <Link href="/accounts/new">
-          <Button size="sm" variant="secondary">+ New Account</Button>
-        </Link>
+        <div className="flex gap-2">
+          <Link href="/transfers" className="cbs-btn cbs-btn-secondary">Transfer</Link>
+          <Link href="/accounts/new" className="cbs-btn cbs-btn-primary">+ New Account</Link>
+        </div>
       </div>
 
       {isLoading ? (

@@ -50,7 +50,11 @@ export default function LoanInquiryPage() {
             Active loan accounts for current branch.
           </p>
         </div>
-        <Link href="/loans/apply" className="cbs-btn cbs-btn-primary">+ New Application</Link>
+        <div className="flex gap-2">
+          <Link href="/loans/disburse" className="cbs-btn cbs-btn-secondary">Disbursement</Link>
+          <Link href="/loans/repay" className="cbs-btn cbs-btn-secondary">Repayment</Link>
+          <Link href="/loans/apply" className="cbs-btn cbs-btn-primary">+ New Application</Link>
+        </div>
       </div>
 
       {loading ? (

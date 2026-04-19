@@ -136,34 +136,20 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          {/* Quick Actions */}
-          <Card>
-            <div>
-              <h3 className="text-sm font-semibold text-cbs-ink uppercase tracking-wider mb-3">Quick Actions</h3>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                <Link href="/transfers">
-                  <Button fullWidth variant="primary" size="sm">
-                    Transfer
-                  </Button>
-                </Link>
-                <Link href="/beneficiaries">
-                  <Button fullWidth variant="secondary" size="sm">
-                    Beneficiaries
-                  </Button>
-                </Link>
-                <Link href="/accounts">
-                  <Button fullWidth variant="secondary" size="sm">
-                    Accounts
-                  </Button>
-                </Link>
-                <Link href="/profile">
-                  <Button fullWidth variant="secondary" size="sm">
-                    Profile
-                  </Button>
-                </Link>
-              </div>
+          {/* Quick Actions — CBS operational shortcuts */}
+          <section className="cbs-surface">
+            <div className="cbs-surface-header">
+              <span className="text-sm font-semibold uppercase tracking-wider text-cbs-steel-700">Quick Actions</span>
             </div>
-          </Card>
+            <div className="cbs-surface-body grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-2">
+              <Link href="/transfers"><Button fullWidth variant="primary" size="sm">Transfer</Button></Link>
+              <Link href="/accounts/new"><Button fullWidth variant="secondary" size="sm">Open Account</Button></Link>
+              <Link href="/customers/new"><Button fullWidth variant="secondary" size="sm">New Customer</Button></Link>
+              <Link href="/deposits/new"><Button fullWidth variant="secondary" size="sm">Book FD</Button></Link>
+              <Link href="/loans/apply"><Button fullWidth variant="secondary" size="sm">Loan Application</Button></Link>
+              <Link href="/workflow"><Button fullWidth variant="secondary" size="sm">Workflow Queue</Button></Link>
+            </div>
+          </section>
         </>
       )}
     </div>

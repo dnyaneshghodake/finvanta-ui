@@ -94,12 +94,22 @@ export default function TenantSetupPage() {
         </div>
       </section>
 
-      {/* Legacy Management Link */}
-      <div className="flex gap-2">
-        <Link href="/legacy/admin/tenant" className="cbs-btn cbs-btn-secondary">
-          Manage via Legacy Admin
-        </Link>
-      </div>
+      {/* Setup Navigation — CBS bank setup ceremony */}
+      <section className="cbs-surface">
+        <div className="cbs-surface-header">
+          <span className="text-sm font-semibold uppercase tracking-wider text-cbs-steel-700">
+            Bank Setup Steps
+          </span>
+        </div>
+        <div className="cbs-surface-body flex flex-wrap gap-2">
+          <span className="cbs-ribbon text-cbs-olive-700 bg-cbs-olive-50 border-cbs-olive-600">1. TENANT ✓</span>
+          <Link href="/admin/calendar" className="cbs-btn cbs-btn-secondary">2. Calendar →</Link>
+          <Link href="/admin/branches" className="cbs-btn cbs-btn-secondary">3. Branches →</Link>
+          <Link href="/admin/users" className="cbs-btn cbs-btn-secondary">4. Users →</Link>
+          <Link href="/admin/gl" className="cbs-btn cbs-btn-secondary">5. GL Setup →</Link>
+          <Link href="/admin/products" className="cbs-btn cbs-btn-secondary">6. Products →</Link>
+        </div>
+      </section>
     </div>
   );
 }

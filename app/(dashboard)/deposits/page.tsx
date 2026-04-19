@@ -52,9 +52,11 @@ export default function FdInquiryPage() {
             Active fixed deposit portfolio for current branch.
           </p>
         </div>
-        <Link href="/deposits/new" className="cbs-btn cbs-btn-primary">
-          + Book FD
-        </Link>
+        <div className="flex gap-2">
+          <Link href="/deposits/close" className="cbs-btn cbs-btn-secondary">Premature Close</Link>
+          <Link href="/deposits/lien" className="cbs-btn cbs-btn-secondary">Lien Mgmt</Link>
+          <Link href="/deposits/new" className="cbs-btn cbs-btn-primary">+ Book FD</Link>
+        </div>
       </div>
 
       {loading ? (
