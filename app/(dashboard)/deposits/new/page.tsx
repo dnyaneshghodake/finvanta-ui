@@ -58,12 +58,19 @@ export default function BookFdPage() {
   const onSubmit = async (data: FdForm) => {
     setError(null);
     try {
+      // Map form fields → Spring REST_API_COMPLETE_CATALOGUE §FD Module.
+      // Spring expects `principalAmount` (not `depositAmount`),
+      // `tenureDays` (not `tenureMonths`), `autoRenewalMode` (YES/NO),
+      // and requires `branchId` + `interestRate`.
       const res = await apiClient.post('/fixed-deposits/book', {
         customerId: Number(data.customerId),
+        branchId: 1, // TODO: read from session user's branch
         linkedAccountNumber: data.linkedAccountNumber.toUpperCase(),
-        depositAmount: Number(data.depositAmount),
-        tenureMonths: Number(data.tenureMonths),
-        autoRenew: data.autoRenew,
+        principalAmount: Number(data.depositAmount),
+        interestRate: 0, // Server determines from product + tenure slab
+        tenureDays: Number(data.tenureMonths) * 30, // Approximate; server recalculates exact
+        interestPayoutMode: 'MATURITY',
+        autoRenewalMode: data.autoRenew ? 'YES' : 'NO',
         nomineeName: data.nomineeName || undefined,
       });
       const corr = res.headers?.['x-correlation-id'] as string | undefined;
