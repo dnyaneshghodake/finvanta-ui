@@ -1,0 +1,45 @@
+# FINVANTA CBS -- local dev stack. Spring Boot (H2 in-memory) + Next.js BFF.
+# Use for manual smoke tests and UI development against a running backend.
+#
+#   docker compose up --build
+#
+# Then open http://localhost:3000
+
+services:
+  finvanta-backend:
+    build:
+      context: ../finvanta
+      dockerfile: Dockerfile
+    image: finvanta-cbs:dev
+    environment:
+      SPRING_PROFILES_ACTIVE: dev
+      SERVER_PORT: "8080"
+    ports:
+      - "8080:8080"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8080/actuator/health"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+
+  finvanta-ui:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: finvanta-ui:dev
+    environment:
+      NODE_ENV: production
+      CBS_BACKEND_URL: http://finvanta-backend:8080
+      CBS_SESSION_SECRET: "change-me-in-real-deploy-minimum-32-chars"
+      CBS_CSRF_SECRET: "change-me-in-real-deploy-minimum-32-chars"
+      CBS_SESSION_COOKIE: fv_sid
+      CBS_CSRF_COOKIE: fv_csrf
+      CBS_MFA_COOKIE: fv_mfa
+      CBS_SESSION_TTL_SECONDS: "28800"
+      CBS_MFA_TTL_SECONDS: "300"
+      CBS_DEFAULT_TENANT: DEFAULT
+    depends_on:
+      finvanta-backend:
+        condition: service_healthy
+    ports:
+      - "3000:3000"

@@ -148,7 +148,7 @@ export const validateMatch = (value1: string, value2: string): boolean => {
 /**
  * Validate that required field is not empty
  */
-export const validateRequired = (value: any): boolean => {
+export const validateRequired = (value: unknown): boolean => {
   if (value === null || value === undefined) return false;
   if (typeof value === 'string') return value.trim().length > 0;
   if (Array.isArray(value)) return value.length > 0;

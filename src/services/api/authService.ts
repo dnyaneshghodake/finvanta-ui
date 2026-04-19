@@ -1,150 +1,129 @@
 /**
- * Authentication service for CBS Banking Application
- * @file src/services/api/authService.ts
+ * Authentication service.
  *
- * Login endpoint is at the server root (/login), not under the /api prefix.
- * All other auth endpoints use the standard apiClient baseURL.
+ * All auth calls go through the Next.js BFF under /api/cbs/auth/**.
+ * The BFF holds the JWT in a server-side encrypted session; the
+ * browser only ever sees HttpOnly fv_sid + JS-readable fv_csrf
+ * cookies. Nothing here touches localStorage.
  */
-
-import axios from 'axios';
-import { apiClient } from './apiClient';
-import {
+import axios from "axios";
+import { apiClient } from "./apiClient";
+import type {
   LoginRequest,
-  RegisterRequest,
+  ApiResponse,
   PasswordResetRequest,
   PasswordResetConfirm,
-  ApiResponse,
-} from '@/types/api';
-import { User, AuthToken } from '@/types/entities';
+  RegisterRequest,
+} from "@/types/api";
+import type { User } from "@/types/entities";
 
-/**
- * Base URL for the backend server (without /api prefix).
- * Login sits at the server root: POST http://localhost:8080/login
- */
-const SERVER_BASE_URL = process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:8080';
+export interface LoginBffResponse {
+  user: User;
+  expiresAt: number;
+  csrfToken: string;
+}
 
-/**
- * Authentication API service
- */
+export interface MfaVerifyRequest {
+  challengeId: string;
+  otp: string;
+}
+
+export interface HeartbeatResponse {
+  remainingSeconds: number;
+  warning: boolean;
+  expiresAt: number;
+}
+
 class AuthService {
-  /**
-   * Login user with email and password.
-   *
-   * The Spring Boot login endpoint lives at /login on the server root,
-   * NOT under the /api prefix, so we use a standalone axios call.
-   */
-  async login(credentials: LoginRequest): Promise<ApiResponse<AuthToken>> {
-    const response = await axios.post<ApiResponse<AuthToken>>(
-      `${SERVER_BASE_URL}/login`,
-      credentials,
+  async login(credentials: LoginRequest): Promise<ApiResponse<LoginBffResponse>> {
+    const response = await axios.post<ApiResponse<LoginBffResponse>>(
+      "/api/cbs/auth/login",
       {
-        headers: { 'Content-Type': 'application/json' },
+        username: credentials.email || (credentials as { username?: string }).username,
+        password: credentials.password,
+        rememberMe: credentials.rememberMe,
+      },
+      {
+        headers: { "Content-Type": "application/json" },
         withCredentials: true,
         timeout: 30000,
-      }
+      },
     );
     return response.data;
   }
 
-  /**
-   * Register new user
-   */
+  async logout(): Promise<ApiResponse<null>> {
+    const response = await axios.post<ApiResponse<null>>(
+      "/api/cbs/auth/logout",
+      {},
+      { withCredentials: true },
+    );
+    return response.data;
+  }
+
+  async getCurrentUser(): Promise<ApiResponse<LoginBffResponse>> {
+    const response = await axios.get<ApiResponse<LoginBffResponse>>(
+      "/api/cbs/auth/me",
+      { withCredentials: true },
+    );
+    return response.data;
+  }
+
+  async verifyMfa(data: MfaVerifyRequest): Promise<ApiResponse<null>> {
+    const response = await axios.post<ApiResponse<null>>(
+      "/api/cbs/auth/mfa/verify",
+      data,
+      { withCredentials: true },
+    );
+    return response.data;
+  }
+
+  async heartbeat(): Promise<ApiResponse<HeartbeatResponse>> {
+    const response = await axios.get<ApiResponse<HeartbeatResponse>>(
+      "/api/cbs/session/heartbeat",
+      { withCredentials: true },
+    );
+    return response.data;
+  }
+
+  async extendSession(): Promise<ApiResponse<null>> {
+    const response = await axios.post<ApiResponse<null>>(
+      "/api/cbs/session/extend",
+      {},
+      { withCredentials: true },
+    );
+    return response.data;
+  }
+
+  async switchBranch(branchCode: string): Promise<ApiResponse<{ branchCode: string; branchName?: string }>> {
+    const response = await axios.post<ApiResponse<{ branchCode: string; branchName?: string }>>(
+      "/api/cbs/session/switch-branch",
+      { branchCode },
+      { withCredentials: true },
+    );
+    return response.data;
+  }
+
   async register(data: RegisterRequest): Promise<ApiResponse<User>> {
     const response = await apiClient.post<ApiResponse<User>>(
-      '/auth/register',
-      data
+      "/auth/register",
+      data,
     );
     return response.data;
   }
 
-  /**
-   * Refresh access token
-   */
-  async refreshToken(refreshToken: string): Promise<ApiResponse<AuthToken>> {
-    const response = await apiClient.post<ApiResponse<AuthToken>>(
-      '/auth/refresh',
-      { refreshToken }
-    );
-    return response.data;
-  }
-
-  /**
-   * Logout user
-   */
-  async logout(): Promise<ApiResponse<null>> {
-    const response = await apiClient.post<ApiResponse<null>>('/auth/logout');
-    return response.data;
-  }
-
-  /**
-   * Request password reset
-   */
   async requestPasswordReset(data: PasswordResetRequest): Promise<ApiResponse<null>> {
     const response = await apiClient.post<ApiResponse<null>>(
-      '/auth/request-password-reset',
-      data
+      "/auth/request-password-reset",
+      data,
     );
     return response.data;
   }
 
-  /**
-   * Reset password with token
-   */
   async resetPassword(data: PasswordResetConfirm): Promise<ApiResponse<null>> {
     const response = await apiClient.post<ApiResponse<null>>(
-      '/auth/reset-password',
-      data
-    );
-    return response.data;
-  }
-
-  /**
-   * Get current user profile
-   */
-  async getCurrentUser(): Promise<ApiResponse<User>> {
-    const response = await apiClient.get<ApiResponse<User>>('/auth/me');
-    return response.data;
-  }
-
-  /**
-   * Verify email
-   */
-  async verifyEmail(token: string): Promise<ApiResponse<null>> {
-    const response = await apiClient.post<ApiResponse<null>>(
-      '/auth/verify-email',
-      { token }
-    );
-    return response.data;
-  }
-
-  /**
-   * Resend email verification
-   */
-  async resendEmailVerification(email: string): Promise<ApiResponse<null>> {
-    const response = await apiClient.post<ApiResponse<null>>(
-      '/auth/resend-verification',
-      { email }
-    );
-    return response.data;
-  }
-
-  /**
-   * Enable MFA
-   */
-  async enableMFA(): Promise<ApiResponse<{ qrCode: string; secret: string }>> {
-    const response = await apiClient.post<ApiResponse<{ qrCode: string; secret: string }>>(
-      '/auth/mfa/enable'
-    );
-    return response.data;
-  }
-
-  /**
-   * Verify MFA
-   */
-  async verifyMFA(code: string): Promise<ApiResponse<null>> {
-    const response = await apiClient.post<ApiResponse<null>>(
-      '/auth/mfa/verify',
-      { code }
+      "/auth/reset-password",
+      data,
     );
     return response.data;
   }

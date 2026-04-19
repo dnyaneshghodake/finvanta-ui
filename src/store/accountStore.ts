@@ -29,9 +29,9 @@ interface AccountState {
   selectAccount: (accountId: string) => void;
   fetchTransactions: (accountId: string, page?: number) => Promise<void>;
   fetchBeneficiaries: () => Promise<void>;
-  addBeneficiary: (data: any) => Promise<void>;
+  addBeneficiary: (data: Parameters<typeof accountService.addBeneficiary>[0]) => Promise<void>;
   removeBeneficiary: (beneficiaryId: string) => Promise<void>;
-  transfer: (accountId: string, data: any) => Promise<void>;
+  transfer: (accountId: string, data: Parameters<typeof accountService.transfer>[1]) => Promise<void>;
   setError: (error: string | null) => void;
   clearError: () => void;
 }
@@ -150,7 +150,7 @@ export const useAccountStore = create<AccountState>((set, get) => ({
     }
   },
 
-  addBeneficiary: async (data: any) => {
+  addBeneficiary: async (data) => {
     set({ isLoading: true, error: null });
     try {
       const response = await accountService.addBeneficiary(data);
@@ -193,7 +193,7 @@ export const useAccountStore = create<AccountState>((set, get) => ({
     }
   },
 
-  transfer: async (accountId: string, data: any) => {
+  transfer: async (accountId, data) => {
     set({ isLoading: true, error: null });
     try {
       const response = await accountService.transfer(accountId, data);

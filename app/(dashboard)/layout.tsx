@@ -22,17 +22,16 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   const router = useRouter();
-  const { isAuthenticated, loadUserFromStorage, logout } = useAuthStore();
+  const { isAuthenticated, isHydrated, loadSession, logout } = useAuthStore();
   const [isInitialized, setIsInitialized] = useState(false);
 
   // Session timeout — 15 min inactivity, 2 min warning
   const { secondsRemaining, isWarningActive, resetTimer } = useSessionTimeout();
 
   useEffect(() => {
-    // Hydrate auth state from localStorage, then mark as ready
-    loadUserFromStorage();
-    setIsInitialized(true);
-  }, [loadUserFromStorage]);
+    // Hydrate auth state from the server-side BFF session, then mark ready.
+    void loadSession().finally(() => setIsInitialized(true));
+  }, [loadSession]);
 
   useEffect(() => {
     // Only redirect after hydration is complete
@@ -53,7 +52,7 @@ export default function DashboardLayout({
   };
 
   // Still hydrating — show spinner, not a redirect
-  if (!isInitialized) {
+  if (!isInitialized || !isHydrated) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <Spinner size="lg" message="Initializing..." />

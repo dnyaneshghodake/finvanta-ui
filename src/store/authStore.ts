@@ -1,107 +1,67 @@
 /**
- * Authentication Zustand store for CBS Banking Application
- * @file src/store/authStore.ts
+ * Authentication Zustand store.
+ *
+ * Source of truth is the server-side session cookie. This store only
+ * caches the User object and a mirror of fv_csrf for convenience in
+ * interceptors. No JWT is held in memory or storage. `loadSession`
+ * rehydrates state from `/api/cbs/auth/me` on page load.
  */
+import { create } from "zustand";
+import { authService } from "@/services/api/authService";
+import type { User } from "@/types/entities";
+import { logger } from "@/utils/logger";
 
-import { create } from 'zustand';
-import { User } from '@/types/entities';
-import { authService } from '@/services/api/authService';
-import { logger } from '@/utils/logger';
-
-/**
- * Auth store state interface
- */
 interface AuthState {
   user: User | null;
-  token: string | null;
-  refreshToken: string | null;
+  csrfToken: string | null;
+  expiresAt: number | null;
   isAuthenticated: boolean;
   isLoading: boolean;
+  isHydrated: boolean;
   error: string | null;
 
-  // Actions
-  setUser: (user: User | null) => void;
-  setToken: (token: string | null) => void;
-  setRefreshToken: (token: string | null) => void;
   setError: (error: string | null) => void;
-  login: (email: string, password: string) => Promise<void>;
+  login: (emailOrUsername: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
-  refreshAuthToken: () => Promise<void>;
-  loadUserFromStorage: () => void;
+  loadSession: () => Promise<void>;
   clearAuth: () => void;
 }
 
-/**
- * Create auth store
- */
-export const useAuthStore = create<AuthState>((set, get) => ({
+export const useAuthStore = create<AuthState>((set) => ({
   user: null,
-  token: null,
-  refreshToken: null,
+  csrfToken: null,
+  expiresAt: null,
   isAuthenticated: false,
   isLoading: false,
+  isHydrated: false,
   error: null,
-
-  setUser: (user) => set({ user, isAuthenticated: user !== null }),
-
-  setToken: (token) => set({ token }),
-
-  setRefreshToken: (token) => set({ refreshToken: token }),
 
   setError: (error) => set({ error }),
 
-  login: async (email: string, password: string) => {
+  login: async (emailOrUsername, password) => {
     set({ isLoading: true, error: null });
     try {
-      const response = await authService.login({ email, password });
-      
-      if (response.success && response.data) {
-        const { accessToken, refreshToken } = response.data;
-        
-        // Store tokens
-        if (typeof window !== 'undefined') {
-          localStorage.setItem('cbs_access_token', accessToken);
-          localStorage.setItem('cbs_refresh_token', refreshToken);
-        }
-
-        set({
-          token: accessToken,
-          refreshToken: refreshToken,
-          isAuthenticated: true,
-        });
-
-        // Fetch user profile
-        try {
-          const userResponse = await authService.getCurrentUser();
-          if (userResponse.success && userResponse.data) {
-            set({ user: userResponse.data });
-            if (typeof window !== 'undefined') {
-              localStorage.setItem('cbs_user', JSON.stringify(userResponse.data));
-            }
-          }
-        } catch (error) {
-          logger.error('Failed to fetch user profile', error);
-        }
-
-        set({ isLoading: false });
-      } else {
-        // API returned success: false — treat as login failure
-        const message = response.error?.message || 'Login failed';
-        set({
-          isLoading: false,
-          error: message,
-          isAuthenticated: false,
-        });
+      const response = await authService.login({
+        email: emailOrUsername,
+        password,
+      });
+      if (!response.success || !response.data) {
+        const message = response.error?.message || "Login failed";
+        set({ isLoading: false, error: message, isAuthenticated: false });
         throw new Error(message);
       }
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Login failed';
-      set({ 
-        isLoading: false, 
-        error: message,
-        isAuthenticated: false 
+      set({
+        user: response.data.user,
+        csrfToken: response.data.csrfToken,
+        expiresAt: response.data.expiresAt,
+        isAuthenticated: true,
+        isHydrated: true,
+        isLoading: false,
       });
-      throw error;
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Login failed";
+      set({ isLoading: false, error: message, isAuthenticated: false });
+      throw err;
     }
   },
 
@@ -110,80 +70,48 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     try {
       await authService.logout();
     } catch (error) {
-      logger.error('Logout API call failed', error);
+      logger.error("Logout call failed", error);
     } finally {
-      get().clearAuth();
-      set({ isLoading: false });
+      set({
+        user: null,
+        csrfToken: null,
+        expiresAt: null,
+        isAuthenticated: false,
+        isLoading: false,
+      });
     }
   },
 
-  refreshAuthToken: async () => {
-    const { refreshToken } = get();
-    
-    if (!refreshToken) {
-      get().clearAuth();
-      throw new Error('No refresh token available');
-    }
-
+  loadSession: async () => {
     try {
-      const response = await authService.refreshToken(refreshToken);
-      
+      const response = await authService.getCurrentUser();
       if (response.success && response.data) {
-        const { accessToken, refreshToken: newRefreshToken } = response.data;
-        
-        if (typeof window !== 'undefined') {
-          localStorage.setItem('cbs_access_token', accessToken);
-          localStorage.setItem('cbs_refresh_token', newRefreshToken);
-        }
-
         set({
-          token: accessToken,
-          refreshToken: newRefreshToken,
+          user: response.data.user,
+          csrfToken: response.data.csrfToken,
+          expiresAt: response.data.expiresAt,
+          isAuthenticated: true,
+          isHydrated: true,
         });
+        return;
       }
     } catch (error) {
-      logger.error('Token refresh failed', error);
-      get().clearAuth();
-      throw error;
+      logger.debug("No active session", error);
     }
-  },
-
-  loadUserFromStorage: () => {
-    if (typeof window !== 'undefined') {
-      const token = localStorage.getItem('cbs_access_token');
-      const refreshToken = localStorage.getItem('cbs_refresh_token');
-      const userJson = localStorage.getItem('cbs_user');
-
-      if (token && userJson) {
-        try {
-          const user = JSON.parse(userJson);
-          set({
-            token,
-            refreshToken,
-            user,
-            isAuthenticated: true,
-          });
-        } catch (error) {
-          logger.error('Failed to parse stored user', error);
-          get().clearAuth();
-        }
-      }
-    }
-  },
-
-  clearAuth: () => {
-    if (typeof window !== 'undefined') {
-      localStorage.removeItem('cbs_access_token');
-      localStorage.removeItem('cbs_refresh_token');
-      localStorage.removeItem('cbs_user');
-    }
-
     set({
       user: null,
-      token: null,
-      refreshToken: null,
+      csrfToken: null,
+      expiresAt: null,
       isAuthenticated: false,
-      error: null,
+      isHydrated: true,
     });
   },
+
+  clearAuth: () =>
+    set({
+      user: null,
+      csrfToken: null,
+      expiresAt: null,
+      isAuthenticated: false,
+    }),
 }));

@@ -1,26 +1,307 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+/**
+ * FINVANTA CBS Tier-1 Design Tokens
+ *
+ * Palette follows the Finacle / Temenos T24 / Oracle Flexcube /
+ * TCS BaNCS convention for a regulated-bank workspace:
+ *   - cbs-navy  : primary chrome (header, nav, CTAs)
+ *   - cbs-steel : secondary surfaces (table headers, form borders)
+ *   - cbs-ink   : body copy
+ *   - cbs-paper : canvas
+ *   - cbs-mist  : zebra row / sub-surfaces
+ *   - cbs-gold  : warning / pending-approval ribbon
+ *   - cbs-olive : success / posted
+ *   - cbs-crimson : error / rejected
+ *   - cbs-violet : maker-checker / workflow
+ *
+ * No rounded-full buttons, no gradients, no shadows > md on
+ * data surfaces. Amounts render in tabular-nums, right-aligned.
+ */
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-cbs-navy-50:  #f2f5fa;
+  --color-cbs-navy-100: #d9e1ef;
+  --color-cbs-navy-200: #b2c3df;
+  --color-cbs-navy-300: #7c95bf;
+  --color-cbs-navy-400: #4d6ca0;
+  --color-cbs-navy-500: #2d4f85;
+  --color-cbs-navy-600: #1f3a6b;
+  --color-cbs-navy-700: #162a50;
+  --color-cbs-navy-800: #0f1d3a;
+  --color-cbs-navy-900: #0a1429;
+
+  --color-cbs-steel-50:  #f6f7f9;
+  --color-cbs-steel-100: #e6e9ef;
+  --color-cbs-steel-200: #c8cfdb;
+  --color-cbs-steel-300: #9ba5b7;
+  --color-cbs-steel-400: #6f7b92;
+  --color-cbs-steel-500: #4f5a70;
+  --color-cbs-steel-600: #3a4457;
+  --color-cbs-steel-700: #2b3344;
+  --color-cbs-steel-800: #1e2432;
+  --color-cbs-steel-900: #141823;
+
+  --color-cbs-ink:     #141823;
+  --color-cbs-paper:   #ffffff;
+  --color-cbs-mist:    #f6f7f9;
+
+  --color-cbs-gold-50:  #fdf7e4;
+  --color-cbs-gold-100: #f7e9ae;
+  --color-cbs-gold-600: #a37300;
+  --color-cbs-gold-700: #7a5500;
+
+  --color-cbs-olive-50:  #edf7ec;
+  --color-cbs-olive-100: #cfe6cd;
+  --color-cbs-olive-600: #2f6b32;
+  --color-cbs-olive-700: #234f24;
+
+  --color-cbs-crimson-50:  #fbecec;
+  --color-cbs-crimson-100: #f2c2c2;
+  --color-cbs-crimson-600: #9a1d1d;
+  --color-cbs-crimson-700: #741313;
+
+  --color-cbs-violet-50:  #ece9f7;
+  --color-cbs-violet-100: #cfc4ea;
+  --color-cbs-violet-600: #432e8a;
+  --color-cbs-violet-700: #2f206a;
+
+  --font-cbs-sans: "Inter", "IBM Plex Sans", "Segoe UI", -apple-system,
+    BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif;
+  --font-cbs-mono: "JetBrains Mono", "IBM Plex Mono", ui-monospace,
+    SFMono-Regular, Menlo, monospace;
+
+  --radius-cbs:    2px;
+  --radius-cbs-md: 4px;
+  --radius-cbs-lg: 6px;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+:root {
+  --background: #ffffff;
+  --foreground: #141823;
+  color-scheme: light;
+}
+
+html,
+body {
+  height: 100%;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-cbs-sans);
+  font-feature-settings: "cv11", "ss01", "tnum";
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Data-dense utility classes used across CBS screens. */
+.cbs-tabular {
+  font-variant-numeric: tabular-nums;
+  font-family: var(--font-cbs-mono);
+}
+
+.cbs-amount {
+  font-variant-numeric: tabular-nums;
+  font-family: var(--font-cbs-mono);
+  text-align: right;
+  white-space: nowrap;
+}
+
+.cbs-amount-debit {
+  color: var(--color-cbs-crimson-700);
+}
+
+.cbs-amount-credit {
+  color: var(--color-cbs-olive-700);
+}
+
+.cbs-field-label {
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-cbs-steel-600);
+  font-weight: 600;
+}
+
+.cbs-field-value {
+  font-size: 14px;
+  color: var(--color-cbs-ink);
+  font-weight: 500;
+}
+
+.cbs-ribbon {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 22px;
+  padding: 0 8px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  border-radius: 2px;
+  border: 1px solid currentColor;
+}
+
+.cbs-surface {
+  background: var(--color-cbs-paper);
+  border: 1px solid var(--color-cbs-steel-200);
+  border-radius: var(--radius-cbs-md);
+}
+
+.cbs-surface-header {
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--color-cbs-steel-200);
+  background: var(--color-cbs-mist);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.cbs-surface-body {
+  padding: 14px;
+}
+
+.cbs-grid-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 13px;
+}
+
+.cbs-grid-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--color-cbs-steel-50);
+  border-bottom: 1px solid var(--color-cbs-steel-200);
+  padding: 8px 10px;
+  text-align: left;
+  font-weight: 600;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-cbs-steel-700);
+}
+
+.cbs-grid-table tbody td {
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--color-cbs-steel-100);
+  vertical-align: top;
+}
+
+.cbs-grid-table tbody tr:nth-child(even) td {
+  background: var(--color-cbs-mist);
+}
+
+.cbs-grid-table tbody tr:hover td {
+  background: var(--color-cbs-navy-50);
+}
+
+.cbs-input {
+  width: 100%;
+  height: 34px;
+  padding: 0 10px;
+  font-size: 13px;
+  line-height: 20px;
+  color: var(--color-cbs-ink);
+  background: var(--color-cbs-paper);
+  border: 1px solid var(--color-cbs-steel-300);
+  border-radius: var(--radius-cbs);
+  outline: none;
+}
+
+.cbs-input:focus {
+  border-color: var(--color-cbs-navy-500);
+  box-shadow: 0 0 0 2px var(--color-cbs-navy-100);
+}
+
+.cbs-input[disabled],
+.cbs-input[readonly] {
+  background: var(--color-cbs-mist);
+  color: var(--color-cbs-steel-600);
+}
+
+.cbs-input-mono {
+  font-family: var(--font-cbs-mono);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+}
+
+.cbs-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 34px;
+  padding: 0 14px;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  border-radius: var(--radius-cbs);
+  transition: background-color 120ms ease, border-color 120ms ease;
+  border: 1px solid transparent;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.cbs-btn[disabled] {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.cbs-btn-primary {
+  background: var(--color-cbs-navy-700);
+  color: #fff;
+  border-color: var(--color-cbs-navy-800);
+}
+
+.cbs-btn-primary:hover:not([disabled]) {
+  background: var(--color-cbs-navy-800);
+}
+
+.cbs-btn-secondary {
+  background: var(--color-cbs-paper);
+  color: var(--color-cbs-navy-700);
+  border-color: var(--color-cbs-steel-300);
+}
+
+.cbs-btn-secondary:hover:not([disabled]) {
+  background: var(--color-cbs-steel-50);
+}
+
+.cbs-btn-danger {
+  background: var(--color-cbs-crimson-600);
+  color: #fff;
+  border-color: var(--color-cbs-crimson-700);
+}
+
+.cbs-btn-danger:hover:not([disabled]) {
+  background: var(--color-cbs-crimson-700);
+}
+
+.cbs-link {
+  color: var(--color-cbs-navy-600);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.cbs-link:hover {
+  color: var(--color-cbs-navy-800);
+}
+
+@media print {
+  body {
+    background: #fff;
+  }
+  .cbs-no-print {
+    display: none !important;
+  }
+  .cbs-grid-table thead th {
+    background: #fff;
+    color: #000;
+    border-bottom: 1px solid #000;
+  }
 }

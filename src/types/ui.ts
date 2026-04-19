@@ -83,7 +83,7 @@ export interface TableColumn<T> {
   label: string;
   sortable?: boolean;
   width?: string;
-  render?: (value: any, row: T) => React.ReactNode;
+  render?: (value: unknown, row: T) => React.ReactNode;
 }
 
 /**
@@ -112,7 +112,7 @@ export interface PaginationState {
  * Form field state
  */
 export interface FormFieldState {
-  value: any;
+  value: unknown;
   touched: boolean;
   error?: string;
   isDirty: boolean;

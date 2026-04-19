@@ -1,0 +1,89 @@
+/**
+ * Server-side session store keyed on the HttpOnly fv_sid cookie.
+ *
+ * We intentionally do NOT store the JWT in localStorage or any other
+ * browser-accessible slot. The Spring backend's JWT is held inside the
+ * encrypted session blob (see ./crypto.ts) and re-attached by the BFF
+ * proxy on every downstream call. A parallel JS-readable fv_csrf
+ * cookie carries the double-submit token; the value is also embedded
+ * in the session blob so forged fv_csrf values without a session are
+ * rejected.
+ */
+import "server-only";
+import { cookies } from "next/headers";
+import { decryptSession, encryptSession, generateCsrfToken } from "./crypto";
+import { serverEnv } from "./env";
+
+export interface CbsSessionUser {
+  id?: string;
+  username: string;
+  firstName?: string;
+  lastName?: string;
+  email?: string;
+  roles: string[];
+  permissions?: string[];
+  branchCode?: string;
+  branchName?: string;
+  tenantId?: string;
+  mfaEnrolled?: boolean;
+}
+
+export interface CbsSession {
+  accessToken: string;
+  refreshToken?: string;
+  tokenType: string;
+  expiresAt: number;
+  user: CbsSessionUser;
+  csrfToken: string;
+  mfaVerifiedAt?: number;
+  issuedAt: number;
+  correlationId?: string;
+}
+
+export async function readSession(): Promise<CbsSession | null> {
+  const env = serverEnv();
+  const jar = await cookies();
+  const sid = jar.get(env.sessionCookieName)?.value;
+  if (!sid) return null;
+  const session = decryptSession<CbsSession>(sid);
+  if (!session) return null;
+  if (session.expiresAt && session.expiresAt < Date.now()) return null;
+  return session;
+}
+
+export async function writeSession(
+  partial: Omit<CbsSession, "csrfToken" | "issuedAt"> & { csrfToken?: string },
+): Promise<CbsSession> {
+  const env = serverEnv();
+  const jar = await cookies();
+  const csrfToken = partial.csrfToken ?? generateCsrfToken();
+  const session: CbsSession = {
+    ...partial,
+    csrfToken,
+    issuedAt: Date.now(),
+  };
+  const encrypted = encryptSession(session);
+  const common = {
+    path: "/",
+    secure: env.isProduction,
+    sameSite: "lax" as const,
+  };
+  jar.set(env.sessionCookieName, encrypted, {
+    ...common,
+    httpOnly: true,
+    maxAge: env.sessionTtlSeconds,
+  });
+  jar.set(env.csrfCookieName, csrfToken, {
+    ...common,
+    httpOnly: false,
+    maxAge: env.sessionTtlSeconds,
+  });
+  return session;
+}
+
+export async function clearSession(): Promise<void> {
+  const env = serverEnv();
+  const jar = await cookies();
+  jar.delete(env.sessionCookieName);
+  jar.delete(env.csrfCookieName);
+}

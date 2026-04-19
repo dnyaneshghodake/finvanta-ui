@@ -1,0 +1,246 @@
+/**
+ * FINVANTA CBS Tier-1 form primitives.
+ *
+ * Thin, accessible, deterministic inputs aligned with Finacle /
+ * Temenos T24 / Oracle Flexcube / TCS BaNCS conventions:
+ *
+ *   - Amounts: INR only (ASCII "INR" prefix), tabular-nums, 2-decimal
+ *     display, right-aligned, negative values rendered in red.
+ *   - IFSC: 11-char [A-Z]{4}0[A-Z0-9]{6} pattern, forced uppercase.
+ *   - PAN: 10-char [A-Z]{5}[0-9]{4}[A-Z] pattern, masked display
+ *     (first 4 + *** + last 1) in read-only views per RBI KYC.
+ *   - Aadhaar: 12-digit, displayed masked (last 4 visible) per
+ *     UIDAI guideline; raw value never echoed into the DOM in read-
+ *     only views.
+ *   - Account number: opaque masked display ("****1234"); the full
+ *     value remains in state only for submit.
+ *   - Value date: calendar-date text input (dd-MMM-yyyy), rendered
+ *     ASCII-only to match the persisted audit format.
+ *   - GL code / Branch code: read-only chips; editing branch context
+ *     is prohibited client-side per the BFF branch injection rule.
+ *
+ * These primitives never reach into business rules -- limits, cutoffs,
+ * and holiday calendars are enforced by Spring. Zod schemas only
+ * improve the UX by surfacing malformed inputs before submit.
+ */
+'use client';
+
+import { forwardRef, type InputHTMLAttributes } from 'react';
+
+type BaseProps = Omit<InputHTMLAttributes<HTMLInputElement>, 'type'> & {
+  label: string;
+  error?: string;
+  hint?: string;
+};
+
+function FieldShell({
+  id,
+  label,
+  error,
+  hint,
+  children,
+}: {
+  id: string;
+  label: string;
+  error?: string;
+  hint?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div>
+      <label htmlFor={id} className="cbs-field-label block mb-1">
+        {label}
+      </label>
+      {children}
+      {error ? (
+        <div className="mt-1 text-xs text-cbs-crimson-700">{error}</div>
+      ) : hint ? (
+        <div className="mt-1 text-xs text-cbs-steel-600">{hint}</div>
+      ) : null}
+    </div>
+  );
+}
+
+/** Amount in INR. Always two decimals, ASCII INR prefix, right-aligned. */
+export const AmountInr = forwardRef<HTMLInputElement, BaseProps>(
+  function AmountInr({ label, error, hint, id, ...rest }, ref) {
+    const fieldId = id || `amt-${label.replace(/\s+/g, '-').toLowerCase()}`;
+    return (
+      <FieldShell id={fieldId} label={label} error={error} hint={hint}>
+        <div className="flex cbs-input p-0 overflow-hidden">
+          <span className="inline-flex items-center px-3 bg-cbs-mist border-r border-cbs-steel-200 text-cbs-steel-700 text-xs font-semibold uppercase tracking-wider">
+            INR
+          </span>
+          <input
+            ref={ref}
+            id={fieldId}
+            inputMode="decimal"
+            placeholder="0.00"
+            className="flex-1 cbs-amount bg-transparent outline-none px-2 h-[32px]"
+            aria-invalid={!!error}
+            {...rest}
+          />
+        </div>
+      </FieldShell>
+    );
+  },
+);
+
+/** IFSC 11-char code, forced uppercase. */
+export const Ifsc = forwardRef<HTMLInputElement, BaseProps>(
+  function Ifsc({ label, error, hint, id, ...rest }, ref) {
+    const fieldId = id || `ifsc-${label.replace(/\s+/g, '-').toLowerCase()}`;
+    return (
+      <FieldShell id={fieldId} label={label} error={error} hint={hint}>
+        <input
+          ref={ref}
+          id={fieldId}
+          type="text"
+          maxLength={11}
+          minLength={11}
+          pattern="[A-Z]{4}0[A-Z0-9]{6}"
+          inputMode="text"
+          className="cbs-input cbs-tabular uppercase tracking-wider"
+          aria-invalid={!!error}
+          {...rest}
+        />
+      </FieldShell>
+    );
+  },
+);
+
+/** PAN: 10 chars ABCDE1234F. Forced uppercase. */
+export const Pan = forwardRef<HTMLInputElement, BaseProps>(
+  function Pan({ label, error, hint, id, ...rest }, ref) {
+    const fieldId = id || `pan-${label.replace(/\s+/g, '-').toLowerCase()}`;
+    return (
+      <FieldShell id={fieldId} label={label} error={error} hint={hint}>
+        <input
+          ref={ref}
+          id={fieldId}
+          type="text"
+          maxLength={10}
+          minLength={10}
+          pattern="[A-Z]{5}[0-9]{4}[A-Z]"
+          inputMode="text"
+          className="cbs-input cbs-tabular uppercase tracking-wider"
+          aria-invalid={!!error}
+          {...rest}
+        />
+      </FieldShell>
+    );
+  },
+);
+
+/** Aadhaar: 12 digits (unmasked entry, masked display elsewhere). */
+export const Aadhaar = forwardRef<HTMLInputElement, BaseProps>(
+  function Aadhaar({ label, error, hint, id, ...rest }, ref) {
+    const fieldId = id || `aadhaar-${label.replace(/\s+/g, '-').toLowerCase()}`;
+    return (
+      <FieldShell id={fieldId} label={label} error={error} hint={hint}>
+        <input
+          ref={ref}
+          id={fieldId}
+          type="text"
+          maxLength={12}
+          minLength={12}
+          pattern="\d{12}"
+          inputMode="numeric"
+          autoComplete="off"
+          className="cbs-input cbs-tabular tracking-widest"
+          aria-invalid={!!error}
+          {...rest}
+        />
+      </FieldShell>
+    );
+  },
+);
+
+/** Account number: 10-20 digits, CBS opaque identifier. */
+export const AccountNo = forwardRef<HTMLInputElement, BaseProps>(
+  function AccountNo({ label, error, hint, id, ...rest }, ref) {
+    const fieldId = id || `acct-${label.replace(/\s+/g, '-').toLowerCase()}`;
+    return (
+      <FieldShell id={fieldId} label={label} error={error} hint={hint}>
+        <input
+          ref={ref}
+          id={fieldId}
+          type="text"
+          maxLength={20}
+          minLength={10}
+          pattern="\d{10,20}"
+          inputMode="numeric"
+          className="cbs-input cbs-tabular tracking-widest"
+          aria-invalid={!!error}
+          {...rest}
+        />
+      </FieldShell>
+    );
+  },
+);
+
+/** Value date: dd-MMM-yyyy, ASCII-only. */
+export const ValueDate = forwardRef<HTMLInputElement, BaseProps>(
+  function ValueDate({ label, error, hint, id, ...rest }, ref) {
+    const fieldId = id || `vdate-${label.replace(/\s+/g, '-').toLowerCase()}`;
+    return (
+      <FieldShell id={fieldId} label={label} error={error} hint={hint}>
+        <input
+          ref={ref}
+          id={fieldId}
+          type="date"
+          className="cbs-input cbs-tabular"
+          aria-invalid={!!error}
+          {...rest}
+        />
+      </FieldShell>
+    );
+  },
+);
+
+/** Display-only amount renderer (debit red / credit olive / neutral ink). */
+export function AmountDisplay({
+  amount,
+  sign = 'neutral',
+  className = '',
+}: {
+  amount: number | string;
+  sign?: 'debit' | 'credit' | 'neutral';
+  className?: string;
+}) {
+  const raw = typeof amount === 'string' ? Number(amount) : amount;
+  const safe = Number.isFinite(raw) ? raw : 0;
+  const formatted = safe.toLocaleString('en-IN', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+  const tone =
+    sign === 'debit'
+      ? 'cbs-amount-debit'
+      : sign === 'credit'
+        ? 'cbs-amount-credit'
+        : '';
+  return (
+    <span className={`cbs-amount ${tone} ${className}`.trim()}>
+      INR {formatted}
+    </span>
+  );
+}
+
+/** Mask a PAN for read-only display: ABCDE1234F -> ABCD***234F. */
+export function maskPan(pan: string): string {
+  if (!pan || pan.length !== 10) return '****';
+  return `${pan.slice(0, 4)}***${pan.slice(-3)}`;
+}
+
+/** Mask an Aadhaar for read-only display: last 4 only. */
+export function maskAadhaar(aadhaar: string): string {
+  if (!aadhaar || aadhaar.length !== 12) return '**** **** ****';
+  return `**** **** ${aadhaar.slice(-4)}`;
+}
+
+/** Mask an account number for read-only display: last 4 only. */
+export function maskAccountNo(acct: string): string {
+  if (!acct || acct.length < 4) return '****';
+  return `****${acct.slice(-4)}`;
+}

@@ -110,7 +110,7 @@ export interface TransferRequest {
  */
 export interface ApiRequestConfig {
   headers?: Record<string, string>;
-  params?: Record<string, any>;
+  params?: Record<string, unknown>;
   timeout?: number;
   retry?: boolean;
 }

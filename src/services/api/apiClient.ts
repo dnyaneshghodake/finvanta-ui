@@ -14,6 +14,20 @@ import { errorHandler, AppError } from '@/utils/errorHandler';
 import { useAuthStore } from '@/store/authStore';
 
 /**
+ * Read the double-submit CSRF token that the BFF set as a readable
+ * cookie (fv_csrf) at login time. This value is echoed in the
+ * X-CSRF-Token header on every mutating request so the BFF can
+ * compare it against the copy inside the encrypted session blob.
+ */
+const readCsrfFromCookie = (): string | null => {
+  if (typeof document === 'undefined') return null;
+  const match = document.cookie.match(/(?:^|;\s*)fv_csrf=([^;]+)/);
+  return match ? decodeURIComponent(match[1]) : null;
+};
+
+const SAFE_METHODS = new Set(['get', 'head', 'options']);
+
+/**
  * Custom Axios config type
  */
 interface CustomAxiosRequestConfig extends InternalAxiosRequestConfig {
@@ -38,7 +52,7 @@ const generateRequestId = (): string => {
  * Create Axios instance
  */
 const apiClient: AxiosInstance = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api',
+  baseURL: process.env.NEXT_PUBLIC_API_URL || '/api/cbs',
   timeout: parseInt(process.env.API_TIMEOUT || '30000', 10),
   headers: {
     'Content-Type': 'application/json',
@@ -54,34 +68,35 @@ apiClient.interceptors.request.use(
     // Track request time
     config._startTime = Date.now();
 
-    // Add JWT token from localStorage
-    const token = typeof window !== 'undefined' ? localStorage.getItem('cbs_access_token') : null;
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
+    // JWT is held server-side in the BFF session. The browser sends
+    // its HttpOnly fv_sid cookie automatically via withCredentials.
 
-    // Correlation ID for distributed tracing (unique per request)
-    config.headers['X-Correlation-ID'] = generateRequestId();
-
-    // Request ID for backend audit trail
+    // Per-request id for UI-side logging; the BFF generates its own
+    // X-Correlation-Id (seeded by middleware.ts) that survives retries.
     config.headers['X-Request-ID'] = generateRequestId();
-
-    // Add client version
     config.headers['X-Client-Version'] = process.env.NEXT_PUBLIC_APP_VERSION || '1.0.0';
 
-    // Branch context injection — Tier-1 CBS requirement
-    // Branch is set at login time and must never be overridden by the UI.
-    // The backend validates this against the JWT claims.
-    const authState = useAuthStore.getState();
-    if (authState.user) {
-      const user = authState.user as Record<string, unknown>;
-      if (user.branchCode) {
-        config.headers['X-Branch-Code'] = String(user.branchCode);
-      }
-      if (user.tenantId) {
-        config.headers['X-Tenant-ID'] = String(user.tenantId);
+    // Double-submit CSRF on mutating calls.
+    const method = (config.method || 'get').toLowerCase();
+    if (!SAFE_METHODS.has(method)) {
+      const csrf = readCsrfFromCookie() ?? useAuthStore.getState().csrfToken;
+      if (csrf) config.headers['X-CSRF-Token'] = csrf;
+      // Stable Idempotency-Key for financial POST retries — regenerated
+      // per logical submit, not per retry. Callers may override by
+      // setting headers['X-Idempotency-Key'] before invoking.
+      if (!config.headers['X-Idempotency-Key']) {
+        config.headers['X-Idempotency-Key'] =
+          typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+            ? crypto.randomUUID()
+            : generateRequestId();
       }
     }
+
+    // Branch / tenant context is injected server-side by the Next.js BFF
+    // from the HttpOnly session cookie. The browser never sets X-Branch-Code
+    // or X-Tenant-ID itself — see app/api/cbs/[...path]/route.ts and
+    // src/lib/server/proxy.ts. A client-side value here would simply be
+    // overwritten by the BFF.
 
     logger.debug(`[REQUEST] ${config.method?.toUpperCase()} ${config.url}`, {
       params: config.params,
@@ -120,28 +135,13 @@ apiClient.interceptors.response.use(
       details: appError.details,
     });
 
-    // Handle 401 Unauthorized - Token expired
-    if (error.response?.status === 401 && !config?._retry) {
-      config._retry = true;
-
-      try {
-        logger.warn('Token expired, attempting refresh...');
-
-        // Delegate to the Zustand store so localStorage + store stay in sync
-        await useAuthStore.getState().refreshAuthToken();
-
-        // Retry original request with the new token from store
-        const newToken = useAuthStore.getState().token;
-        config.headers.Authorization = `Bearer ${newToken}`;
-        return apiClient(config);
-      } catch (refreshError) {
-        logger.error('Token refresh failed', refreshError);
-
-        // Store's refreshAuthToken already calls clearAuth on failure,
-        // but force redirect to login as well
-        if (typeof window !== 'undefined') {
-          window.location.href = '/login';
-        }
+    // 401 from the BFF means the session cookie is gone or expired.
+    // We do not attempt a client-side refresh (JWTs are held server
+    // side); we just clear local state and send the user to /login.
+    if (error.response?.status === 401) {
+      useAuthStore.getState().clearAuth();
+      if (typeof window !== 'undefined' && !window.location.pathname.startsWith('/login')) {
+        window.location.href = '/login?reason=session_expired';
       }
     }
 

@@ -1,168 +1,234 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+/**
+ * FINVANTA CBS - Sign In (Tier-1 layout).
+ *
+ * Calls the BFF `POST /api/cbs/auth/login`. On HTTP 428 the backend has
+ * signalled an MFA step-up and the BFF has stashed the challengeId in
+ * the HttpOnly fv_mfa cookie; the browser is simply redirected to
+ * /login/mfa which will POST the TOTP to complete the step-up and
+ * materialise the session.
+ */
+
+import { Suspense, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
+import axios, { isAxiosError } from 'axios';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useAuthStore } from '@/store/authStore';
-import { useUIStore } from '@/store/uiStore';
-import { FormField } from '@/components/molecules';
-import { Button, Alert, Card } from '@/components/atoms';
+import type { User } from '@/types/entities';
 
-/**
- * Login form validation schema
- */
 const loginSchema = z.object({
-  email: z.string().email('Please enter a valid email address'),
-  password: z.string().min(6, 'Password must be at least 6 characters'),
-  rememberMe: z.boolean().optional(),
+  username: z
+    .string()
+    .min(3, 'Username must be at least 3 characters')
+    .max(80, 'Username is too long'),
+  password: z
+    .string()
+    .min(1, 'Password is required')
+    .max(200, 'Password is too long'),
 });
 
 type LoginFormData = z.infer<typeof loginSchema>;
 
-/**
- * Login page
- */
-export default function LoginPage() {
+interface BffLoginOk {
+  success: true;
+  data: {
+    user: User;
+    expiresAt: number;
+    csrfToken: string;
+  };
+  correlationId?: string;
+}
+
+interface BffLoginErr {
+  success: false;
+  errorCode: string;
+  message: string;
+  data?: { channel?: string };
+  correlationId?: string;
+}
+
+function LoginInner() {
   const router = useRouter();
-  const { login, isLoading } = useAuthStore();
-  const { addToast } = useUIStore();
-  const [error, setError] = useState<string | null>(null);
+  const search = useSearchParams();
+  const [error, setError] = useState<string | null>(() => {
+    const reason = search.get('reason');
+    if (reason === 'session_expired') return 'Your session has expired. Please sign in again.';
+    return null;
+  });
+  const [correlationId, setCorrelationId] = useState<string | null>(null);
 
   const {
     register,
     handleSubmit,
-    formState: { errors },
+    formState: { errors, isSubmitting },
   } = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),
-    defaultValues: {
-      email: '',
-      password: '',
-      rememberMe: false,
-    },
+    defaultValues: { username: '', password: '' },
   });
 
   const onSubmit = async (data: LoginFormData) => {
     setError(null);
-
+    setCorrelationId(null);
     try {
-      await login(data.email, data.password);
-      
-      addToast({
-        type: 'success',
-        title: 'Login Successful',
-        message: 'Welcome back!',
-        duration: 2000,
-      });
+      const response = await axios.post<BffLoginOk>(
+        '/api/cbs/auth/login',
+        { username: data.username, password: data.password },
+        { withCredentials: true, validateStatus: () => true },
+      );
+      setCorrelationId(response.data?.correlationId ?? null);
 
+      if (response.status === 428) {
+        router.push('/login/mfa');
+        return;
+      }
+
+      if (response.status !== 200 || !response.data?.success) {
+        const err = response.data as unknown as BffLoginErr;
+        setError(err?.message || 'Unable to sign in. Please check your credentials.');
+        return;
+      }
+
+      useAuthStore.setState({
+        user: response.data.data.user,
+        csrfToken: response.data.data.csrfToken,
+        expiresAt: response.data.data.expiresAt,
+        isAuthenticated: true,
+        isHydrated: true,
+        isLoading: false,
+        error: null,
+      });
       router.push('/dashboard');
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Login failed. Please try again.';
-      setError(message);
-      
-      addToast({
-        type: 'error',
-        title: 'Login Failed',
-        message: message,
-        duration: 3000,
-      });
+      if (isAxiosError(err)) {
+        const msg = err.response?.data?.message || err.message;
+        setError(msg || 'Network error. Please try again.');
+        return;
+      }
+      setError(err instanceof Error ? err.message : 'Unexpected error.');
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="w-full max-w-md">
-        {/* Logo */}
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center h-12 w-12 rounded-lg bg-blue-600">
-            <span className="text-white font-bold text-lg">CB</span>
+    <main className="min-h-screen grid md:grid-cols-2 bg-cbs-mist">
+      <aside className="hidden md:flex flex-col justify-between bg-cbs-navy-900 text-white p-10">
+        <div>
+          <div className="flex items-center gap-3">
+            <div className="h-10 w-10 bg-white text-cbs-navy-900 flex items-center justify-center font-bold tracking-tight">
+              FV
+            </div>
+            <div>
+              <div className="text-sm uppercase tracking-widest text-cbs-navy-200">
+                FINVANTA
+              </div>
+              <div className="text-xl font-semibold">Core Banking Platform</div>
+            </div>
           </div>
-          <h1 className="mt-4 text-3xl font-bold text-gray-900">CBS Banking</h1>
-          <p className="mt-2 text-gray-600">Enterprise Banking Solution</p>
+          <p className="mt-10 text-cbs-navy-100 text-sm leading-relaxed max-w-sm">
+            RBI-compliant Tier-1 core banking for CASA, Term Deposits, Loans,
+            General Ledger, Clearing, and Maker-Checker workflow. All sign-ins
+            are audited on an immutable SHA-256 hash chain.
+          </p>
         </div>
+        <div className="text-xs text-cbs-navy-200 leading-relaxed">
+          This system is for authorised users only. Activity is monitored and
+          recorded in accordance with RBI IT Governance Direction 2023 and the
+          bank&apos;s information security policy. Unauthorised access will be
+          prosecuted under the IT Act, 2000.
+        </div>
+      </aside>
 
-        {/* Login Card */}
-        <Card variant="elevated" className="space-y-6">
-          <div>
-            <h2 className="text-2xl font-bold text-gray-900">Sign In</h2>
-            <p className="text-gray-600 text-sm mt-1">
-              Enter your credentials to access your account
-            </p>
-          </div>
+      <section className="flex items-center justify-center p-6 md:p-12">
+        <div className="w-full max-w-md">
+          <h1 className="text-2xl font-semibold text-cbs-ink">Sign in</h1>
+          <p className="mt-1 text-sm text-cbs-steel-600">
+            Use your FINVANTA corporate credentials.
+          </p>
 
-          {error && <Alert type="error" title="Login Failed" message={error} />}
+          {error && (
+            <div
+              role="alert"
+              className="mt-6 border border-cbs-crimson-600 bg-cbs-crimson-50 text-cbs-crimson-700 p-3 text-sm"
+            >
+              <div className="font-semibold">Sign-in failed</div>
+              <div>{error}</div>
+              {correlationId && (
+                <div className="mt-1 text-xs font-mono">Ref: {correlationId}</div>
+              )}
+            </div>
+          )}
 
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-            <FormField
-              label="Email Address"
-              type="email"
-              placeholder="you@example.com"
-              error={errors.email?.message}
-              fullWidth
-              {...register('email')}
-            />
-
-            <FormField
-              label="Password"
-              type="password"
-              placeholder="Enter your password"
-              error={errors.password?.message}
-              fullWidth
-              {...register('password')}
-            />
-
-            <div className="flex items-center justify-between">
-              <label className="flex items-center">
-                <input
-                  type="checkbox"
-                  className="rounded border-gray-300"
-                  {...register('rememberMe')}
-                />
-                <span className="ml-2 text-sm text-gray-700">Remember me</span>
+          <form
+            onSubmit={handleSubmit(onSubmit)}
+            className="mt-6 space-y-4"
+            noValidate
+          >
+            <div>
+              <label htmlFor="username" className="cbs-field-label block mb-1">
+                User ID
               </label>
-              <Link href="/forgot-password" className="text-sm text-blue-600 hover:text-blue-700">
+              <input
+                id="username"
+                type="text"
+                autoComplete="username"
+                className="cbs-input"
+                aria-invalid={!!errors.username}
+                {...register('username')}
+              />
+              {errors.username && (
+                <div className="mt-1 text-xs text-cbs-crimson-700">
+                  {errors.username.message}
+                </div>
+              )}
+            </div>
+
+            <div>
+              <label htmlFor="password" className="cbs-field-label block mb-1">
+                Password
+              </label>
+              <input
+                id="password"
+                type="password"
+                autoComplete="current-password"
+                className="cbs-input"
+                aria-invalid={!!errors.password}
+                {...register('password')}
+              />
+              {errors.password && (
+                <div className="mt-1 text-xs text-cbs-crimson-700">
+                  {errors.password.message}
+                </div>
+              )}
+            </div>
+
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              className="w-full h-10 bg-cbs-navy-700 hover:bg-cbs-navy-800 disabled:opacity-60 text-white text-sm font-semibold uppercase tracking-wider"
+            >
+              {isSubmitting ? 'Signing in...' : 'Sign in'}
+            </button>
+
+            <div className="flex items-center justify-between text-xs text-cbs-steel-600">
+              <Link href="/forgot-password" className="hover:underline">
                 Forgot password?
               </Link>
+              <span>v{process.env.NEXT_PUBLIC_APP_VERSION || '1.0.0'}</span>
             </div>
-
-            <Button
-              type="submit"
-              fullWidth
-              size="lg"
-              isLoading={isLoading}
-              disabled={isLoading}
-            >
-              {isLoading ? 'Signing In...' : 'Sign In'}
-            </Button>
           </form>
+        </div>
+      </section>
+    </main>
+  );
+}
 
-          <div className="relative">
-            <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-gray-300"></div>
-            </div>
-            <div className="relative flex justify-center text-sm">
-              <span className="px-2 bg-white text-gray-500">Don't have an account?</span>
-            </div>
-          </div>
-
-          <Link href="/register">
-            <Button fullWidth variant="secondary" size="lg">
-              Create Account
-            </Button>
-          </Link>
-        </Card>
-
-        {/* Demo Credentials - development only */}
-        {process.env.NODE_ENV === 'development' && (
-          <div className="mt-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
-            <p className="text-sm font-medium text-blue-900 mb-2">Demo Credentials:</p>
-            <p className="text-xs text-blue-700">Email: demo@example.com</p>
-            <p className="text-xs text-blue-700">Password: Demo@1234</p>
-          </div>
-        )}
-      </div>
-    </div>
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<main className="min-h-screen bg-cbs-mist" />}>
+      <LoginInner />
+    </Suspense>
   );
 }

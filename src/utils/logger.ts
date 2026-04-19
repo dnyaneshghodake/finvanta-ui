@@ -9,14 +9,14 @@ interface LogEntry {
   level: LogLevel;
   timestamp: string;
   message: string;
-  data?: any;
+  data?: unknown;
 }
 
 class Logger {
   private logs: LogEntry[] = [];
   private isDevelopment = process.env.NEXT_PUBLIC_DEBUG_MODE === 'true';
 
-  private formatMessage(level: LogLevel, message: string, data?: any): string {
+  private formatMessage(level: LogLevel, message: string, data?: unknown): string {
     const timestamp = new Date().toISOString();
     const prefix = `[${timestamp}] [${level.toUpperCase()}]`;
     
@@ -26,7 +26,7 @@ class Logger {
     return `${prefix} ${message}`;
   }
 
-  private addLog(level: LogLevel, message: string, data?: any): void {
+  private addLog(level: LogLevel, message: string, data?: unknown): void {
     const entry: LogEntry = {
       level,
       timestamp: new Date().toISOString(),
@@ -41,24 +41,24 @@ class Logger {
     }
   }
 
-  debug(message: string, data?: any): void {
+  debug(message: string, data?: unknown): void {
     this.addLog('debug', message, data);
     if (this.isDevelopment) {
       console.debug(this.formatMessage('debug', message, data));
     }
   }
 
-  info(message: string, data?: any): void {
+  info(message: string, data?: unknown): void {
     this.addLog('info', message, data);
     console.info(this.formatMessage('info', message, data));
   }
 
-  warn(message: string, data?: any): void {
+  warn(message: string, data?: unknown): void {
     this.addLog('warn', message, data);
     console.warn(this.formatMessage('warn', message, data));
   }
 
-  error(message: string, data?: any): void {
+  error(message: string, data?: unknown): void {
     this.addLog('error', message, data);
     console.error(this.formatMessage('error', message, data));
   }

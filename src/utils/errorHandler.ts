@@ -28,12 +28,18 @@ class ErrorHandler {
   /**
    * Handle API errors and return user-friendly messages
    */
-  handleApiError(error: any): AppError {
+  handleApiError(error: unknown): AppError {
+    const err = error as {
+      response?: { status: number; data?: { error?: { code?: string; message?: string; details?: Record<string, string> } } };
+      request?: unknown;
+      code?: string;
+      message?: string;
+    };
     logger.error('API Error occurred', error);
 
     // Handle axios error
-    if (error.response) {
-      const { status, data } = error.response;
+    if (err.response) {
+      const { status, data } = err.response;
 
       if (data?.error) {
         return new AppError(
@@ -64,7 +70,7 @@ class ErrorHandler {
     }
 
     // Handle network error
-    if (error.request && !error.response) {
+    if (err.request && !err.response) {
       return new AppError(
         'NETWORK_ERROR',
         'Network error. Please check your connection.',
@@ -73,7 +79,7 @@ class ErrorHandler {
     }
 
     // Handle timeout
-    if (error.code === 'ECONNABORTED') {
+    if (err.code === 'ECONNABORTED') {
       return new AppError(
         'TIMEOUT_ERROR',
         'Request timeout. Please try again.',
@@ -84,7 +90,7 @@ class ErrorHandler {
     // Handle unknown error
     return new AppError(
       'UNKNOWN_ERROR',
-      error.message || 'An unexpected error occurred',
+      err.message || 'An unexpected error occurred',
       500
     );
   }
@@ -92,7 +98,7 @@ class ErrorHandler {
   /**
    * Format error for logging
    */
-  formatErrorLog(error: AppError | Error): Record<string, any> {
+  formatErrorLog(error: AppError | Error): Record<string, unknown> {
     if (error instanceof AppError) {
       return {
         code: error.code,
@@ -150,17 +156,20 @@ class ErrorHandler {
   /**
    * Validate API response
    */
-  validateResponse<T>(response: any): ApiResponse<T> {
+  validateResponse<T>(response: unknown): ApiResponse<T> {
     if (!response || typeof response !== 'object') {
       throw new AppError('INVALID_RESPONSE', 'Invalid response format', 500);
     }
-
-    if (response.success === false && response.error) {
+    const r = response as {
+      success?: boolean;
+      error?: { code: string; message: string; statusCode: number; details?: Record<string, string> };
+    };
+    if (r.success === false && r.error) {
       throw new AppError(
-        response.error.code,
-        response.error.message,
-        response.error.statusCode,
-        response.error.details
+        r.error.code,
+        r.error.message,
+        r.error.statusCode,
+        r.error.details
       );
     }
 

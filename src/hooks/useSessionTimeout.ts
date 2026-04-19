@@ -8,6 +8,7 @@
  *
  * Monitors: mousemove, mousedown, keypress, scroll, touchstart
  */
+/* eslint-disable react-hooks/set-state-in-effect */
 
 import { useEffect, useRef, useCallback, useState } from 'react';
 import { useAuthStore } from '@/store/authStore';
