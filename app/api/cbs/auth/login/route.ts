@@ -5,14 +5,14 @@
  * as JSON and returns one of:
  *
  *   200 + status:"SUCCESS" + data.accessToken  → successful login (no MFA)
- *   200 + errorCode:"MFA_REQUIRED" + data.challengeId → MFA step-up
+ *   428 + errorCode:"MFA_REQUIRED" + error.challengeId → MFA step-up
  *   401 + errorCode:"INVALID_CREDENTIALS" / "ACCOUNT_LOCKED" → auth failure
+ *   403 + errorCode:"PASSWORD_EXPIRED" → password change required
  *   429 → rate-limited (per RBI Cyber Security Framework 2024 §6.2)
  *
- * Per the audited API Endpoint Catalogue §1.1 (Audit Finding #4), Spring
- * returns MFA_REQUIRED as HTTP 200 with `errorCode: "MFA_REQUIRED"` in
- * the body — NOT HTTP 428. The BFF also accepts 428 as a fallback for
- * backward compatibility with pre-audit Spring deployments.
+ * Per REST_API_COMPLETE_CATALOGUE §Auth, MFA challenge data is in the
+ * `error` object: `error: { challengeId, method }`. The BFF also reads
+ * from `data` for backward compatibility with older deployments.
  *
  * On successful login we materialise the encrypted server-side session
  * (fv_sid) and the JS-readable CSRF cookie (fv_csrf) and return the
@@ -77,24 +77,42 @@ interface SpringErrorData {
 
 interface SpringTokenResponse {
   status?: string;
-  data?: SpringTokenSuccessData | SpringErrorData | null;
+  data?: SpringTokenSuccessData | SpringErrorData | SpringMfaData | null;
   errorCode?: string;
   message?: string;
   timestamp?: string;
+  /**
+   * Per REST_API_COMPLETE_CATALOGUE, error detail (including MFA
+   * challengeId) lives in the `error` object, not `data`.
+   */
+  error?: SpringMfaError & {
+    code?: string;
+    remainingAttempts?: number;
+  };
 }
 
 /**
- * Spring MFA challenge response — per audited API catalogue §1.1,
- * MFA_REQUIRED is returned as HTTP 200 with `errorCode: "MFA_REQUIRED"`
- * and `data: { challengeId, channel, expiresIn }`. The BFF also
- * accepts legacy HTTP 428 for backward compatibility.
+ * Spring MFA challenge response — per REST_API_COMPLETE_CATALOGUE §Auth:
+ *
+ *   HTTP 428, errorCode: "MFA_REQUIRED"
+ *   error: { challengeId, method, message }
+ *
+ * The challengeId may also appear in `data` (per older API catalogue).
+ * We read from both locations so the BFF works against either shape.
  */
-interface SpringMfaChallengeResponse {
-  status?: "SUCCESS" | "ERROR";
-  data?: { challengeId?: string; channel?: string; expiresIn?: number };
-  error?: { code?: string; message?: string };
-  errorCode?: string;
+interface SpringMfaError {
+  challengeId?: string;
+  /** "TOTP" or "SMS" — REST_API_COMPLETE_CATALOGUE uses `method`. */
+  method?: string;
+  /** Older catalogues used `channel` instead of `method`. */
+  channel?: string;
   message?: string;
+}
+
+interface SpringMfaData {
+  challengeId?: string;
+  channel?: string;
+  method?: string;
 }
 
 export async function POST(req: NextRequest) {
@@ -133,19 +151,22 @@ export async function POST(req: NextRequest) {
   const json = (await upstream.json().catch(() => ({}))) as SpringTokenResponse;
 
   // ── MFA step-up detection ──────────────────────────────────────
-  // The LOGIN_API_RESPONSE_CONTRACT specifies HTTP 428 (RFC 8297)
-  // with errorCode: "MFA_REQUIRED" and data: { challengeId, channel }.
-  // The earlier API_ENDPOINT_CATALOGUE audit (Finding #4) documented
-  // that Spring may also return HTTP 200 with the same errorCode in
-  // the body. We detect both so the BFF works against either variant.
+  // REST_API_COMPLETE_CATALOGUE §Auth: HTTP 428 with errorCode
+  // "MFA_REQUIRED" and error: { challengeId, method }. We also
+  // accept errorCode in the body on HTTP 200 for backward compat
+  // with older Spring deployments (API_ENDPOINT_CATALOGUE Finding #4).
   const isMfaRequired =
     upstream.status === 428 ||
     json.errorCode === "MFA_REQUIRED";
 
   if (isMfaRequired) {
-    const mfaData = json.data as SpringMfaChallengeResponse["data"] | undefined;
-    const challengeId = mfaData?.challengeId;
-    const channel = mfaData?.channel || "TOTP";
+    // REST_API_COMPLETE_CATALOGUE puts challengeId in `error.challengeId`
+    // and method in `error.method`. Older catalogues put it in `data`.
+    // Read from both locations for backward compatibility.
+    const mfaErr = json.error as SpringMfaError | undefined;
+    const mfaData = json.data as SpringMfaData | undefined;
+    const challengeId = mfaErr?.challengeId || mfaData?.challengeId;
+    const channel = mfaErr?.method || mfaErr?.channel || mfaData?.method || mfaData?.channel || "TOTP";
     if (!challengeId) {
       return NextResponse.json(
         {
@@ -187,11 +208,14 @@ export async function POST(req: NextRequest) {
     : null;
 
   if (!successData?.accessToken) {
-    // Error path — read error detail from data (backend contract puts
-    // error info in `data: { code, message, remainingAttempts }` on 401,
-    // not in a nested `error` object).
+    // Error path — per REST_API_COMPLETE_CATALOGUE §Standard Response
+    // Envelope, error detail is in the `error` object:
+    //   error: { code, message, remainingAttempts }
+    // Older deployments may put it in `data`. Read from both.
+    const errObj = json.error;
     const errData = json.data as SpringErrorData | null | undefined;
     const errorCode =
+      errObj?.code ||
       errData?.code ||
       json.errorCode ||
       (upstream.status === 401 ? "AUTH_FAILED"
@@ -199,19 +223,22 @@ export async function POST(req: NextRequest) {
         : upstream.status === 429 ? "RATE_LIMITED"
         : "LOGIN_FAILED");
 
+    const remainingAttempts = errObj?.remainingAttempts ?? errData?.remainingAttempts;
+
     return NextResponse.json(
       {
         success: false,
         errorCode,
         message:
+          errObj?.message ||
           errData?.message ||
           json.message ||
           "Login failed",
         // Surface remaining attempts + lockout duration so the login
         // page can warn the operator (Tier-1 CBS UX requirement).
         data: {
-          ...(errData?.remainingAttempts !== undefined
-            ? { remainingAttempts: errData.remainingAttempts }
+          ...(remainingAttempts !== undefined
+            ? { remainingAttempts }
             : {}),
           ...(errData?.lockoutDurationMinutes !== undefined
             ? { lockoutDurationMinutes: errData.lockoutDurationMinutes }

@@ -325,20 +325,24 @@ class AccountService {
   }
 
   /**
-   * Account opening is a MAKER-only action on Spring
-   * (`POST /v1/accounts/open`). The JSP-originating self-service
-   * form is not part of the Tier-1 branch workflow, so the React
-   * stub intentionally defers to the branch account-opening flow
-   * and returns a structured NOT_IMPLEMENTED envelope.
+   * Open a new deposit account.
+   * Per REST_API_COMPLETE_CATALOGUE §CASA: `POST /v1/accounts/open`
+   * creates an account in PENDING_ACTIVATION status.
    */
-  async createAccount(
-    _data: { accountType: string; currency: string },
-  ): Promise<ApiResponse<Account>> {
-    return errEnvelope<Account>(
-      'NOT_IMPLEMENTED',
-      'Account opening is performed through the branch MAKER workflow',
-      501,
+  async createAccount(data: {
+    customerId: number;
+    branchId: number;
+    accountType: string;
+    productCode?: string;
+    initialDeposit?: number;
+    nomineeName?: string;
+    nomineeRelationship?: string;
+  }): Promise<ApiResponse<Account>> {
+    const response = await apiClient.post<SpringEnvelope<SpringAccount>>(
+      '/accounts/open',
+      data,
     );
+    return adapt(response.data, mapAccount);
   }
 }
 
