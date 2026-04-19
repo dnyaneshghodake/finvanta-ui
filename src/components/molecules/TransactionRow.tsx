@@ -13,7 +13,7 @@ import { Badge } from '@/components/atoms/Badge';
 import {
   formatCurrency,
   formatTransactionStatus,
-  formatDate,
+  formatCbsTimestamp,
 } from '@/utils/formatters';
 
 export interface TransactionRowProps {
@@ -55,7 +55,7 @@ const TransactionRow: React.FC<TransactionRowProps> = ({
           <div>
             <p className="text-sm font-medium text-cbs-ink">{transaction.description}</p>
             <p className="text-xs text-cbs-steel-600 cbs-tabular">
-              {formatDate(transaction.postingDate, 'dd/MM/yyyy HH:mm')}
+              {formatCbsTimestamp(transaction.postingDate)}
             </p>
           </div>
         </div>
