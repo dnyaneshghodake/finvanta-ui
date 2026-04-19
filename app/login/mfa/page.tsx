@@ -85,6 +85,9 @@ export default function MfaPage() {
       if (response.status !== 200 || !response.data?.success) {
         const err = response.data as MfaErr;
 
+        // Per API_REFERENCE.md §2.2 — terminal MFA error codes that
+        // require restarting the login flow from scratch.
+
         // Challenge expired or tampered — must restart login.
         if (err?.errorCode === 'INVALID_MFA_CHALLENGE') {
           router.push('/login?reason=mfa_expired');
@@ -94,6 +97,12 @@ export default function MfaPage() {
         // Challenge already consumed (replay detection) — restart login.
         if (err?.errorCode === 'MFA_CHALLENGE_REUSED') {
           router.push('/login?reason=mfa_expired');
+          return;
+        }
+
+        // Account disabled/locked between password and MFA steps.
+        if (err?.errorCode === 'ACCOUNT_INVALID') {
+          router.push('/login?reason=account_invalid');
           return;
         }
 

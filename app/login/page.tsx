@@ -146,6 +146,7 @@ function LoginInner() {
             msg = 'Your password has expired. Contact your branch administrator to reset it.';
             break;
           case 'RATE_LIMITED':
+          case 'AUTH_RATE_LIMIT_EXCEEDED':
             msg = err.message || 'Too many login attempts. Please wait and try again.';
             break;
           default:

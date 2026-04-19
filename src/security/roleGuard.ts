@@ -59,20 +59,27 @@ export const hasModuleAccess = (module: string): boolean => {
 /**
  * Check if user is a maker (can create/submit records).
  * Checks both the role array and the makerCheckerRole field.
+ *
+ * Per API_REFERENCE.md §2.1, makerCheckerRole values are:
+ *   MAKER, CHECKER, BOTH, VIEWER
+ * "BOTH" means the operator can act as either maker or checker
+ * (but never on the same record — self-approval is still blocked).
  */
 export const isMaker = (): boolean => {
   const user = useAuthStore.getState().user;
-  if (user?.makerCheckerRole === 'MAKER') return true;
+  if (user?.makerCheckerRole === 'MAKER' || user?.makerCheckerRole === 'BOTH') return true;
   return hasRole('MAKER', 'TELLER', 'OFFICER');
 };
 
 /**
  * Check if user is a checker (can verify/approve records).
  * Checks both the role array and the makerCheckerRole field.
+ *
+ * Per API_REFERENCE.md §2.1, "BOTH" grants checker capability too.
  */
 export const isChecker = (): boolean => {
   const user = useAuthStore.getState().user;
-  if (user?.makerCheckerRole === 'CHECKER') return true;
+  if (user?.makerCheckerRole === 'CHECKER' || user?.makerCheckerRole === 'BOTH') return true;
   return hasRole('CHECKER', 'MANAGER', 'APPROVER');
 };
 
