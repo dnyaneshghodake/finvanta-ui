@@ -84,11 +84,11 @@ export default function DashboardLayout({
   }
 
   return (
-    <div className="flex flex-col min-h-screen bg-cbs-mist">
+    <div className="flex flex-col h-screen bg-cbs-mist">
       <Header />
-      <div className="flex flex-1 overflow-hidden">
+      <div className="flex flex-1 min-h-0">
         <Sidebar />
-        <main id="cbs-main" className="flex-1 overflow-auto" tabIndex={-1}>
+        <main id="cbs-main" className="flex-1 overflow-y-auto" tabIndex={-1}>
           <div className="p-3 sm:p-4 lg:p-6">{children}</div>
         </main>
       </div>

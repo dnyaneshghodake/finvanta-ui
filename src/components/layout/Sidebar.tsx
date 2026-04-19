@@ -146,7 +146,7 @@ const Sidebar: React.FC<SidebarProps> = ({ className }) => {
 
       <aside
         className={clsx(
-          'fixed left-0 top-12 h-[calc(100vh-48px)] w-56 shrink-0 bg-cbs-paper border-r border-cbs-steel-200 overflow-y-auto transition-transform duration-200 z-40 lg:z-0 lg:translate-x-0 lg:sticky lg:top-12 cbs-no-print',
+          'fixed left-0 top-12 h-[calc(100vh-48px)] w-56 shrink-0 bg-cbs-paper border-r border-cbs-steel-200 overflow-y-auto transition-transform duration-200 z-40 lg:z-0 lg:translate-x-0 lg:relative lg:top-0 cbs-no-print',
           isSidebarOpen ? 'translate-x-0' : '-translate-x-full',
           className,
         )}
