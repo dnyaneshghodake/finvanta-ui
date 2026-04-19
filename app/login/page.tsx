@@ -129,7 +129,7 @@ function LoginInner() {
   };
 
   return (
-    <main id="cbs-main" className="min-h-screen grid md:grid-cols-2 bg-cbs-mist">
+    <main id="cbs-main" className="h-screen grid md:grid-cols-2 grid-rows-[1fr_auto] bg-cbs-mist overflow-auto">
       <aside className="hidden md:flex flex-col justify-between bg-cbs-navy-900 text-white p-10">
         <div>
           <div className="flex items-center gap-3">
@@ -318,7 +318,7 @@ export default function LoginPage() {
   return (
     <Suspense
       fallback={
-        <main className="min-h-screen flex items-center justify-center bg-cbs-mist">
+        <main className="h-screen flex items-center justify-center bg-cbs-mist">
           <div className="text-center">
             <div
               aria-hidden="true"
