@@ -19,6 +19,32 @@ import { apiClient } from "./apiClient";
 import type { LoginRequest, ApiResponse } from "@/types/api";
 import type { User } from "@/types/entities";
 
+/** Business day context from Spring `data.businessDay`. */
+export interface BusinessDay {
+  businessDate: string;
+  dayStatus: string;
+  isHoliday: boolean;
+  previousBusinessDate?: string;
+  nextBusinessDate?: string;
+}
+
+/** Operational config from Spring `data.operationalConfig`. */
+export interface OperationalConfig {
+  baseCurrency: string;
+  decimalPrecision: number;
+  roundingMode: string;
+  fiscalYearStartMonth: number;
+  businessDayPolicy: string;
+}
+
+/** Operator transaction limits from Spring `data.limits`. */
+export interface TransactionLimit {
+  transactionType: string;
+  channel: string | null;
+  perTransactionLimit: number;
+  dailyAggregateLimit: number;
+}
+
 export interface LoginBffResponse {
   user: User;
   expiresAt: number;
@@ -27,6 +53,12 @@ export interface LoginBffResponse {
   mfaVerifiedAt?: number | null;
   /** Server-authoritative business date (YYYY-MM-DD). */
   businessDate?: string;
+  /** Full business day context (day status, holiday flag, prev/next dates). */
+  businessDay?: BusinessDay | null;
+  /** Operational config (currency, precision, rounding, fiscal year). */
+  operationalConfig?: OperationalConfig | null;
+  /** Operator transaction limits (per-txn and daily aggregate). */
+  transactionLimits?: TransactionLimit[] | null;
 }
 
 export interface MfaVerifyRequest {

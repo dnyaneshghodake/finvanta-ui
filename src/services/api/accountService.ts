@@ -44,7 +44,9 @@ interface SpringAccount {
   accountType: string;
   productCode?: string | null;
   status: string;
+  customerId?: number | string | null;
   branchCode?: string | null;
+  ifscCode?: string | null;
   currencyCode?: string | null;
   ledgerBalance: number | string;
   availableBalance: number | string;
@@ -121,14 +123,25 @@ function mapAccount(a: SpringAccount): Account {
   return {
     id: a.accountNumber,
     accountNumber: a.accountNumber,
-    customerId: '',
+    customerId: a.customerId != null ? String(a.customerId) : '',
     accountType: mapAccountType(a.accountType),
+    productCode: a.productCode || undefined,
     currency: a.currencyCode || 'INR',
     balance: toNumber(a.ledgerBalance),
     availableBalance: toNumber(a.availableBalance),
+    holdAmount: toNumber(a.holdAmount),
+    odLimit: toNumber(a.odLimit),
+    interestRate: toNumber(a.interestRate),
+    accruedInterest: toNumber(a.accruedInterest),
     status: mapStatus(a.status),
+    branchCode: a.branchCode || undefined,
+    ifscCode: a.ifscCode || undefined,
+    nomineeName: a.nomineeName || undefined,
+    chequeBookEnabled: a.chequeBookEnabled ?? false,
+    debitCardEnabled: a.debitCardEnabled ?? false,
     openedDate: toDateOrNow(a.openedDate),
     closedDate: null,
+    lastTransactionDate: a.lastTransactionDate ? toDateOrNow(a.lastTransactionDate) : undefined,
     linkedAccounts: [],
     createdAt: toDateOrNow(a.openedDate),
     updatedAt: toDateOrNow(a.lastTransactionDate || a.openedDate),
@@ -152,6 +165,11 @@ function mapTxn(t: SpringTxn, accountNumber: string): Transaction {
     valueDate: toDateOrNow(t.valueDate),
     postingDate: toDateOrNow(t.postingDate),
     referenceNumber: t.transactionRef,
+    balanceAfter: t.balanceAfter != null ? toNumber(t.balanceAfter) : undefined,
+    counterpartyAccount: t.counterpartyAccount || undefined,
+    channel: t.channel || undefined,
+    voucherNumber: t.voucherNumber || undefined,
+    branchCode: t.branchCode || undefined,
     createdAt: toDateOrNow(t.postingDate),
     updatedAt: toDateOrNow(t.postingDate),
   };

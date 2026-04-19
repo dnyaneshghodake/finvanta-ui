@@ -232,17 +232,78 @@ export default function AccountDetailsPage() {
 
       {/* ── Account Details tab ── */}
       <CbsTabPanel id="details" activeTab={activeTab}>
+        {/* Core Identification */}
         <section className="cbs-surface">
           <div className="cbs-surface-header">
-            <span className="text-sm font-semibold uppercase tracking-wider text-cbs-steel-700">Account Details</span>
+            <span className="text-sm font-semibold uppercase tracking-wider text-cbs-steel-700">Account Identification</span>
           </div>
           <div className="cbs-surface-body grid grid-cols-1 md:grid-cols-3 gap-4">
             <KeyValue label="Account Number">
               <span className="cbs-tabular">{formatAccountNumber(account.accountNumber)}</span>
             </KeyValue>
             <KeyValue label="Account Type">{formatAccountType(account.accountType)}</KeyValue>
+            {account.productCode && (
+              <KeyValue label="Product Code">
+                <span className="cbs-tabular">{account.productCode}</span>
+              </KeyValue>
+            )}
             <KeyValue label="Currency">{account.currency}</KeyValue>
             <KeyValue label="Status">{account.status}</KeyValue>
+            {account.branchCode && (
+              <KeyValue label="Branch (SOL)">
+                <span className="cbs-tabular">{account.branchCode}</span>
+              </KeyValue>
+            )}
+            {account.ifscCode && (
+              <KeyValue label="IFSC Code">
+                <span className="cbs-tabular">{account.ifscCode}</span>
+              </KeyValue>
+            )}
+            {account.customerId && (
+              <KeyValue label="Customer ID (CIF)">
+                <span className="cbs-tabular">{account.customerId}</span>
+              </KeyValue>
+            )}
+          </div>
+        </section>
+
+        {/* Balances & Limits */}
+        <section className="cbs-surface mt-4">
+          <div className="cbs-surface-header">
+            <span className="text-sm font-semibold uppercase tracking-wider text-cbs-steel-700">Balances &amp; Limits</span>
+          </div>
+          <div className="cbs-surface-body grid grid-cols-1 md:grid-cols-3 gap-4">
+            <KeyValue label="Ledger Balance">
+              <span className="cbs-amount">{formatCurrency(account.balance, account.currency)}</span>
+            </KeyValue>
+            <KeyValue label="Available Balance">
+              <span className="cbs-amount">{formatCurrency(account.availableBalance, account.currency)}</span>
+            </KeyValue>
+            <KeyValue label="Hold / Lien Amount">
+              <span className={`cbs-amount ${account.holdAmount > 0 ? 'cbs-amount-debit' : ''}`}>
+                {formatCurrency(account.holdAmount, account.currency)}
+              </span>
+            </KeyValue>
+            {account.odLimit > 0 && (
+              <KeyValue label="OD Limit">
+                <span className="cbs-amount">{formatCurrency(account.odLimit, account.currency)}</span>
+              </KeyValue>
+            )}
+            <KeyValue label="Interest Rate">
+              <span className="cbs-tabular">{account.interestRate.toFixed(2)}% p.a.</span>
+            </KeyValue>
+            <KeyValue label="Accrued Interest">
+              <span className="cbs-amount">{formatCurrency(account.accruedInterest, account.currency)}</span>
+            </KeyValue>
+          </div>
+        </section>
+
+        {/* Dates & Facilities */}
+        <section className="cbs-surface mt-4">
+          <div className="cbs-surface-header">
+            <span className="text-sm font-semibold uppercase tracking-wider text-cbs-steel-700">Dates &amp; Facilities</span>
+          </div>
+          <div className="cbs-surface-body grid grid-cols-1 md:grid-cols-3 gap-4">
             <KeyValue label="Date Opened">
               <span className="cbs-tabular">{formatCbsDate(account.openedDate)}</span>
             </KeyValue>
@@ -251,6 +312,24 @@ export default function AccountDetailsPage() {
                 <span className="cbs-tabular">{formatCbsDate(account.closedDate)}</span>
               </KeyValue>
             )}
+            {account.lastTransactionDate && (
+              <KeyValue label="Last Transaction">
+                <span className="cbs-tabular">{formatCbsDate(account.lastTransactionDate)}</span>
+              </KeyValue>
+            )}
+            <KeyValue label="Cheque Book">
+              <span className={account.chequeBookEnabled ? 'text-cbs-olive-700' : 'text-cbs-steel-500'}>
+                {account.chequeBookEnabled ? 'Issued' : 'Not issued'}
+              </span>
+            </KeyValue>
+            <KeyValue label="Debit Card">
+              <span className={account.debitCardEnabled ? 'text-cbs-olive-700' : 'text-cbs-steel-500'}>
+                {account.debitCardEnabled ? 'Linked' : 'Not linked'}
+              </span>
+            </KeyValue>
+            <KeyValue label="Nominee">
+              <span>{account.nomineeName || 'Not registered'}</span>
+            </KeyValue>
           </div>
         </section>
       </CbsTabPanel>

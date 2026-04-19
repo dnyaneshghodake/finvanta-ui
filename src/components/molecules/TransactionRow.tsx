@@ -41,10 +41,10 @@ const TransactionRow: React.FC<TransactionRowProps> = ({
       onClick={onClick}
       className={`flex items-center justify-between px-3 py-2 border-b border-cbs-steel-100 hover:bg-cbs-navy-50 transition-colors ${onClick ? 'cursor-pointer' : ''} ${className || ''}`}
     >
-      <div className="flex-1">
+      <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2.5">
           <div
-            className={`h-8 w-8 rounded-sm flex items-center justify-center text-xs font-bold ${
+            className={`h-8 w-8 rounded-sm flex items-center justify-center text-xs font-bold shrink-0 ${
               isDebit
                 ? 'bg-cbs-crimson-50 text-cbs-crimson-700'
                 : 'bg-cbs-olive-50 text-cbs-olive-700'
@@ -52,21 +52,38 @@ const TransactionRow: React.FC<TransactionRowProps> = ({
           >
             {isDebit ? 'Dr' : 'Cr'}
           </div>
-          <div>
-            <p className="text-sm font-medium text-cbs-ink">{transaction.description}</p>
-            <p className="text-xs text-cbs-steel-600 cbs-tabular">
-              {formatCbsTimestamp(transaction.postingDate)}
-            </p>
+          <div className="min-w-0">
+            <p className="text-sm font-medium text-cbs-ink truncate">{transaction.description}</p>
+            <div className="flex items-center gap-2 text-xs text-cbs-steel-600 cbs-tabular">
+              <span>{formatCbsTimestamp(transaction.postingDate)}</span>
+              {transaction.channel && (
+                <span className="text-cbs-steel-400">·</span>
+              )}
+              {transaction.channel && (
+                <span className="uppercase text-[10px] tracking-wider">{transaction.channel}</span>
+              )}
+              {transaction.counterpartyAccount && (
+                <>
+                  <span className="text-cbs-steel-400">→</span>
+                  <span>{transaction.counterpartyAccount}</span>
+                </>
+              )}
+            </div>
           </div>
         </div>
       </div>
 
-      <div className="flex items-center gap-3 ml-4">
+      <div className="flex items-center gap-3 ml-4 shrink-0">
         <div className="text-right">
           <p className={`cbs-amount text-sm font-semibold ${isDebit ? 'cbs-amount-debit' : 'cbs-amount-credit'}`}>
             {isDebit ? '-' : '+'}
             {formatCurrency(Math.abs(transaction.amount), transaction.currency)}
           </p>
+          {transaction.balanceAfter != null && (
+            <p className="text-[10px] text-cbs-steel-500 cbs-amount" title="Running balance">
+              Bal: {formatCurrency(transaction.balanceAfter, transaction.currency)}
+            </p>
+          )}
           <p className="text-xs text-cbs-steel-500 cbs-tabular">{transaction.referenceNumber}</p>
         </div>
         <Badge variant={statusColors[transaction.status as keyof typeof statusColors]}>

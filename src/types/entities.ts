@@ -82,26 +82,56 @@ export type UserRole =
   | 'ADMIN';
 
 /**
- * Bank account entity
+ * Bank account entity.
+ *
+ * Carries all CBS-mandatory fields per RBI Master Direction on KYC
+ * 2016 (as amended) and IT Governance Direction 2023 §8. Fields
+ * marked optional may be absent for older accounts or when the
+ * Spring DepositAccountController omits them from the response.
  */
 export interface Account {
   id: string;
   accountNumber: string;
   customerId: string;
   accountType: 'SAVINGS' | 'CURRENT' | 'SALARY';
+  /** Product code from the CBS product master (e.g. "SB_REGULAR"). */
+  productCode?: string;
   currency: string;
   balance: number;
   availableBalance: number;
+  /** Lien / hold amount — frozen by court order, FD lien, etc. */
+  holdAmount: number;
+  /** Overdraft limit sanctioned on this account. */
+  odLimit: number;
+  /** Current applicable interest rate (% p.a.). */
+  interestRate: number;
+  /** Accrued but uncredited interest since last capitalisation. */
+  accruedInterest: number;
   status: 'ACTIVE' | 'INACTIVE' | 'FROZEN' | 'CLOSED';
+  /** SOL code of the account-holding branch. */
+  branchCode?: string;
+  /** IFSC of the account-holding branch. */
+  ifscCode?: string;
+  /** Nominee registered under Nomination Act 2023. */
+  nomineeName?: string;
+  /** Whether a cheque book has been issued. */
+  chequeBookEnabled: boolean;
+  /** Whether a debit card is linked. */
+  debitCardEnabled: boolean;
   openedDate: Date;
   closedDate: Date | null;
+  /** Date of last financial transaction on this account. */
+  lastTransactionDate?: Date;
   linkedAccounts: string[];
   createdAt: Date;
   updatedAt: Date;
 }
 
 /**
- * Transaction entity
+ * Transaction entity.
+ *
+ * CBS mini-statement / passbook fields per RBI circular on
+ * transparency in bank charges and account statements.
  */
 export interface Transaction {
   id: string;
@@ -118,6 +148,16 @@ export interface Transaction {
   postingDate: Date;
   referenceNumber: string;
   beneficiaryName?: string;
+  /** Running balance after this entry — mandatory for CBS passbook. */
+  balanceAfter?: number;
+  /** Counterparty account number (masked on display per PII rules). */
+  counterpartyAccount?: string;
+  /** Origination channel: BRANCH, ATM, MOBILE, NET, UPI, NEFT, RTGS. */
+  channel?: string;
+  /** Voucher / slip number for branch transactions. */
+  voucherNumber?: string;
+  /** Branch code where the transaction was posted. */
+  branchCode?: string;
   createdAt: Date;
   updatedAt: Date;
 }
