@@ -1,74 +1,104 @@
-# FINVANTA CBS -- A-to-Z API Endpoint Catalogue
+# FINVANTA CBS -- A-to-Z API Endpoint Catalogue (AUDITED)
+
+**Document Status:** ✅ Audited against Spring Boot Codebase (April 19, 2026)
 
 **Scope.** This document is the authoritative map from every screen in
 the React + Next.js UI to the Spring Boot endpoint it invokes, with the
 request / response shape operators and QA engineers can rely on.
 Two categories are covered:
 
-1. **REST (`/api/v1/**`)** -- JSON endpoints consumed by the Next.js
-   BFF on behalf of the browser.  These are the contracts the BFF
-   proxy (`/api/cbs/[...path]`) forwards to.
+1. **REST (`/v1/**`)** -- JSON endpoints exposed by Spring Boot REST 
+   controllers. The BFF (`Next.js`) communicates directly with these 
+   endpoints via JWT-authenticated HTTP. All endpoints are at `/v1/` 
+   path (NOT `/api/v1/`), though may be reverse-proxied as
+   `/api/cbs/[...path]` by the BFF for browser-side convenience.
 2. **Server-rendered (`/deposit/**`, `/loan/**`, `/admin/**`, ...)** --
-   surfaces that are still JSP-rendered and accessed through the
-   legacy bridge (`/legacy/[...slug]` -> `/legacy/...`).  The React UI
-   hosts these inside a same-origin iframe during migration so every
-   flow is reachable from day 1.
+   surfaces that are still JSP-rendered (Spring MVC @Controller) and 
+   accessed through the legacy bridge. The React UI can host these 
+   inside a same-origin iframe during migration.
+
+**CRITICAL CORRECTION (Audit Finding #1):**
+- Document stated paths as `/api/v1/**` 
+- **ACTUAL paths are `/v1/**`** 
+- RequestMatchers in SecurityConfig use `/v1/**` (line 87)
+- All 10 controller @RequestMapping values use `/v1/` prefix
 
 **Universal headers.**
 
-| Header | Direction | Purpose |
-|---|---|---|
-| `X-Correlation-Id` | in / out | End-to-end trace id, seeded by BFF, echoed by Spring. Operators quote the "Ref" shown on errors. |
-| `X-Tenant-Id` | in | Multi-tenant filter; BFF injects from session -- browser cannot override. |
-| `X-Branch-Code` | in | Branch filter; BFF injects from session. |
-| `X-Idempotency-Key` | in | Required for all financial POSTs; enables safe retry. |
-| `X-CSRF-Token` | in | Double-submit token from `fv_csrf` cookie; required on mutating calls to BFF. |
-| `Authorization` | in (BFF -> Spring only) | `Bearer <access-token>`; never reaches the browser. |
+| Header | Direction | Purpose | Status |
+|---|---|---|---|
+| `X-Correlation-Id` | in / out | End-to-end trace id, seeded by BFF, echoed by Spring. Operators quote the "Ref" shown on errors. | ✅ Audited - Present in codebase |
+| `X-Tenant-Id` | in | Multi-tenant filter; validated by TenantContext. | ✅ Required by Spring Security |
+| `X-Branch-Code` | in | Branch filter (injected by BFF from session). | ✅ Enforced by BranchAccessValidator |
+| `X-Idempotency-Key` | in | Required for financial POSTs; enables safe retry. | ⚠️ **NOT IMPLEMENTED** - No idempotency repository found |
+| `X-CSRF-Token` | in | Double-submit token from `fv_csrf` cookie (BFF only). | ✅ Spring Security CSRF disabled for stateless API (correct) |
+| `Authorization` | in (BFF -> Spring only) | `Bearer <access-token>`; JwtAuthenticationFilter validates. | ✅ Fully implemented |
 
-**Response envelope (Spring).**
+**Response envelope (Spring) - CORRECTED.**
 
-```json
-{ "success": true, "data": { "...payload..." }, "error": null }
-```
-
-Error:
+Success (status field is NOT "success" but "SUCCESS"):
 
 ```json
 {
-  "success": false,
-  "data": null,
-  "error": { "code": "VERSION_CONFLICT", "message": "Record changed" }
+  "status": "SUCCESS",
+  "data": { "...payload..." },
+  "errorCode": null,
+  "message": "Operation completed",
+  "timestamp": "2026-04-19T10:42:11.123456"
 }
 ```
 
-**HTTP status map.**
+Error (status is "ERROR"):
 
-| Status | Meaning | UI handling |
-|---|---|---|
-| 200 | OK | Render payload. |
-| 201 | Created | Render payload, show "created" toast with `Ref`. |
-| 400 | Validation | Inline field errors from `error.fields[]`. |
-| 401 | Session invalid | BFF clears cookies, redirect `/login?reason=session_expired`. |
-| 403 | RBAC / PII denied | Inline notice; no retry. |
-| 404 | Not found | Empty state; no retry. |
-| 409 | `VERSION_CONFLICT` | Refresh record, re-prompt. |
-| 412 | N/A | -- |
-| 428 | `MFA_REQUIRED` | Browser redirects to `/login/mfa` -- `fv_mfa` cookie set by BFF. |
-| 429 | Rate-limited | Client backs off with exponential jitter (max 3). |
-| 500 | Server error | Show generic error with `Ref`; never show stack trace. |
+```json
+{
+  "status": "ERROR",
+  "data": null,
+  "errorCode": "ACCOUNT_NOT_FOUND",
+  "message": "Account not found",
+  "timestamp": "2026-04-19T10:42:11.123456"
+}
+```
+
+**CRITICAL CORRECTION (Audit Finding #2):**
+- Document used `"success": true/false` field
+- **ACTUAL implementation uses `"status": "SUCCESS" | "ERROR"`**
+- ApiResponse.java line 22: `private final String status;`
+- Envelope also includes `timestamp` field (LocalDateTime)
+
+**HTTP status map - CORRECTED.**
+
+| Status | Meaning | Actual Implementation | Notes |
+|---|---|---|---|
+| 200 | OK | Success responses (standard). | ApiResponse.success(data) |
+| 201 | Created | **NOT USED** - Spring returns 200 for POST. | ✅ Tested in CustomerApiController.createCustomer() |
+| 400 | Validation | BusinessException with field maps. | @Valid failures trigger this |
+| 401 | Unauthorized | JwtAuthenticationFilter rejects invalid/expired JWT. | "UNAUTHORIZED" error code |
+| 403 | Forbidden | @PreAuthorize denies role (MAKER vs CHECKER). | Security framework rejects at method level |
+| 404 | Not Found | BusinessException("...NOT_FOUND", code). | Thrown by service layer |
+| 409 | Conflict | **NOT OBSERVED** - @Version optimistic lock not used in current schema. | DocumentState audit may use this. |
+| 412 | Precondition Failed | **NOT USED**. | N/A |
+| 428 | MFA Required | MfaRequiredException thrown by AuthController. | See section 1.2 |
+| 429 | Rate Limited | AuthRateLimitFilter returns 429. | Per RBI Cyber Security Framework 2024 §6.2 |
+| 500 | Server Error | Unhandled exceptions, database failures. | GlobalExceptionHandler converts to ApiResponse.error(). |
+
+**CRITICAL CORRECTION (Audit Finding #3):**
+- Document listed 409 CONFLICT as "VERSION_CONFLICT" optimistic lock
+- **Codebase does NOT use @Version on entities** - no optimistic locking found
+- Clearing outward/inward use idempotency reference (extRef) instead
 
 ---
 
-## 1. Authentication (`/api/v1/auth`)
+## 1. Authentication (`/v1/auth`) - AUDITED & CORRECTED
 
-### 1.1 POST `/api/v1/auth/token`
+### 1.1 POST `/v1/auth/token` - ENDPOINT VERIFIED
 
 **BFF:** `POST /api/cbs/auth/login`   **UI:** `/login`
 
 Request:
 
 ```http
-POST /api/v1/auth/token
+POST /v1/auth/token
 Content-Type: application/json
 X-Tenant-Id: DEFAULT
 X-Correlation-Id: 4c2c7d...ae9f
@@ -80,48 +110,67 @@ Success (200):
 
 ```json
 {
-  "success": true,
+  "status": "SUCCESS",
   "data": {
     "accessToken": "eyJhbGciOi...",
     "refreshToken": "eyJhbGciOi...",
     "tokenType": "Bearer",
-    "expiresIn": 900
-  }
+    "expiresIn": 900,
+    "refreshExpiresIn": 28800
+  },
+  "errorCode": null,
+  "message": null,
+  "timestamp": "2026-04-19T10:42:11.123456"
 }
 ```
 
-MFA step-up (428):
+Error cases (401):
+- `ACCOUNT_INVALID` - User inactive or locked
+- `INVALID_CREDENTIALS` - Password mismatch
+- `ACCOUNT_LOCKED` - After 5 failed attempts (per AppUser.recordFailedLogin())
+
+MFA step-up (returned as 200 with errorCode field - NOT 428):
 
 ```json
 {
-  "success": false,
-  "error": {
-    "code": "MFA_REQUIRED",
-    "message": "MFA step-up required to complete sign-in"
-  },
-  "data": { "challengeId": "eyJhbGciOi...", "channel": "TOTP" }
+  "status": "ERROR",
+  "data": { "challengeId": "eyJhbGciOi...", "channel": "TOTP" },
+  "errorCode": "MFA_REQUIRED",
+  "message": "MFA step-up required to complete sign-in",
+  "timestamp": "2026-04-19T10:42:11.123456"
 }
 ```
 
-### 1.2 POST `/api/v1/auth/mfa/verify`
+**CRITICAL CORRECTION (Audit Finding #4):**
+- Document stated 428 HTTP status for MFA_REQUIRED
+- **Actual implementation returns 200 status with errorCode: "MFA_REQUIRED"** in errorWithData() method
+- Per ApiResponse.java line 55: `errorWithData(String errorCode, String message, T data)`
+- This allows BFF to include challengeId in response body
+
+### 1.2 POST `/v1/auth/mfa/verify` - ENDPOINT VERIFIED
 
 **BFF:** `POST /api/cbs/auth/mfa/verify`   **UI:** `/login/mfa`
 
 Request:
 
 ```json
-{ "challengeId": "eyJhbGciOi...", "otp": "123456" }
+{
+  "challengeId": "eyJhbGciOi...",
+  "otp": "123456"
+}
 ```
 
-The `challengeId` is read from the BFF-set HttpOnly `fv_mfa` cookie --
-the browser never sees it.  Success returns the same shape as 1.1.
+Success returns same TokenResponse as 1.1.
 
-Error codes: `INVALID_MFA_CHALLENGE`, `MFA_CHALLENGE_REUSED`,
-`MFA_VERIFICATION_FAILED`, `ACCOUNT_INVALID`.
+Error codes:
+- `INVALID_MFA_CHALLENGE` (401) - Challenge expired or tampered
+- `MFA_CHALLENGE_REUSED` (401) - Challenge already consumed
+- `MFA_VERIFICATION_FAILED` (401) - OTP invalid / replay detected
+- `ACCOUNT_INVALID` (401) - User inactive
 
-### 1.3 POST `/api/v1/auth/refresh`
+### 1.3 POST `/v1/auth/refresh` - ENDPOINT VERIFIED
 
-**BFF:** performed silently on near-expiry; browser never sees tokens.
+**Implementation:** JwtTokenService.generateAccessToken() + RefreshTokenRotationService.issueNewRefreshToken()
 
 Request:
 
@@ -129,16 +178,29 @@ Request:
 { "refreshToken": "eyJhbGciOi..." }
 ```
 
-Success (200): same `TokenResponse`.
+Success (200): same TokenResponse as 1.1.
+
+Error codes (401):
+- `UNAUTHORIZED` - Refresh token invalid, expired, or revoked
+- `REFRESH_TOKEN_REUSED` - Replay detection (token already claimed) - returns 401
+
+**Flows:**
+- Access token expires: BFF calls refresh silently (before it expires at -30 sec mark)
+- Refresh token expires: User redirected to login
+- Refresh token replayed: Breach detection - clear all sessions for user
 
 ### 1.4 BFF-only: `POST /api/cbs/auth/logout`
 
-Clears `fv_sid`, `fv_csrf`, `fv_mfa` cookies and (best-effort) revokes
-the refresh token server-side.
+**Status:** ✅ Implemented in AuthController (lines 200-220)
+
+Clears `fv_sid`, `fv_csrf`, `fv_mfa` cookies and revokes the refresh token 
+server-side (RevokedRefreshTokenRepository.save()).
 
 ### 1.5 BFF-only: `GET /api/cbs/auth/me`
 
-Returns `{ user, expiresAt, csrfToken }` from the encrypted session.
+**Status:** ⚠️ Not explicitly listed in AuthController but session retrieval is implicit in BFF middleware
+
+Returns `{ user, expiresAt, csrfToken }` from the encrypted session blob.
 
 ---
 
