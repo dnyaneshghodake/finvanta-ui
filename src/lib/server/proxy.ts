@@ -123,8 +123,13 @@ export async function forward(
   if (session?.user?.branchCode) {
     headers.set("x-branch-code", session.user.branchCode);
   }
-  if (session?.user?.tenantId) {
-    headers.set("x-tenant-id", session.user.tenantId);
+  // Tenant ID: prefer session value, fall back to env default.
+  // Dedicated route handlers (switch-branch, login) already apply
+  // this fallback — the generic proxy must be consistent to avoid
+  // Spring's TenantContext rejecting requests with no X-Tenant-Id.
+  const tenantId = session?.user?.tenantId || env.defaultTenantId;
+  if (tenantId) {
+    headers.set("x-tenant-id", tenantId);
   }
 
   const method = req.method.toUpperCase();

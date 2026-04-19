@@ -109,8 +109,21 @@ const cifSchema = z.object({
 
   /* ── Addresses (CKYC requires both permanent + correspondence) ── */
   permanentAddress: addressSchema,
-  correspondenceAddress: addressSchema,
+  correspondenceAddress: addressSchema.optional(),
   sameAsPermanent: z.boolean().optional(),
+}).superRefine((data, ctx) => {
+  // When "Same as permanent" is NOT checked, correspondence address
+  // fields are mandatory per CKYC. When checked, the onSubmit handler
+  // copies permanent → correspondence before sending to the backend.
+  if (!data.sameAsPermanent) {
+    const ca = data.correspondenceAddress;
+    if (!ca?.line1) ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Address line 1 is required', path: ['correspondenceAddress', 'line1'] });
+    if (!ca?.city) ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'City is required', path: ['correspondenceAddress', 'city'] });
+    if (!ca?.district) ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'District is required', path: ['correspondenceAddress', 'district'] });
+    if (!ca?.state) ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'State is required', path: ['correspondenceAddress', 'state'] });
+    if (!ca?.pincode || !/^\d{6}$/.test(ca.pincode)) ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Pincode must be 6 digits', path: ['correspondenceAddress', 'pincode'] });
+    if (!ca?.country) ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Country is required', path: ['correspondenceAddress', 'country'] });
+  }
 });
 
 type CifForm = z.infer<typeof cifSchema>;

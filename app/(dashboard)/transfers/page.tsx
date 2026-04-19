@@ -127,6 +127,13 @@ export default function TransfersPage() {
     try {
       const res = await transferService.confirm(toReq(data), key);
       if (!res.success || !res.data) {
+        // Server validation rejection (INSUFFICIENT_FUNDS, LIMIT_EXCEEDED,
+        // ACCOUNT_FROZEN, etc.) — the server did NOT process the transfer,
+        // so the idempotency key must be cleared. Reusing it on the next
+        // attempt (after the operator corrects the input) would cause the
+        // backend's idempotency cache to replay the cached rejection
+        // instead of evaluating the corrected request.
+        setIdempotencyKey(null);
         setError({
           message: res.error?.message || 'Transfer could not be processed',
           errorCode: res.error?.code,
@@ -136,6 +143,8 @@ export default function TransfersPage() {
       setPosted(res.data);
       setPhase('posted');
     } catch (err) {
+      // Network-level error — the server MAY have processed the request.
+      // Keep the idempotency key so a retry de-duplicates correctly.
       handleError(err);
     }
   };
