@@ -33,13 +33,11 @@ export default function AccountDetailsPage() {
   // navigation, page refresh, shared link).
   const [directAccount, setDirectAccount] = useState<Account | null>(null);
   const [directLoading, setDirectLoading] = useState(false);
-  const [directError, setDirectError] = useState(false);
 
   useEffect(() => {
     if (storeAccount || directAccount) return;
     let cancelled = false;
     setDirectLoading(true);
-    setDirectError(false);
     accountService.getAccount(accountId).then((res) => {
       if (cancelled) return;
       if (res.success && res.data) {
@@ -50,11 +48,11 @@ export default function AccountDetailsPage() {
             ? s.accounts
             : [...s.accounts, res.data!],
         }));
-      } else {
-        setDirectError(true);
       }
+      // On failure, directAccount stays null and directLoading goes
+      // false, so the "Account Not Found" fallback renders naturally.
     }).catch(() => {
-      if (!cancelled) setDirectError(true);
+      // No-op: null directAccount + false directLoading = "Not Found"
     }).finally(() => {
       if (!cancelled) setDirectLoading(false);
     });
