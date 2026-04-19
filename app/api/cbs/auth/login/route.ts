@@ -130,20 +130,36 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const upstream = await fetch(`${env.backendBaseUrl}/api/v1/auth/token`, {
-    method: "POST",
-    headers: {
-      "content-type": "application/json",
-      accept: "application/json",
-      "x-correlation-id": correlationId,
-      "x-tenant-id": env.defaultTenantId,
-    },
-    body: JSON.stringify({
-      username,
-      password: body.password,
-    }),
-    cache: "no-store",
-  });
+  let upstream: Response;
+  try {
+    upstream = await fetch(`${env.backendBaseUrl}/api/v1/auth/token`, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        accept: "application/json",
+        "x-correlation-id": correlationId,
+        "x-tenant-id": env.defaultTenantId,
+      },
+      body: JSON.stringify({
+        username,
+        password: body.password,
+      }),
+      cache: "no-store",
+    });
+  } catch {
+    // Backend unreachable — ECONNREFUSED, DNS failure, or timeout.
+    // Return a structured 503 so the login page can show a clear
+    // "system unavailable" message instead of a cryptic network error.
+    return NextResponse.json(
+      {
+        success: false,
+        errorCode: "BACKEND_UNREACHABLE",
+        message: "The banking server is currently unavailable. Please try again shortly or contact IT support.",
+        correlationId,
+      },
+      { status: 503, headers: { "x-correlation-id": correlationId } },
+    );
+  }
 
   const json = (await upstream.json().catch(() => ({}))) as SpringTokenResponse;
 

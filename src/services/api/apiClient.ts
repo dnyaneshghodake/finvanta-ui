@@ -154,6 +154,20 @@ apiClient.interceptors.response.use(
       return Promise.reject(appError);
     }
 
+    // 503 from the BFF means the Spring backend is down or unreachable.
+    // The BFF proxy returns structured { errorCode: "BACKEND_UNREACHABLE" }
+    // per REST_API_COMPLETE_CATALOGUE §Actuator. We surface this clearly
+    // so operators know it's a backend issue, not their session.
+    if (error.response?.status === 503) {
+      const errorCode = (error.response?.data as Record<string, unknown>)?.errorCode;
+      const msg = (error.response?.data as Record<string, unknown>)?.message;
+      return Promise.reject(new AppError(
+        typeof errorCode === 'string' ? errorCode : 'BACKEND_UNAVAILABLE',
+        typeof msg === 'string' ? msg : 'The banking server is temporarily unavailable. Please try again shortly.',
+        503,
+      ));
+    }
+
     // Handle 429 Too Many Requests - Exponential backoff with max retries
     if (error.response?.status === 429) {
       const retryCount = (config._retryCount || 0) + 1;
