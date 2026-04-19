@@ -45,8 +45,8 @@ export default function DashboardPage() {
     <div className="space-y-6">
       {/* Page Header */}
       <div>
-        <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
-        <p className="text-gray-600 mt-1">Welcome back! Here&apos;s your banking overview.</p>
+        <h1 className="text-xl font-semibold text-cbs-ink">Dashboard</h1>
+        <p className="text-xs text-cbs-steel-600 mt-0.5">Branch operations overview.</p>
       </div>
 
       {/* Statistics Grid */}
@@ -83,10 +83,10 @@ export default function DashboardPage() {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Accounts List */}
             <div className="lg:col-span-1">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-xl font-bold text-gray-900">Your Accounts</h2>
+              <div className="flex items-center justify-between mb-3">
+                <h2 className="text-sm font-semibold text-cbs-ink uppercase tracking-wider">Your Accounts</h2>
                 <Link href="/accounts/new">
-                  <Button size="sm" variant="primary">
+                  <Button size="sm" variant="secondary">
                     + New Account
                   </Button>
                 </Link>
@@ -109,8 +109,8 @@ export default function DashboardPage() {
 
             {/* Transactions */}
             <div className="lg:col-span-2">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-xl font-bold text-gray-900">Recent Transactions</h2>
+              <div className="flex items-center justify-between mb-3">
+                <h2 className="text-sm font-semibold text-cbs-ink uppercase tracking-wider">Recent Transactions</h2>
                 {selectedAccount && (
                   <Link href={`/accounts/${selectedAccount.id}/transactions`}>
                     <Button size="sm" variant="ghost">
@@ -122,11 +122,11 @@ export default function DashboardPage() {
 
               <Card>
                 {transactions.length === 0 ? (
-                  <div className="text-center py-8">
-                    <p className="text-gray-500">No transactions yet</p>
+                  <div className="text-center py-6">
+                    <p className="text-sm text-cbs-steel-500">No transactions yet</p>
                   </div>
                 ) : (
-                  <div className="divide-y divide-gray-200">
+                  <div className="divide-y divide-cbs-steel-100">
                     {transactions.slice(0, 5).map((transaction) => (
                       <TransactionRow key={transaction.id} transaction={transaction} />
                     ))}
@@ -139,8 +139,8 @@ export default function DashboardPage() {
           {/* Quick Actions */}
           <Card>
             <div>
-              <h3 className="text-lg font-bold text-gray-900 mb-4">Quick Actions</h3>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+              <h3 className="text-sm font-semibold text-cbs-ink uppercase tracking-wider mb-3">Quick Actions</h3>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                 <Link href="/transfers">
                   <Button fullWidth variant="primary" size="sm">
                     Transfer

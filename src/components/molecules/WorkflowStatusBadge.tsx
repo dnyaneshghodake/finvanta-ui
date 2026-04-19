@@ -44,7 +44,7 @@ const WorkflowStatusBadge: React.FC<WorkflowStatusBadgeProps> = ({
         {config.label}
       </Badge>
       {makerName && (
-        <p className="text-xs text-gray-500 mt-1">
+        <p className="text-xs text-cbs-steel-600 mt-1">
           Maker: {makerName}
           {checkerName && ` · Checker: ${checkerName}`}
         </p>

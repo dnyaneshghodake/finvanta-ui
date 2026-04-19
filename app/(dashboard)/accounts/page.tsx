@@ -41,11 +41,11 @@ export default function AccountsPage() {
       {/* Page Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">My Accounts</h1>
-          <p className="text-gray-600 mt-1">Manage all your bank accounts in one place</p>
+          <h1 className="text-xl font-semibold text-cbs-ink">Accounts</h1>
+          <p className="text-xs text-cbs-steel-600 mt-0.5">Branch deposit account portfolio.</p>
         </div>
         <Link href="/accounts/new">
-          <Button size="lg">+ New Account</Button>
+          <Button size="sm" variant="secondary">+ New Account</Button>
         </Link>
       </div>
 
@@ -75,16 +75,15 @@ export default function AccountsPage() {
           </div>
 
           {accounts.length === 0 ? (
-            <Card className="text-center py-12">
-              <div className="space-y-4">
-                <div className="text-5xl">💼</div>
-                <h3 className="text-xl font-bold text-gray-900">No Accounts Yet</h3>
-                <p className="text-gray-600">Start by creating your first bank account</p>
+            <div className="cbs-surface text-center py-10">
+              <div className="space-y-3">
+                <h3 className="text-sm font-semibold text-cbs-ink">No Accounts</h3>
+                <p className="text-xs text-cbs-steel-600">No deposit accounts found for this branch.</p>
                 <Link href="/accounts/new">
-                  <Button>Create Account</Button>
+                  <Button size="sm">Open Account</Button>
                 </Link>
               </div>
-            </Card>
+            </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {accounts.map((account) => (

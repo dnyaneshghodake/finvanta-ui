@@ -23,10 +23,10 @@ const Card = React.forwardRef<HTMLDivElement, CardProps>(
       <div
         ref={ref}
         className={clsx(
-          'rounded-lg p-4 transition-all duration-200',
-          variant === 'default' && 'bg-white border border-gray-200',
-          variant === 'elevated' && 'bg-white shadow-lg',
-          variant === 'outlined' && 'bg-transparent border-2 border-gray-300',
+          'rounded-sm p-3 transition-colors duration-100',
+          variant === 'default' && 'bg-cbs-paper border border-cbs-steel-200',
+          variant === 'elevated' && 'bg-cbs-paper shadow-sm border border-cbs-steel-200',
+          variant === 'outlined' && 'bg-transparent border-2 border-cbs-steel-300',
           className
         )}
         {...props}
