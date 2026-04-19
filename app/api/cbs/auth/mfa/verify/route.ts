@@ -33,11 +33,14 @@ interface VerifyBody {
 }
 
 interface SpringTokenResponse {
-  success?: boolean;
+  status?: string;
   data?: {
     accessToken?: string;
     refreshToken?: string;
     tokenType?: string;
+    /** Seconds until expiry (e.g. 900) — per audited API catalogue. */
+    expiresIn?: number;
+    /** Epoch seconds — alternative format some deployments may use. */
     expiresAt?: number;
     user?: CbsSessionUser;
   };
@@ -148,10 +151,15 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const expiresAt =
-    json.data.expiresAt && json.data.expiresAt > now / 1000
-      ? json.data.expiresAt * 1000
-      : now + env.sessionTtlSeconds * 1000;
+  // Handle both expiresIn (seconds) and expiresAt (epoch seconds).
+  let expiresAt: number;
+  if (json.data.expiresIn && json.data.expiresIn > 0) {
+    expiresAt = now + json.data.expiresIn * 1000;
+  } else if (json.data.expiresAt && json.data.expiresAt > now / 1000) {
+    expiresAt = json.data.expiresAt * 1000;
+  } else {
+    expiresAt = now + env.sessionTtlSeconds * 1000;
+  }
 
   // Business date: carry forward from the existing session if present,
   // otherwise fall back to the BFF server clock. Without this the Header

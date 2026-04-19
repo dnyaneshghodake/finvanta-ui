@@ -34,12 +34,21 @@ interface LoginBody {
 }
 
 interface SpringTokenResponse {
-  success?: boolean;
+  /**
+   * Spring uses `status: "SUCCESS" | "ERROR"` (not boolean `success`).
+   * The BFF checks `upstream.ok` + `json.data?.accessToken` instead.
+   */
+  status?: string;
   data?: {
     accessToken: string;
     refreshToken?: string;
     tokenType?: string;
-    /** Epoch seconds or ISO string — Spring may return either. */
+    /**
+     * Spring returns `expiresIn` (seconds until expiry, e.g. 900) per
+     * the audited API catalogue §1.1. Some deployments may return
+     * `expiresAt` (epoch seconds) instead. We handle both.
+     */
+    expiresIn?: number;
     expiresAt?: number;
     /** Server-authoritative business date from DayOpenService (YYYY-MM-DD). */
     businessDate?: string;
@@ -165,10 +174,17 @@ export async function POST(req: NextRequest) {
   }
 
   const now = Date.now();
-  const expiresAt =
-    json.data.expiresAt && json.data.expiresAt > now / 1000
-      ? json.data.expiresAt * 1000
-      : now + env.sessionTtlSeconds * 1000;
+  // Spring returns `expiresIn` (seconds, e.g. 900) per the audited API
+  // catalogue. Some deployments may return `expiresAt` (epoch seconds).
+  // Handle both; fall back to the configured session TTL.
+  let expiresAt: number;
+  if (json.data.expiresIn && json.data.expiresIn > 0) {
+    expiresAt = now + json.data.expiresIn * 1000;
+  } else if (json.data.expiresAt && json.data.expiresAt > now / 1000) {
+    expiresAt = json.data.expiresAt * 1000;
+  } else {
+    expiresAt = now + env.sessionTtlSeconds * 1000;
+  }
 
   // Business date: Spring may include it in the token response
   // (from DayOpenService). Fall back to the BFF server's clock date.
