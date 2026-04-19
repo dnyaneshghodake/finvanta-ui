@@ -1,18 +1,20 @@
 /**
- * BFF login endpoint -- step 1 of the Spring MFA step-up flow.
+ * BFF login endpoint — Phase 1 of the two-phase auth flow.
  *
- * The Spring API `POST /api/v1/auth/token` accepts {username, password}
- * as JSON and returns one of:
+ * Per API_LOGIN_CONTRACT.md §4, Spring `POST /api/v1/auth/token`
+ * accepts `{username, password}` and returns:
  *
- *   200 + status:"SUCCESS" + data.accessToken  → successful login (no MFA)
- *   428 + errorCode:"MFA_REQUIRED" + error.challengeId → MFA step-up
- *   401 + errorCode:"INVALID_CREDENTIALS" / "ACCOUNT_LOCKED" → auth failure
- *   403 + errorCode:"PASSWORD_EXPIRED" → password change required
- *   429 → rate-limited (per RBI Cyber Security Framework 2024 §6.2)
+ *   200 + status:"SUCCESS" + data.token.accessToken → full COC (no MFA)
+ *   428 + errorCode:"MFA_REQUIRED" + data:{challengeId,channel} → MFA step-up
+ *   401 + errorCode:"AUTH_FAILED" → invalid credentials (no enumeration)
+ *   401 + errorCode:"ACCOUNT_DISABLED" → correct password, account disabled
+ *   401 + errorCode:"ACCOUNT_LOCKED" → correct password, account locked
+ *   401 + errorCode:"PASSWORD_EXPIRED" → correct password, password expired
+ *   429 → rate-limited (20 req/IP burst, 1 token/6s refill)
  *
- * Per REST_API_COMPLETE_CATALOGUE §Auth, MFA challenge data is in the
- * `error` object: `error: { challengeId, method }`. The BFF also reads
- * from `data` for backward compatibility with older deployments.
+ * Per API_LOGIN_CONTRACT.md §4, MFA challenge data is in the `data`
+ * field: `data: { challengeId, channel: "TOTP" }`. The BFF also reads
+ * from the `error` object for backward compatibility.
  *
  * On successful login we materialise the encrypted server-side session
  * (fv_sid) and the JS-readable CSRF cookie (fv_csrf) and return the
@@ -21,8 +23,7 @@
  *
  * On MFA_REQUIRED we stash the opaque challengeId into a short-lived
  * HttpOnly bridge cookie (fv_mfa) so the /login/mfa page can complete
- * the step-up without the challengeId ever being exposed to JS (which
- * would otherwise make it stealable by XSS).
+ * the step-up without the challengeId ever being exposed to JS.
  */
 import { NextResponse, type NextRequest } from "next/server";
 import { readCorrelationId } from "@/lib/server/correlation";
@@ -138,10 +139,9 @@ interface SpringTokenSuccessData {
 }
 
 /**
- * Spring error detail — per REST_API_COMPLETE_CATALOGUE §Standard
- * Response Envelope, error detail is in the `error` object:
- *   error: { code, message, remainingAttempts }
- * Some deployments may also put error detail in `data`. We read both.
+ * Spring error detail — per API_LOGIN_CONTRACT.md §4, auth errors
+ * use the standard ApiResponse envelope with `errorCode` + `message`
+ * at the top level. We also check nested `error` for backward compat.
  */
 interface SpringErrorData {
   code?: string;
@@ -167,13 +167,10 @@ interface SpringTokenResponse {
 }
 
 /**
- * Spring MFA challenge response — per REST_API_COMPLETE_CATALOGUE §Auth:
- *
+ * Spring MFA challenge — per API_LOGIN_CONTRACT.md §4:
  *   HTTP 428, errorCode: "MFA_REQUIRED"
- *   error: { challengeId, method, message }
- *
- * The challengeId may also appear in `data` (per older API catalogue).
- * We read from both locations so the BFF works against either shape.
+ *   data: { challengeId, channel: "TOTP" }
+ * We also read from `error` for backward compatibility.
  */
 interface SpringMfaError {
   challengeId?: string;
@@ -242,18 +239,15 @@ export async function POST(req: NextRequest) {
   const json = (await upstream.json().catch(() => ({}))) as SpringTokenResponse;
 
   // ── MFA step-up detection ──────────────────────────────────────
-  // REST_API_COMPLETE_CATALOGUE §Auth: HTTP 428 with errorCode
-  // "MFA_REQUIRED" and error: { challengeId, method }. We also
-  // accept errorCode in the body on HTTP 200 for backward compat
-  // with older Spring deployments (API_ENDPOINT_CATALOGUE Finding #4).
+  // Per API_LOGIN_CONTRACT.md §4: HTTP 428 with errorCode
+  // "MFA_REQUIRED" and data: { challengeId, channel: "TOTP" }.
   const isMfaRequired =
     upstream.status === 428 ||
     json.errorCode === "MFA_REQUIRED";
 
   if (isMfaRequired) {
-    // REST_API_COMPLETE_CATALOGUE puts challengeId in `error.challengeId`
-    // and method in `error.method`. Older catalogues put it in `data`.
-    // Read from both locations for backward compatibility.
+    // API_LOGIN_CONTRACT.md §4 puts challengeId in `data.challengeId`.
+    // We also read from `error` for backward compatibility.
     const mfaErr = json.error as SpringMfaError | undefined;
     const mfaData = json.data as SpringMfaData | undefined;
     const challengeId = mfaErr?.challengeId || mfaData?.challengeId;
