@@ -39,15 +39,15 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
     return (
       <div className={clsx(fullWidth && 'w-full')}>
         {label && (
-          <label className="block text-sm font-medium text-gray-700 mb-1">
+          <label className="cbs-field-label block mb-1">
             {label}
-            {props.required && <span className="text-red-500 ml-1">*</span>}
+            {props.required && <span className="text-cbs-crimson-700 ml-0.5">*</span>}
           </label>
         )}
 
         <div className="relative">
           {icon && (
-            <div className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400">
+            <div className="absolute left-3 top-1/2 transform -translate-y-1/2 text-cbs-steel-400">
               {icon}
             </div>
           )}
@@ -57,22 +57,19 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
             type={type}
             disabled={disabled}
             className={clsx(
-              'w-full px-3 py-2 border rounded-lg transition-colors duration-200',
-              'focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent',
+              'cbs-input',
               icon ? 'pl-10' : '',
-              error
-                ? 'border-red-500 focus:ring-red-500'
-                : 'border-gray-300 focus:ring-blue-500',
-              disabled && 'bg-gray-100 cursor-not-allowed opacity-50',
+              error && 'border-cbs-crimson-600 focus:border-cbs-crimson-600 focus:ring-cbs-crimson-100',
               className
             )}
+            aria-invalid={!!error}
             {...props}
           />
         </div>
 
-        {error && <p className="text-red-500 text-sm mt-1">{error}</p>}
+        {error && <p className="text-xs text-cbs-crimson-700 mt-1">{error}</p>}
         {helperText && !error && (
-          <p className="text-gray-500 text-sm mt-1">{helperText}</p>
+          <p className="text-xs text-cbs-steel-600 mt-1">{helperText}</p>
         )}
       </div>
     );

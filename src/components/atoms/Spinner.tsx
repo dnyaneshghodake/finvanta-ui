@@ -29,7 +29,7 @@ const Spinner: React.FC<SpinnerProps> = ({
     <div className={clsx('inline-flex flex-col items-center', className)} {...props}>
       <svg
         className={clsx(
-          'animate-spin text-blue-600',
+          'animate-spin text-cbs-navy-600',
           size === 'sm' && 'h-4 w-4',
           size === 'md' && 'h-8 w-8',
           size === 'lg' && 'h-12 w-12'
@@ -52,13 +52,13 @@ const Spinner: React.FC<SpinnerProps> = ({
           d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
         />
       </svg>
-      {message && <p className="mt-2 text-sm text-gray-600">{message}</p>}
+      {message && <p className="mt-2 text-sm text-cbs-steel-600">{message}</p>}
     </div>
   );
 
   if (fullScreen) {
     return (
-      <div className="fixed inset-0 flex items-center justify-center bg-white bg-opacity-75 z-50">
+      <div className="fixed inset-0 flex items-center justify-center bg-cbs-paper/75 z-50">
         {spinnerContent}
       </div>
     );

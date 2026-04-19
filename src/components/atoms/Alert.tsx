@@ -31,49 +31,35 @@ const Alert = React.forwardRef<HTMLDivElement, AlertProps>(
 
     if (!isVisible) return null;
 
-    const bgColor = {
-      success: 'bg-green-50 border-green-200',
-      error: 'bg-red-50 border-red-200',
-      warning: 'bg-yellow-50 border-yellow-200',
-      info: 'bg-blue-50 border-blue-200',
-    };
-
-    const titleColor = {
-      success: 'text-green-800',
-      error: 'text-red-800',
-      warning: 'text-yellow-800',
-      info: 'text-blue-800',
-    };
-
-    const messageColor = {
-      success: 'text-green-700',
-      error: 'text-red-700',
-      warning: 'text-yellow-700',
-      info: 'text-blue-700',
-    };
+    const tone = {
+      success: { bg: 'bg-cbs-olive-50 border-cbs-olive-600', title: 'text-cbs-olive-700', msg: 'text-cbs-olive-700' },
+      error:   { bg: 'bg-cbs-crimson-50 border-cbs-crimson-600', title: 'text-cbs-crimson-700', msg: 'text-cbs-crimson-700' },
+      warning: { bg: 'bg-cbs-gold-50 border-cbs-gold-600', title: 'text-cbs-gold-700', msg: 'text-cbs-gold-700' },
+      info:    { bg: 'bg-cbs-navy-50 border-cbs-navy-600', title: 'text-cbs-navy-700', msg: 'text-cbs-navy-700' },
+    }[type];
 
     return (
       <div
         ref={ref}
         className={clsx(
-          'p-4 border rounded-lg flex items-start justify-between',
-          bgColor[type],
+          'p-3 border rounded-sm flex items-start justify-between text-sm',
+          tone.bg,
           className
         )}
         {...props}
       >
         <div>
-          <p className={clsx('font-medium', titleColor[type])}>{title}</p>
+          <p className={clsx('font-semibold', tone.title)}>{title}</p>
           {message && (
-            <p className={clsx('text-sm mt-1', messageColor[type])}>{message}</p>
+            <p className={clsx('text-sm mt-0.5', tone.msg)}>{message}</p>
           )}
         </div>
         {dismissible && (
           <button
             onClick={handleDismiss}
-            className="text-gray-400 hover:text-gray-600 ml-4 flex-shrink-0"
+            className="text-cbs-steel-400 hover:text-cbs-steel-700 ml-3 flex-shrink-0"
           >
-            <span className="text-xl">&times;</span>
+            <span className="text-lg leading-none">&times;</span>
           </button>
         )}
       </div>

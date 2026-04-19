@@ -36,17 +36,17 @@ const FormField = React.forwardRef<HTMLInputElement, FormFieldProps>(
     ref
   ) => {
     return (
-      <div className="space-y-2">
+      <div className="space-y-1">
         {label && (
-          <div className="flex items-center gap-2">
-            <label className="text-sm font-medium text-gray-700">
+          <div className="flex items-center gap-1.5">
+            <label className="cbs-field-label">
               {label}
-              {required && <span className="text-red-500">*</span>}
+              {required && <span className="text-cbs-crimson-700">*</span>}
             </label>
             {tooltip && (
               <div className="relative group">
-                <span className="text-gray-400 cursor-help">?</span>
-                <div className="absolute hidden group-hover:block bg-gray-900 text-white text-xs rounded p-2 w-48 -left-24 top-6 z-10">
+                <span className="text-cbs-steel-400 cursor-help text-xs">?</span>
+                <div className="absolute hidden group-hover:block bg-cbs-ink text-white text-xs rounded-sm p-2 w-48 -left-24 top-5 z-10">
                   {tooltip}
                 </div>
               </div>
