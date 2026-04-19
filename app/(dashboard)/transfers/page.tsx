@@ -35,7 +35,6 @@ import {
   AccountNo,
   AmountInr,
   AmountDisplay,
-  ValueDate,
   AuditHashChip,
   CorrelationRefBadge,
   KeyValue,
@@ -43,6 +42,7 @@ import {
   CbsFieldset,
   CbsTextarea,
   Breadcrumb,
+  CbsDatePicker,
 } from '@/components/cbs';
 import { useCbsKeyboard } from '@/hooks/useCbsKeyboard';
 import { formatCbsTimestamp } from '@/utils/formatters';
@@ -238,9 +238,9 @@ export default function TransfersPage() {
             <CbsFieldset legend="Transaction Details">
               <div className="grid md:grid-cols-2 gap-4">
                 <AmountInr label="Amount" {...register('amount')} error={errors.amount?.message} />
-                <ValueDate
+                <CbsDatePicker
                   label="Value date"
-                  hint="Defaults to today if left blank."
+                  hint="Defaults to today if left blank. Weekends and 2nd/4th Saturdays are greyed."
                   {...register('valueDate')}
                 />
                 <div className="md:col-span-2">

@@ -37,3 +37,4 @@ export {
   type SortDir,
   type CbsDataGridProps,
 } from './DataGrid';
+export { CbsDatePicker, type CbsDatePickerProps } from './DatePicker';

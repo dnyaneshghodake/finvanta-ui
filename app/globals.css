@@ -560,6 +560,146 @@ body {
   border-radius: 2px;
 }
 
+/* CBS DatePicker — custom calendar dropdown.
+ * Replaces browser-native <input type="date"> with a deterministic
+ * DD-MMM-YYYY display, 7-column calendar grid, weekend greying,
+ * optional holiday awareness, and "Today" shortcut.
+ */
+.cbs-datepicker {
+  position: relative;
+}
+
+.cbs-datepicker-display {
+  cursor: pointer;
+  text-align: left;
+}
+
+.cbs-datepicker-display[data-placeholder="true"] {
+  color: var(--color-cbs-steel-400);
+}
+
+.cbs-cal-dropdown {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 60;
+  width: 260px;
+  background: var(--color-cbs-paper);
+  border: 1px solid var(--color-cbs-steel-200);
+  border-radius: var(--radius-cbs-md);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+}
+
+.cbs-cal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--color-cbs-steel-100);
+}
+
+.cbs-cal-title {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--color-cbs-ink);
+  font-family: var(--font-cbs-mono);
+}
+
+.cbs-cal-nav {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border: none;
+  background: transparent;
+  color: var(--color-cbs-steel-600);
+  cursor: pointer;
+  border-radius: var(--radius-cbs);
+  font-size: 14px;
+  line-height: 1;
+}
+
+.cbs-cal-nav:hover {
+  background: var(--color-cbs-mist);
+  color: var(--color-cbs-ink);
+}
+
+.cbs-cal-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 0;
+  padding: 4px;
+}
+
+.cbs-cal-dow {
+  text-align: center;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-cbs-steel-500);
+  padding: 4px 0;
+}
+
+.cbs-cal-day {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 28px;
+  font-size: 11px;
+  font-family: var(--font-cbs-mono);
+  border-radius: var(--radius-cbs);
+  cursor: pointer;
+  border: none;
+  background: transparent;
+  color: var(--color-cbs-ink);
+  transition: background 80ms ease;
+}
+
+.cbs-cal-day:hover:not([disabled]):not([aria-selected="true"]) {
+  background: var(--color-cbs-navy-50);
+}
+
+.cbs-cal-day[aria-selected="true"] {
+  background: var(--color-cbs-navy-700);
+  color: #fff;
+  font-weight: 700;
+}
+
+.cbs-cal-day[data-today="true"]:not([aria-selected="true"]) {
+  border: 1px solid var(--color-cbs-navy-500);
+  font-weight: 700;
+}
+
+.cbs-cal-day[data-weekend="true"]:not([aria-selected="true"]) {
+  color: var(--color-cbs-crimson-600);
+}
+
+.cbs-cal-day[data-holiday="true"]:not([aria-selected="true"]) {
+  color: var(--color-cbs-crimson-600);
+  background: var(--color-cbs-crimson-50);
+}
+
+.cbs-cal-day[disabled] {
+  color: var(--color-cbs-steel-300);
+  cursor: not-allowed;
+}
+
+.cbs-cal-day[data-outside="true"] {
+  color: var(--color-cbs-steel-300);
+}
+
+.cbs-cal-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 8px;
+  border-top: 1px solid var(--color-cbs-steel-100);
+}
+
 /* CBS responsive table wrapper. */
 .cbs-table-wrap {
   width: 100%;
