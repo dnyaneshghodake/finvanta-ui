@@ -130,13 +130,22 @@ export async function POST(req: NextRequest) {
     cache: "no-store",
   });
 
-  // 428 Precondition Required -- MFA step-up required.
-  if (upstream.status === 428) {
-    const mfaJson = (await upstream
-      .json()
-      .catch(() => ({}))) as SpringMfaChallengeResponse;
-    const challengeId = mfaJson.data?.challengeId;
-    const channel = mfaJson.data?.channel || "TOTP";
+  const json = (await upstream.json().catch(() => ({}))) as SpringTokenResponse;
+
+  // ── MFA step-up detection ──────────────────────────────────────
+  // The LOGIN_API_RESPONSE_CONTRACT specifies HTTP 428 (RFC 8297)
+  // with errorCode: "MFA_REQUIRED" and data: { challengeId, channel }.
+  // The earlier API_ENDPOINT_CATALOGUE audit (Finding #4) documented
+  // that Spring may also return HTTP 200 with the same errorCode in
+  // the body. We detect both so the BFF works against either variant.
+  const isMfaRequired =
+    upstream.status === 428 ||
+    json.errorCode === "MFA_REQUIRED";
+
+  if (isMfaRequired) {
+    const mfaData = json.data as SpringMfaChallengeResponse["data"] | undefined;
+    const challengeId = mfaData?.challengeId;
+    const channel = mfaData?.channel || "TOTP";
     if (!challengeId) {
       return NextResponse.json(
         {
@@ -169,8 +178,6 @@ export async function POST(req: NextRequest) {
       { status: 428, headers: { "x-correlation-id": correlationId } },
     );
   }
-
-  const json = (await upstream.json().catch(() => ({}))) as SpringTokenResponse;
 
   // Determine if this is a success response by checking for accessToken.
   // Spring uses status: "SUCCESS"/"ERROR" but we also check upstream.ok
