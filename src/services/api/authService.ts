@@ -25,6 +25,8 @@ export interface LoginBffResponse {
   csrfToken: string;
   /** Epoch ms when MFA was last verified; null if not yet verified. */
   mfaVerifiedAt?: number | null;
+  /** Server-authoritative business date (YYYY-MM-DD). */
+  businessDate?: string;
 }
 
 export interface MfaVerifyRequest {
@@ -36,6 +38,8 @@ export interface HeartbeatResponse {
   remainingSeconds: number;
   warning: boolean;
   expiresAt: number;
+  /** Server-authoritative business date (YYYY-MM-DD). */
+  businessDate?: string;
 }
 
 class AuthService {

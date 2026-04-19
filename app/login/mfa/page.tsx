@@ -30,7 +30,7 @@ type MfaForm = z.infer<typeof mfaSchema>;
 
 interface MfaOk {
   success: true;
-  data: { user: User; expiresAt: number; csrfToken: string };
+  data: { user: User; expiresAt: number; csrfToken: string; businessDate?: string };
   correlationId?: string;
 }
 interface MfaErr {
@@ -82,6 +82,7 @@ export default function MfaPage() {
         user: response.data.data.user,
         csrfToken: response.data.data.csrfToken,
         expiresAt: response.data.data.expiresAt,
+        businessDate: response.data.data.businessDate ?? null,
         isAuthenticated: true,
         isHydrated: true,
         isLoading: false,

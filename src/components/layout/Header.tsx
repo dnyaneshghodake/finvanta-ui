@@ -56,14 +56,18 @@ const Header: FC<HeaderProps> = ({ className }) => {
     }
   };
 
-  // Business date: in production this comes from the server session
-  // (Spring DayOpenService). For now we display the local date in
-  // DD-MMM-YYYY format — the canonical CBS audit date format.
-  const bizDate = new Date().toLocaleDateString('en-GB', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-  }).replace(/ /g, '-').toUpperCase();
+  // Business date: read from the server-authoritative session (populated
+  // from Spring DayOpenService at login, refreshed via heartbeat).
+  // Never use `new Date()` on the client — the CBS business date can
+  // differ from the calendar date (e.g. after midnight before day-close).
+  const rawBizDate = useAuthStore((s) => s.businessDate);
+  const bizDate = (() => {
+    if (!rawBizDate) return '--';
+    const d = new Date(rawBizDate + 'T00:00:00');
+    if (isNaN(d.getTime())) return rawBizDate;
+    const MONTHS = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
+    return `${String(d.getDate()).padStart(2, '0')}-${MONTHS[d.getMonth()]}-${d.getFullYear()}`;
+  })();
 
   const initials =
     (user?.firstName?.[0] || user?.username?.[0]?.toUpperCase() || '?') +

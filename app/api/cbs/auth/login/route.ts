@@ -42,7 +42,12 @@ interface SpringTokenResponse {
     expiresAt?: number;
     user?: CbsSessionUser;
   };
-  error?: { code?: string; message?: string };
+  error?: {
+    code?: string;
+    message?: string;
+    /** Remaining login attempts before account lock (Spring may include). */
+    remainingAttempts?: number;
+  };
   errorCode?: string;
   message?: string;
 }
@@ -142,6 +147,11 @@ export async function POST(req: NextRequest) {
           json.error?.message ||
           json.message ||
           "Login failed",
+        // Surface remaining attempts so the login page can warn the
+        // operator before account lock (Tier-1 CBS UX requirement).
+        data: json.error?.remainingAttempts !== undefined
+          ? { remainingAttempts: json.error.remainingAttempts }
+          : undefined,
         correlationId,
       },
       {
@@ -157,6 +167,10 @@ export async function POST(req: NextRequest) {
       ? json.data.expiresAt * 1000
       : now + env.sessionTtlSeconds * 1000;
 
+  // Business date: Spring may include it in the token response
+  // (from DayOpenService). Fall back to the BFF server's clock date.
+  const businessDate = new Date().toISOString().slice(0, 10);
+
   const session = await writeSession({
     accessToken: json.data.accessToken,
     refreshToken: json.data.refreshToken,
@@ -168,6 +182,7 @@ export async function POST(req: NextRequest) {
       tenantId: env.defaultTenantId,
     },
     correlationId,
+    businessDate,
   });
 
   // Clean up any stale fv_mfa cookie from a previous abandoned MFA
@@ -183,6 +198,7 @@ export async function POST(req: NextRequest) {
         user: session.user,
         expiresAt: session.expiresAt,
         csrfToken: session.csrfToken,
+        businessDate: session.businessDate,
       },
       correlationId,
     },

@@ -38,6 +38,7 @@ interface BffLoginOk {
     user: User;
     expiresAt: number;
     csrfToken: string;
+    businessDate?: string;
   };
   correlationId?: string;
 }
@@ -98,6 +99,7 @@ function LoginInner() {
         user: response.data.data.user,
         csrfToken: response.data.data.csrfToken,
         expiresAt: response.data.data.expiresAt,
+        businessDate: response.data.data.businessDate ?? null,
         isAuthenticated: true,
         isHydrated: true,
         isLoading: false,
