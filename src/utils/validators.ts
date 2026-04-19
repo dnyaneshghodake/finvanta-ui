@@ -122,14 +122,21 @@ export const validateDateFormat = (date: string): boolean => {
 };
 
 /**
- * Validate that date of birth is valid (age >= 18 and <= 120)
+ * Validate that date of birth is valid (age >= 18 and <= 120).
+ *
+ * Uses precise month/day comparison — a naive year-difference would
+ * accept a 17-year-old born late in the year (KYC compliance issue).
  */
 export const validateDateOfBirth = (dob: string): boolean => {
   if (!validateDateFormat(dob)) return false;
   
   const birthDate = new Date(dob);
   const today = new Date();
-  const age = today.getFullYear() - birthDate.getFullYear();
+  let age = today.getFullYear() - birthDate.getFullYear();
+  const monthDiff = today.getMonth() - birthDate.getMonth();
+  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+    age--;
+  }
   
   return age >= 18 && age <= 120;
 };
