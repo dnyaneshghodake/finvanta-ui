@@ -66,17 +66,17 @@ export default function AccountsPage() {
             <StatisticCard
               label="Total Balance"
               value={formatCurrency(totalBalance)}
-              color="blue"
+              color="navy"
             />
             <StatisticCard
               label="Savings Accounts"
               value={savingsAccounts}
-              color="green"
+              color="olive"
             />
             <StatisticCard
               label="Current Accounts"
               value={currentAccounts}
-              color="yellow"
+              color="gold"
             />
           </div>
 

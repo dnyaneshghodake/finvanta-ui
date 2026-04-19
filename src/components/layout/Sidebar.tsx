@@ -134,7 +134,14 @@ const Sidebar: React.FC<SidebarProps> = ({ className }) => {
   return (
     <>
       {isSidebarOpen && (
-        <div className="fixed inset-0 bg-cbs-ink/40 z-30 lg:hidden" onClick={() => setSidebarOpen(false)} />
+        <div
+          className="fixed inset-0 bg-cbs-ink/40 z-30 lg:hidden"
+          role="button"
+          tabIndex={-1}
+          aria-label="Close sidebar"
+          onClick={() => setSidebarOpen(false)}
+          onKeyDown={(e) => { if (e.key === 'Escape') setSidebarOpen(false); }}
+        />
       )}
 
       <aside

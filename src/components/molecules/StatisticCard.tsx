@@ -14,14 +14,15 @@ export interface StatisticCardProps {
     percentage: number;
   };
   className?: string;
-  color?: 'blue' | 'green' | 'red' | 'yellow';
+  /** CBS semantic color — matches the design token palette. */
+  color?: 'navy' | 'olive' | 'crimson' | 'gold';
 }
 
 const COLOR_MAP = {
-  blue: 'bg-cbs-navy-50 text-cbs-navy-700',
-  green: 'bg-cbs-olive-50 text-cbs-olive-700',
-  red: 'bg-cbs-crimson-50 text-cbs-crimson-700',
-  yellow: 'bg-cbs-gold-50 text-cbs-gold-700',
+  navy: 'bg-cbs-navy-50 text-cbs-navy-700',
+  olive: 'bg-cbs-olive-50 text-cbs-olive-700',
+  crimson: 'bg-cbs-crimson-50 text-cbs-crimson-700',
+  gold: 'bg-cbs-gold-50 text-cbs-gold-700',
 } as const;
 
 const StatisticCard: React.FC<StatisticCardProps> = ({
@@ -30,7 +31,7 @@ const StatisticCard: React.FC<StatisticCardProps> = ({
   icon,
   trend,
   className,
-  color = 'blue',
+  color = 'navy',
 }) => {
   return (
     <div className={`cbs-surface p-3 space-y-1.5 ${className || ''}`}>

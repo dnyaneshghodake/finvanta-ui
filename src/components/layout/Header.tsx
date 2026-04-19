@@ -20,7 +20,7 @@ import { useState, useEffect, useRef, useCallback, FC } from 'react';
 import Link from 'next/link';
 import { useAuthStore } from '@/store/authStore';
 import { useUIStore } from '@/store/uiStore';
-import { Menu, ChevronDown, LogOut, User, Shield } from 'lucide-react';
+import { Menu, ChevronDown, LogOut } from 'lucide-react';
 
 export interface HeaderProps {
   className?: string;
@@ -117,6 +117,10 @@ const Header: FC<HeaderProps> = ({ className }) => {
             <span className="text-cbs-navy-300 uppercase tracking-wider text-[10px] font-semibold">Biz Date</span>
             <span className="cbs-tabular font-semibold text-white">{bizDate}</span>
           </div>
+          <div className="w-px h-4 bg-cbs-navy-600" />
+          <span className="cbs-ribbon text-cbs-olive-700 bg-cbs-olive-50 text-[10px]">
+            Day Open
+          </span>
         </div>
 
         {/* Right: operator identity */}
@@ -159,14 +163,12 @@ const Header: FC<HeaderProps> = ({ className }) => {
                   <span className="cbs-tabular font-medium text-cbs-ink">{bizDate}</span>
                 </div>
               </div>
-              <Link href="/profile" className="flex items-center gap-2 px-3 py-2 text-sm text-cbs-ink hover:bg-cbs-mist">
-                <User size={14} strokeWidth={1.75} className="text-cbs-steel-500" />
-                Profile Settings
-              </Link>
-              <Link href="/security" className="flex items-center gap-2 px-3 py-2 text-sm text-cbs-ink hover:bg-cbs-mist">
-                <Shield size={14} strokeWidth={1.75} className="text-cbs-steel-500" />
-                Security
-              </Link>
+              <div className="px-3 py-2 border-b border-cbs-steel-100">
+                <div className="text-xs font-semibold text-cbs-ink">{displayName}</div>
+                {primaryRole && (
+                  <div className="text-[10px] text-cbs-steel-500 uppercase tracking-wider mt-0.5">{primaryRole}</div>
+                )}
+              </div>
               <div className="border-t border-cbs-steel-100 mt-1 pt-1">
                 <button
                   onClick={handleLogout}
