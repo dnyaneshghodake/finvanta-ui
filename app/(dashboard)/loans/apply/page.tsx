@@ -17,7 +17,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { apiClient } from '@/services/api/apiClient';
-import { AmountInr } from '@/components/cbs';
+import { AmountInr, Breadcrumb } from '@/components/cbs';
 import { Button } from '@/components/atoms';
 import Link from 'next/link';
 
@@ -76,6 +76,12 @@ export default function LoanApplicationPage() {
 
   return (
     <div className="space-y-4">
+      <Breadcrumb items={[
+        { label: 'Dashboard', href: '/dashboard' },
+        { label: 'Loans', href: '/loans' },
+        { label: 'New Application' },
+      ]} />
+
       <div>
         <h1 className="text-xl font-semibold text-cbs-ink">Loan Application</h1>
         <p className="text-xs text-cbs-steel-600 mt-0.5">

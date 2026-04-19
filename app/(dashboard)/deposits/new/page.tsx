@@ -21,7 +21,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { apiClient } from '@/services/api/apiClient';
-import { AmountInr, AccountNo, ValueDate } from '@/components/cbs';
+import { AmountInr, AccountNo, ValueDate, Breadcrumb } from '@/components/cbs';
 import { Button } from '@/components/atoms';
 import Link from 'next/link';
 
@@ -85,6 +85,12 @@ export default function BookFdPage() {
 
   return (
     <div className="space-y-4">
+      <Breadcrumb items={[
+        { label: 'Dashboard', href: '/dashboard' },
+        { label: 'Fixed Deposits', href: '/deposits' },
+        { label: 'Book FD' },
+      ]} />
+
       <div>
         <h1 className="text-xl font-semibold text-cbs-ink">Book Fixed Deposit</h1>
         <p className="text-xs text-cbs-steel-600 mt-0.5">
