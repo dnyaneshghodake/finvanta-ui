@@ -62,10 +62,10 @@ const MODULES: NavModule[] = [
   ]},
   { id: 'loans', label: 'Loans',
     icon: <CreditCard size={ICON_SIZE} strokeWidth={ICON_STROKE} />, children: [
-    { label: 'Loan Inquiry', href: '/legacy/loan/inquiry' },
-    { label: 'Loan Application', href: '/legacy/loan/apply', roles: MAKER },
-    { label: 'Disbursement', href: '/legacy/loan/disburse', roles: CHECKER },
-    { label: 'Repayment', href: '/legacy/loan/repayment', roles: MAKER },
+    { label: 'Loan Inquiry', href: '/loans' },
+    { label: 'Loan Application', href: '/loans/apply', roles: MAKER },
+    { label: 'Disbursement', href: '/loans/disburse', roles: CHECKER },
+    { label: 'Repayment', href: '/loans/repay', roles: MAKER },
   ]},
   { id: 'customers', label: 'Customers',
     icon: <UserPlus size={ICON_SIZE} strokeWidth={ICON_STROKE} />, children: [
@@ -79,9 +79,9 @@ const MODULES: NavModule[] = [
     icon: <ClipboardCheck size={ICON_SIZE} strokeWidth={ICON_STROKE} /> },
   { id: 'reports', label: 'Reports', roles: [...CHECKER, ...ADMIN, 'AUDITOR'],
     icon: <BarChart3 size={ICON_SIZE} strokeWidth={ICON_STROKE} />, children: [
-    { label: 'Trial Balance', href: '/legacy/reports/trial-balance' },
-    { label: 'Day Book', href: '/legacy/reports/day-book' },
-    { label: 'GL Inquiry', href: '/legacy/reports/gl-inquiry' },
+    { label: 'Trial Balance', href: '/reports/trial-balance' },
+    { label: 'Day Book', href: '/reports/day-book' },
+    { label: 'GL Inquiry', href: '/reports/gl' },
   ]},
   { id: 'admin', label: 'Administration', roles: ADMIN,
     icon: <Settings size={ICON_SIZE} strokeWidth={ICON_STROKE} />, children: [
