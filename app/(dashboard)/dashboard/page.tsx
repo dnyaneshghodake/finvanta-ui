@@ -1,19 +1,33 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
+import { useRouter } from 'next/navigation';
 import { useAccountStore } from '@/store/accountStore';
 import { useUIStore } from '@/store/uiStore';
 import { StatisticCard, AccountCard, TransactionRow } from '@/components/molecules';
-import { Card, Button, Spinner } from '@/components/atoms';
+import { Card, Button } from '@/components/atoms';
+import { Breadcrumb, CbsTableSkeleton } from '@/components/cbs';
 import { formatCurrency } from '@/utils/formatters';
+import { useCbsKeyboard } from '@/hooks/useCbsKeyboard';
 import Link from 'next/link';
 
 /**
- * Dashboard page
+ * Dashboard page — branch operations overview.
+ *
+ * CBS keyboard shortcuts:
+ *   F2 = New transfer   F5 = Refresh accounts
  */
 export default function DashboardPage() {
+  const router = useRouter();
   const { accounts, transactions, fetchAccounts, fetchTransactions, selectedAccount, isLoading } = useAccountStore();
   const { addToast } = useUIStore();
+
+  // CBS keyboard shortcuts — teller productivity
+  const shortcuts = useMemo(() => ({
+    F2: () => router.push('/transfers'),
+    F5: () => { void fetchAccounts(); },
+  }), [router, fetchAccounts]);
+  useCbsKeyboard(shortcuts);
 
   useEffect(() => {
     const loadData = async () => {
@@ -43,17 +57,24 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-6">
+      {/* Breadcrumb — mandatory CBS navigation trail */}
+      <Breadcrumb items={[{ label: 'Dashboard' }]} />
+
       {/* Page Header */}
-      <div>
-        <h1 className="text-xl font-semibold text-cbs-ink">Dashboard</h1>
-        <p className="text-xs text-cbs-steel-600 mt-0.5">Branch operations overview.</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-xl font-semibold text-cbs-ink">Dashboard</h1>
+          <p className="text-xs text-cbs-steel-600 mt-0.5">
+            Branch operations overview.
+            <span className="cbs-kbd ml-2">F2</span> Transfer
+            <span className="cbs-kbd ml-2">F5</span> Refresh
+          </p>
+        </div>
       </div>
 
       {/* Statistics Grid */}
       {isLoading ? (
-        <div className="flex justify-center py-8">
-          <Spinner size="lg" message="Loading your accounts..." />
-        </div>
+        <CbsTableSkeleton rows={3} />
       ) : (
         <>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">

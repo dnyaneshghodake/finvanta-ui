@@ -5,7 +5,8 @@ import Link from 'next/link';
 import { useAccountStore } from '@/store/accountStore';
 import { useUIStore } from '@/store/uiStore';
 import { AccountCard, StatisticCard } from '@/components/molecules';
-import { Card, Button, Spinner } from '@/components/atoms';
+import { Button } from '@/components/atoms';
+import { Breadcrumb, CbsTableSkeleton } from '@/components/cbs';
 import { formatCurrency } from '@/utils/formatters';
 
 /**
@@ -38,6 +39,12 @@ export default function AccountsPage() {
 
   return (
     <div className="space-y-6">
+      {/* Breadcrumb — mandatory CBS navigation trail */}
+      <Breadcrumb items={[
+        { label: 'Dashboard', href: '/dashboard' },
+        { label: 'Accounts' },
+      ]} />
+
       {/* Page Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -51,9 +58,7 @@ export default function AccountsPage() {
       </div>
 
       {isLoading ? (
-        <div className="flex justify-center py-12">
-          <Spinner size="lg" message="Loading your accounts..." />
-        </div>
+        <CbsTableSkeleton rows={4} />
       ) : (
         <>
           {/* Statistics */}

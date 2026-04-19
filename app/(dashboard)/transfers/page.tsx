@@ -21,7 +21,7 @@
  * truth -- explicitly forbidden under RBI IT Governance 2023.
  */
 
-import { useState } from 'react';
+import { useState, useMemo, useRef } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -42,7 +42,9 @@ import {
   StatusRibbon,
   CbsFieldset,
   CbsTextarea,
+  Breadcrumb,
 } from '@/components/cbs';
+import { useCbsKeyboard } from '@/hooks/useCbsKeyboard';
 
 const ACCOUNT_NUMBER_RE = /^[A-Z0-9][A-Z0-9-]{5,24}$/;
 
@@ -76,6 +78,7 @@ interface ErrorState {
 }
 
 export default function TransfersPage() {
+  const formRef = useRef<HTMLFormElement>(null);
   const {
     register,
     handleSubmit,
@@ -99,6 +102,14 @@ export default function TransfersPage() {
   // A network-level retry must reuse the same key so the backend
   // de-duplicates via its Redis + DB idempotency cache.
   const [idempotencyKey, setIdempotencyKey] = useState<string | null>(null);
+
+  // CBS keyboard shortcuts: F8 = Submit/Post (CBS convention)
+  const shortcuts = useMemo(() => ({
+    F8: () => {
+      if (phase === 'capture') formRef.current?.requestSubmit();
+    },
+  }), [phase]);
+  useCbsKeyboard(shortcuts);
 
   const toReq = (f: FormData): TransferRequest => ({
     fromAccountNumber: f.fromAccountNumber.trim().toUpperCase(),
@@ -153,12 +164,18 @@ export default function TransfersPage() {
 
   return (
     <div className="space-y-4">
+      {/* Breadcrumb — mandatory CBS navigation trail */}
+      <Breadcrumb items={[
+        { label: 'Dashboard', href: '/dashboard' },
+        { label: 'Transfers' },
+      ]} />
+
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-semibold text-cbs-ink">Fund Transfer</h1>
           <p className="text-xs text-cbs-steel-600">
-            Intra-bank internal transfer. Posting routes through the
-            TransactionEngine with idempotency and hash-chain audit.
+            Intra-bank internal transfer.
+            {phase === 'capture' && <><span className="cbs-kbd ml-2">F8</span> Post</>}
           </p>
         </div>
         {phase !== 'capture' && (

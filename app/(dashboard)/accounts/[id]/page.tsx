@@ -7,7 +7,8 @@ import { useAccountStore } from '@/store/accountStore';
 import { accountService } from '@/services/api/accountService';
 import { StatisticCard, TransactionRow } from '@/components/molecules';
 import { Button, Spinner } from '@/components/atoms';
-import { StatusRibbon } from '@/components/cbs/feedback';
+import { StatusRibbon, KeyValue } from '@/components/cbs/feedback';
+import { Breadcrumb, CbsTabs, CbsTabPanel, CbsFormSkeleton } from '@/components/cbs';
 import { formatCurrency, formatAccountNumber, formatDate, formatAccountType } from '@/utils/formatters';
 import type { Account } from '@/types/entities';
 
@@ -67,40 +68,74 @@ export default function AccountDetailsPage() {
     }
   }, [account, fetchTransactions]);
 
+  const [activeTab, setActiveTab] = useState('overview');
+
+  // Skeleton loading — matches target layout shape, no layout shift
   if (isLoading || directLoading) {
     return (
-      <div className="flex justify-center py-12">
-        <Spinner size="lg" message="Loading account details..." />
+      <div className="space-y-4">
+        <Breadcrumb items={[
+          { label: 'Dashboard', href: '/dashboard' },
+          { label: 'Accounts', href: '/accounts' },
+          { label: '...' },
+        ]} />
+        <CbsFormSkeleton fields={6} />
       </div>
     );
   }
 
   if (!account) {
     return (
-      <div className="cbs-surface text-center py-10">
-        <div className="space-y-3">
-          <h3 className="text-sm font-semibold text-cbs-ink">Account Not Found</h3>
-          <p className="text-xs text-cbs-steel-600">The account you&apos;re looking for doesn&apos;t exist.</p>
-          <Link href="/accounts">
-            <Button size="sm">Back to Accounts</Button>
-          </Link>
+      <div className="space-y-4">
+        <Breadcrumb items={[
+          { label: 'Dashboard', href: '/dashboard' },
+          { label: 'Accounts', href: '/accounts' },
+        ]} />
+        <div className="cbs-surface text-center py-10">
+          <div className="space-y-3">
+            <h3 className="text-sm font-semibold text-cbs-ink">Account Not Found</h3>
+            <p className="text-xs text-cbs-steel-600">The account you&apos;re looking for doesn&apos;t exist.</p>
+            <Link href="/accounts">
+              <Button size="sm">Back to Accounts</Button>
+            </Link>
+          </div>
         </div>
       </div>
     );
   }
 
+  const TABS = [
+    { id: 'overview', label: 'Overview' },
+    { id: 'transactions', label: 'Transactions', count: transactions.length },
+    { id: 'details', label: 'Account Details' },
+  ];
+
   return (
     <div className="space-y-4">
+      {/* Breadcrumb — mandatory CBS navigation trail */}
+      <Breadcrumb items={[
+        { label: 'Dashboard', href: '/dashboard' },
+        { label: 'Accounts', href: '/accounts' },
+        { label: formatAccountNumber(account.accountNumber) },
+      ]} />
+
       {/* Page Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-semibold text-cbs-ink">{formatAccountType(account.accountType)}</h1>
           <p className="text-xs text-cbs-steel-600 cbs-tabular mt-0.5">{formatAccountNumber(account.accountNumber)}</p>
         </div>
-        <StatusRibbon status={account.status} />
+        <div className="flex items-center gap-2">
+          <StatusRibbon status={account.status} />
+          {account.status === 'ACTIVE' && (
+            <Link href={`/transfers?fromAccountId=${account.id}`}>
+              <Button size="sm" variant="primary">Transfer</Button>
+            </Link>
+          )}
+        </div>
       </div>
 
-      {/* Account Overview */}
+      {/* KPI row */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <StatisticCard
           label="Total Balance"
@@ -119,78 +154,97 @@ export default function AccountDetailsPage() {
         />
       </div>
 
-      {/* Account Details Card */}
-      <section className="cbs-surface">
-        <div className="cbs-surface-header">
-          <span className="text-sm font-semibold uppercase tracking-wider text-cbs-steel-700">Account Details</span>
-        </div>
-        <div className="cbs-surface-body grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div>
-            <p className="cbs-field-label">Account Number</p>
-            <p className="cbs-field-value cbs-tabular">{formatAccountNumber(account.accountNumber)}</p>
-          </div>
-          <div>
-            <p className="cbs-field-label">Account Type</p>
-            <p className="cbs-field-value">{formatAccountType(account.accountType)}</p>
-          </div>
-          <div>
-            <p className="cbs-field-label">Currency</p>
-            <p className="cbs-field-value">{account.currency}</p>
-          </div>
-          <div>
-            <p className="cbs-field-label">Status</p>
-            <p className="cbs-field-value">{account.status}</p>
-          </div>
-          <div>
-            <p className="cbs-field-label">Date Opened</p>
-            <p className="cbs-field-value cbs-tabular">{formatDate(account.openedDate, 'dd/MM/yyyy')}</p>
-          </div>
-          {account.closedDate && (
-            <div>
-              <p className="cbs-field-label">Date Closed</p>
-              <p className="cbs-field-value cbs-tabular">{formatDate(account.closedDate, 'dd/MM/yyyy')}</p>
-            </div>
-          )}
-        </div>
-      </section>
+      {/* Tab bar — CBS detail screen convention */}
+      <CbsTabs tabs={TABS} activeTab={activeTab} onTabChange={setActiveTab} />
 
-      {/* Quick Actions */}
-      {account.status === 'ACTIVE' && (
-        <div className="flex flex-wrap gap-2">
-          <Link href={`/transfers?fromAccountId=${account.id}`}>
-            <Button size="sm" variant="primary">Transfer</Button>
-          </Link>
-          <Link href={`/beneficiaries?accountId=${account.id}`}>
-            <Button size="sm" variant="secondary">Add Beneficiary</Button>
-          </Link>
-          <Link href={`/accounts/${account.id}/statement`}>
-            <Button size="sm" variant="secondary">Statement</Button>
-          </Link>
-        </div>
-      )}
+      {/* ── Overview tab ── */}
+      <CbsTabPanel id="overview" activeTab={activeTab} className="space-y-4">
+        {/* Quick Actions */}
+        {account.status === 'ACTIVE' && (
+          <div className="flex flex-wrap gap-2">
+            <Link href={`/transfers?fromAccountId=${account.id}`}>
+              <Button size="sm" variant="primary">Transfer</Button>
+            </Link>
+            <Link href={`/beneficiaries?accountId=${account.id}`}>
+              <Button size="sm" variant="secondary">Add Beneficiary</Button>
+            </Link>
+            <Link href={`/accounts/${account.id}/statement`}>
+              <Button size="sm" variant="secondary">Statement</Button>
+            </Link>
+          </div>
+        )}
 
-      {/* Recent Transactions */}
-      <section className="cbs-surface">
-        <div className="cbs-surface-header">
-          <span className="text-sm font-semibold uppercase tracking-wider text-cbs-steel-700">Recent Transactions</span>
-          <Link href={`/accounts/${account.id}/transactions`}>
-            <Button size="sm" variant="ghost">View All →</Button>
-          </Link>
-        </div>
-        <div>
-          {transactions.length === 0 ? (
-            <div className="text-center py-6">
-              <p className="text-sm text-cbs-steel-500">No transactions yet</p>
-            </div>
-          ) : (
-            <div className="divide-y divide-cbs-steel-100">
-              {transactions.slice(0, 5).map((transaction) => (
-                <TransactionRow key={transaction.id} transaction={transaction} />
-              ))}
-            </div>
-          )}
-        </div>
-      </section>
+        {/* Recent Transactions (first 5) */}
+        <section className="cbs-surface">
+          <div className="cbs-surface-header">
+            <span className="text-sm font-semibold uppercase tracking-wider text-cbs-steel-700">Recent Transactions</span>
+            <button type="button" className="cbs-btn cbs-btn-secondary h-[26px] px-2 text-xs" onClick={() => setActiveTab('transactions')}>
+              View All →
+            </button>
+          </div>
+          <div>
+            {transactions.length === 0 ? (
+              <div className="text-center py-6">
+                <p className="text-sm text-cbs-steel-500">No transactions yet</p>
+              </div>
+            ) : (
+              <div className="divide-y divide-cbs-steel-100">
+                {transactions.slice(0, 5).map((transaction) => (
+                  <TransactionRow key={transaction.id} transaction={transaction} />
+                ))}
+              </div>
+            )}
+          </div>
+        </section>
+      </CbsTabPanel>
+
+      {/* ── Transactions tab ── */}
+      <CbsTabPanel id="transactions" activeTab={activeTab}>
+        <section className="cbs-surface">
+          <div className="cbs-surface-header">
+            <span className="text-sm font-semibold uppercase tracking-wider text-cbs-steel-700">All Transactions</span>
+            <span className="text-xs cbs-tabular text-cbs-steel-600">{transactions.length} entries</span>
+          </div>
+          <div>
+            {transactions.length === 0 ? (
+              <div className="text-center py-6">
+                <p className="text-sm text-cbs-steel-500">No transactions yet</p>
+              </div>
+            ) : (
+              <div className="divide-y divide-cbs-steel-100">
+                {transactions.map((transaction) => (
+                  <TransactionRow key={transaction.id} transaction={transaction} />
+                ))}
+              </div>
+            )}
+          </div>
+        </section>
+      </CbsTabPanel>
+
+      {/* ── Account Details tab ── */}
+      <CbsTabPanel id="details" activeTab={activeTab}>
+        <section className="cbs-surface">
+          <div className="cbs-surface-header">
+            <span className="text-sm font-semibold uppercase tracking-wider text-cbs-steel-700">Account Details</span>
+          </div>
+          <div className="cbs-surface-body grid grid-cols-1 md:grid-cols-3 gap-4">
+            <KeyValue label="Account Number">
+              <span className="cbs-tabular">{formatAccountNumber(account.accountNumber)}</span>
+            </KeyValue>
+            <KeyValue label="Account Type">{formatAccountType(account.accountType)}</KeyValue>
+            <KeyValue label="Currency">{account.currency}</KeyValue>
+            <KeyValue label="Status">{account.status}</KeyValue>
+            <KeyValue label="Date Opened">
+              <span className="cbs-tabular">{formatDate(account.openedDate, 'dd/MM/yyyy')}</span>
+            </KeyValue>
+            {account.closedDate && (
+              <KeyValue label="Date Closed">
+                <span className="cbs-tabular">{formatDate(account.closedDate, 'dd/MM/yyyy')}</span>
+              </KeyValue>
+            )}
+          </div>
+        </section>
+      </CbsTabPanel>
     </div>
   );
 }
