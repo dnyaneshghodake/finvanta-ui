@@ -112,8 +112,7 @@ class AuthService {
   }
 
   // NOTE: Self-service password reset is intentionally absent.
-  // Tier-1 CBS platforms (Finacle, Temenos T24, Oracle Flexcube, TCS
-  // BaNCS, BNP Paribas Core) never expose a public "forgot password"
+  // Tier-1 CBS platforms never expose a public "forgot password"
   // flow to anonymous browsers -- an operator credential reset is an
   // admin-initiated maker-checker action under the User Management
   // module, governed by RBI Master Direction on IT Governance 2023

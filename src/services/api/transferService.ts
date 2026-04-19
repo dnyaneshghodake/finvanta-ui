@@ -17,7 +17,7 @@
  * semantics are enforced at confirm-time by `TransactionEngine` (10-
  * step validation chain including balance, limits, cutoffs, fees).
  * The UI goes directly from capture to confirm with an idempotency
- * guarantee -- this matches Finacle "post-only" posting semantics.
+ * guarantee -- standard CBS "post-only" posting semantics.
  */
 import { apiClient } from './apiClient';
 import type { ApiResponse } from '@/types/api';

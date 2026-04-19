@@ -42,8 +42,8 @@ The Spring server is deployed under Tomcat context path `/api`. The
 REST controllers are mapped at `/v1/**` (Tier-1 standard after the
 April 2026 refactor), so the externally reachable REST URL is
 `http://localhost:8080/api/v1/<resource>` -- a single `/api/v1` prefix,
-exactly as Finacle DIGITAL API / Temenos IRIS / Oracle Banking APIs
-expose their surface. The JSP legacy UI is unchanged and still served
+following the standard Tier-1 CBS versioned REST convention. The JSP
+legacy UI is unchanged and still served
 from `http://localhost:8080/api/<jsp-path>` (e.g. `/api/login`).
 
 > If you still see `/api/api/v1/...` URLs anywhere, pull `master` on
