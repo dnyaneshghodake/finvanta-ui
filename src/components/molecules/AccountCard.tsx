@@ -6,7 +6,7 @@
 import React from 'react';
 import { StatusRibbon } from '@/components/cbs/feedback';
 import { Account } from '@/types/entities';
-import { formatCurrency, formatAccountNumber } from '@/utils/formatters';
+import { formatCurrency, formatAccountNumber, formatCbsDate } from '@/utils/formatters';
 
 export interface AccountCardProps {
   account: Account;
@@ -51,7 +51,7 @@ const AccountCard: React.FC<AccountCardProps> = ({
         </div>
 
         <div className="text-xs text-cbs-steel-500 pt-2 border-t border-cbs-steel-100 cbs-tabular">
-          Opened: {new Date(account.openedDate).toLocaleDateString('en-IN')}
+          Opened: {formatCbsDate(account.openedDate)}
         </div>
       </div>
     </div>
