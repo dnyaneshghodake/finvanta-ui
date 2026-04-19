@@ -2,20 +2,27 @@
  * BFF login endpoint -- step 1 of the Spring MFA step-up flow.
  *
  * The Spring API `POST /api/v1/auth/token` accepts {username, password}
- * as JSON and either:
- *   200  -> {accessToken, refreshToken, tokenType, expiresAt}     (no MFA)
- *   428  -> errorCode=MFA_REQUIRED, data={challengeId, channel}   (MFA on)
- *   401  -> invalid credentials / account locked
+ * as JSON and returns one of:
  *
- * On 200 we materialise the encrypted server-side session (fv_sid) and
- * the JS-readable CSRF cookie (fv_csrf) and return the safe subset of
- * the user profile to the browser. The JWT never crosses the cookie
- * boundary.
+ *   200 + status:"SUCCESS" + data.accessToken  → successful login (no MFA)
+ *   200 + errorCode:"MFA_REQUIRED" + data.challengeId → MFA step-up
+ *   401 + errorCode:"INVALID_CREDENTIALS" / "ACCOUNT_LOCKED" → auth failure
+ *   429 → rate-limited (per RBI Cyber Security Framework 2024 §6.2)
  *
- * On 428 we stash the opaque challenge into a short-lived HttpOnly
- * bridge cookie (fv_mfa) so the /login/mfa page can complete the
- * step-up without the challengeId ever being exposed to JS (which would
- * otherwise make it stealable by XSS).
+ * Per the audited API Endpoint Catalogue §1.1 (Audit Finding #4), Spring
+ * returns MFA_REQUIRED as HTTP 200 with `errorCode: "MFA_REQUIRED"` in
+ * the body — NOT HTTP 428. The BFF also accepts 428 as a fallback for
+ * backward compatibility with pre-audit Spring deployments.
+ *
+ * On successful login we materialise the encrypted server-side session
+ * (fv_sid) and the JS-readable CSRF cookie (fv_csrf) and return the
+ * safe subset of the user profile to the browser. The JWT never crosses
+ * the cookie boundary.
+ *
+ * On MFA_REQUIRED we stash the opaque challengeId into a short-lived
+ * HttpOnly bridge cookie (fv_mfa) so the /login/mfa page can complete
+ * the step-up without the challengeId ever being exposed to JS (which
+ * would otherwise make it stealable by XSS).
  */
 import { NextResponse, type NextRequest } from "next/server";
 import { readCorrelationId } from "@/lib/server/correlation";
@@ -76,9 +83,15 @@ interface SpringTokenResponse {
   timestamp?: string;
 }
 
+/**
+ * Spring MFA challenge response — per audited API catalogue §1.1,
+ * MFA_REQUIRED is returned as HTTP 200 with `errorCode: "MFA_REQUIRED"`
+ * and `data: { challengeId, channel, expiresIn }`. The BFF also
+ * accepts legacy HTTP 428 for backward compatibility.
+ */
 interface SpringMfaChallengeResponse {
-  success?: boolean;
-  data?: { challengeId?: string; channel?: string };
+  status?: "SUCCESS" | "ERROR";
+  data?: { challengeId?: string; channel?: string; expiresIn?: number };
   error?: { code?: string; message?: string };
   errorCode?: string;
   message?: string;
