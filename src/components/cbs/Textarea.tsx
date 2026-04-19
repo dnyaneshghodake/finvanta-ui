@@ -46,12 +46,13 @@ export const CbsTextarea = forwardRef<HTMLTextAreaElement, BaseProps>(
           onChange={handleChange}
           className={`cbs-textarea ${error ? 'border-cbs-crimson-600' : ''} ${className}`.trim()}
           aria-invalid={!!error}
+          aria-describedby={error ? `${fieldId}-error` : hint ? `${fieldId}-hint` : undefined}
           {...rest}
         />
         {error ? (
-          <div className="mt-1 text-xs text-cbs-crimson-700">{error}</div>
+          <div id={`${fieldId}-error`} className="mt-1 text-xs text-cbs-crimson-700" role="alert">{error}</div>
         ) : hint ? (
-          <div className="mt-1 text-xs text-cbs-steel-600">{hint}</div>
+          <div id={`${fieldId}-hint`} className="mt-1 text-xs text-cbs-steel-600">{hint}</div>
         ) : null}
       </div>
     );

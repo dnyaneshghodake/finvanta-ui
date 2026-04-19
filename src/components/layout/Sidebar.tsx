@@ -144,7 +144,7 @@ const Sidebar: React.FC<SidebarProps> = ({ className }) => {
           className,
         )}
       >
-        <nav className="px-2 py-2 space-y-px pb-10">
+        <nav aria-label="CBS module navigation" className="px-2 py-2 space-y-px pb-10">
           {MODULES.map((mod) => {
             if (!hasAccess(mod.roles)) return null;
             const isExp = expanded === mod.id;

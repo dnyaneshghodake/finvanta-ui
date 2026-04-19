@@ -84,7 +84,7 @@ const Header: FC<HeaderProps> = ({ className }) => {
             className="p-1.5 rounded hover:bg-cbs-navy-700 lg:hidden"
             aria-label="Toggle sidebar"
           >
-            <Menu size={18} strokeWidth={1.75} />
+            <Menu size={18} strokeWidth={1.75} aria-hidden="true" />
           </button>
 
           <Link href="/" className="flex items-center gap-2">
@@ -125,6 +125,9 @@ const Header: FC<HeaderProps> = ({ className }) => {
           <button
             onClick={() => setIsDropdownOpen(!isDropdownOpen)}
             className="flex items-center gap-2 px-2 py-1 rounded hover:bg-cbs-navy-700 transition-colors"
+            aria-expanded={isDropdownOpen}
+            aria-haspopup="true"
+            aria-label={`${displayName} menu`}
           >
             <div className="w-7 h-7 bg-cbs-navy-600 rounded-sm flex items-center justify-center text-xs font-semibold">
               {initials}

@@ -170,6 +170,7 @@ export const Ifsc = forwardRef<HTMLInputElement, BaseProps>(
           required={required}
           className="cbs-input cbs-tabular uppercase tracking-wider"
           aria-invalid={!!error}
+          aria-describedby={error ? descId(fieldId, 'error') : hint ? descId(fieldId, 'hint') : undefined}
           {...rest}
         />
       </FieldShell>
@@ -194,6 +195,7 @@ export const Pan = forwardRef<HTMLInputElement, BaseProps>(
           required={required}
           className="cbs-input cbs-tabular uppercase tracking-wider"
           aria-invalid={!!error}
+          aria-describedby={error ? descId(fieldId, 'error') : hint ? descId(fieldId, 'hint') : undefined}
           {...rest}
         />
       </FieldShell>
@@ -219,6 +221,7 @@ export const Aadhaar = forwardRef<HTMLInputElement, BaseProps>(
           required={required}
           className="cbs-input cbs-tabular tracking-widest"
           aria-invalid={!!error}
+          aria-describedby={error ? descId(fieldId, 'error') : hint ? descId(fieldId, 'hint') : undefined}
           {...rest}
         />
       </FieldShell>
@@ -251,6 +254,7 @@ export const AccountNo = forwardRef<HTMLInputElement, BaseProps>(
           required={required}
           className="cbs-input cbs-tabular uppercase tracking-widest"
           aria-invalid={!!error}
+          aria-describedby={error ? descId(fieldId, 'error') : hint ? descId(fieldId, 'hint') : undefined}
           {...rest}
         />
       </FieldShell>
@@ -289,13 +293,14 @@ export const ValueDate = forwardRef<HTMLInputElement, BaseProps>(
             required={required}
             className="cbs-input cbs-tabular flex-1"
             aria-invalid={!!error}
+            aria-describedby={error ? descId(fieldId, 'error') : hint ? descId(fieldId, 'hint') : undefined}
             {...rest}
           />
           <button
             type="button"
             onClick={fillToday}
             className="cbs-btn cbs-btn-secondary h-[34px] px-2 text-[10px] uppercase tracking-wider whitespace-nowrap"
-            title="Set to today"
+            aria-label="Set value date to today"
           >
             Today
           </button>

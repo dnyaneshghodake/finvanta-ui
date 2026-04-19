@@ -50,27 +50,52 @@ function unlockScroll() {
   if (modalCount === 0) document.body.style.overflow = '';
 }
 
+const FOCUSABLE_SELECTOR = 'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
 export function CbsModal({ open, onClose, title, size = 'md', children, persistent = false }: CbsModalProps) {
   const dialogRef = useRef<HTMLDivElement>(null);
+  const previousFocusRef = useRef<HTMLElement | null>(null);
 
-  const handleEscape = useCallback(
+  const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && !persistent) onClose();
+      if (e.key === 'Escape' && !persistent) { onClose(); return; }
+      // Focus trap — Tab cycles within the modal only (WCAG 2.4.3)
+      if (e.key === 'Tab') {
+        const focusable = dialogRef.current?.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR);
+        if (!focusable || focusable.length === 0) return;
+        const first = focusable[0];
+        const last = focusable[focusable.length - 1];
+        if (e.shiftKey && document.activeElement === first) {
+          e.preventDefault();
+          last.focus();
+        } else if (!e.shiftKey && document.activeElement === last) {
+          e.preventDefault();
+          first.focus();
+        }
+      }
     },
     [onClose, persistent],
   );
 
   useEffect(() => {
     if (!open) return;
-    document.addEventListener('keydown', handleEscape);
+    // Save the element that had focus before the modal opened
+    // so we can restore it on close (WCAG 2.4.3 Focus Order).
+    previousFocusRef.current = document.activeElement as HTMLElement | null;
+    document.addEventListener('keydown', handleKeyDown);
     lockScroll();
-    // Focus trap: focus the dialog on open
-    dialogRef.current?.focus();
+    // Focus the first focusable element inside the modal, or the
+    // dialog itself if nothing is focusable.
+    const firstFocusable = dialogRef.current?.querySelector<HTMLElement>(FOCUSABLE_SELECTOR);
+    if (firstFocusable) firstFocusable.focus();
+    else dialogRef.current?.focus();
     return () => {
-      document.removeEventListener('keydown', handleEscape);
+      document.removeEventListener('keydown', handleKeyDown);
       unlockScroll();
+      // Restore focus to the element that triggered the modal
+      previousFocusRef.current?.focus();
     };
-  }, [open, handleEscape]);
+  }, [open, handleKeyDown]);
 
   if (!open) return null;
 
