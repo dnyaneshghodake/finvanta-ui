@@ -11,6 +11,7 @@ import axios, {
 } from 'axios';
 import { logger } from '@/utils/logger';
 import { errorHandler, AppError } from '@/utils/errorHandler';
+import { useAuthStore } from '@/store/authStore';
 
 /**
  * Custom Axios config type
@@ -109,35 +110,20 @@ apiClient.interceptors.response.use(
 
       try {
         logger.warn('Token expired, attempting refresh...');
-        
-        // Attempt token refresh
-        const refreshToken = typeof window !== 'undefined' ? localStorage.getItem('cbs_refresh_token') : null;
-        if (refreshToken) {
-          const refreshResponse = await axios.post(
-            `${process.env.NEXT_PUBLIC_API_URL}/auth/refresh`,
-            { refreshToken },
-            { timeout: 10000 }
-          );
 
-          const { accessToken, refreshToken: newRefreshToken } = refreshResponse.data.data;
-          
-          if (typeof window !== 'undefined') {
-            localStorage.setItem('cbs_access_token', accessToken);
-            localStorage.setItem('cbs_refresh_token', newRefreshToken);
-          }
+        // Delegate to the Zustand store so localStorage + store stay in sync
+        await useAuthStore.getState().refreshAuthToken();
 
-          // Retry original request with new token
-          config.headers.Authorization = `Bearer ${accessToken}`;
-          return apiClient(config);
-        }
+        // Retry original request with the new token from store
+        const newToken = useAuthStore.getState().token;
+        config.headers.Authorization = `Bearer ${newToken}`;
+        return apiClient(config);
       } catch (refreshError) {
         logger.error('Token refresh failed', refreshError);
-        
-        // Clear auth data and redirect to login
+
+        // Store's refreshAuthToken already calls clearAuth on failure,
+        // but force redirect to login as well
         if (typeof window !== 'undefined') {
-          localStorage.removeItem('cbs_access_token');
-          localStorage.removeItem('cbs_refresh_token');
-          localStorage.removeItem('cbs_user');
           window.location.href = '/login';
         }
       }

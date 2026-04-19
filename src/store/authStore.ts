@@ -82,9 +82,18 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         } catch (error) {
           logger.error('Failed to fetch user profile', error);
         }
-      }
 
-      set({ isLoading: false });
+        set({ isLoading: false });
+      } else {
+        // API returned success: false — treat as login failure
+        const message = response.error?.message || 'Login failed';
+        set({
+          isLoading: false,
+          error: message,
+          isAuthenticated: false,
+        });
+        throw new Error(message);
+      }
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Login failed';
       set({ 

@@ -1,12 +1,16 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Header, Sidebar } from '@/components/layout';
 import { useAuthStore } from '@/store/authStore';
+import { Spinner } from '@/components/atoms';
 
 /**
- * Authenticated layout for dashboard and other pages
+ * Authenticated layout for dashboard and other pages.
+ *
+ * Uses an `isInitialized` flag to prevent the redirect effect from
+ * firing before loadUserFromStorage has had a chance to hydrate state.
  */
 export default function AuthLayout({
   children,
@@ -15,26 +19,35 @@ export default function AuthLayout({
 }) {
   const router = useRouter();
   const { isAuthenticated, loadUserFromStorage } = useAuthStore();
+  const [isInitialized, setIsInitialized] = useState(false);
 
   useEffect(() => {
-    // Load user from storage on mount
+    // Hydrate auth state from localStorage, then mark as ready
     loadUserFromStorage();
+    setIsInitialized(true);
   }, [loadUserFromStorage]);
 
   useEffect(() => {
-    // Redirect to login if not authenticated
-    if (!isAuthenticated && typeof window !== 'undefined') {
+    // Only redirect after hydration is complete
+    if (isInitialized && !isAuthenticated) {
       router.push('/login');
     }
-  }, [isAuthenticated, router]);
+  }, [isInitialized, isAuthenticated, router]);
 
+  // Still hydrating — show spinner, not a redirect
+  if (!isInitialized) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Spinner size="lg" message="Initializing..." />
+      </div>
+    );
+  }
+
+  // Hydrated but not authenticated — waiting for redirect
   if (!isAuthenticated) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold mb-2">Loading...</h1>
-          <p className="text-gray-600">Redirecting to login...</p>
-        </div>
+        <Spinner size="lg" message="Redirecting to login..." />
       </div>
     );
   }
