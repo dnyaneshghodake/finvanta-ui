@@ -36,6 +36,10 @@ export async function POST(req: NextRequest) {
     ...session,
     expiresAt: Math.min(idleExtension, absoluteCeiling),
     csrfToken: session.csrfToken,
+    // Preserve the original issuedAt so the absolute TTL ceiling
+    // above stays pinned to the original login time; without this,
+    // a user could extend indefinitely.
+    issuedAt: session.issuedAt,
   });
   return NextResponse.json(
     { success: true, correlationId },

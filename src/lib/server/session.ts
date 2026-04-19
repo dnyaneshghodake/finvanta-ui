@@ -52,15 +52,24 @@ export async function readSession(): Promise<CbsSession | null> {
 }
 
 export async function writeSession(
-  partial: Omit<CbsSession, "csrfToken" | "issuedAt"> & { csrfToken?: string },
+  partial: Omit<CbsSession, "csrfToken" | "issuedAt"> & {
+    csrfToken?: string;
+    issuedAt?: number;
+  },
 ): Promise<CbsSession> {
   const env = serverEnv();
   const jar = await cookies();
   const csrfToken = partial.csrfToken ?? generateCsrfToken();
+  // Preserve the original `issuedAt` when callers (e.g. the session
+  // extend route, MFA verify) pass it through. Resetting it on every
+  // write would let users extend the session indefinitely and drift
+  // the absolute TTL ceiling forward by the idle-extension amount on
+  // each tick -- the exact invariant violation flagged by Devin
+  // Review on PR #2.
   const session: CbsSession = {
     ...partial,
     csrfToken,
-    issuedAt: Date.now(),
+    issuedAt: partial.issuedAt ?? Date.now(),
   };
   const encrypted = encryptSession(session);
   const common = {

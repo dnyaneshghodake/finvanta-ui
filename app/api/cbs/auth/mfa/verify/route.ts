@@ -120,6 +120,9 @@ export async function POST(req: NextRequest) {
       ...existing,
       mfaVerifiedAt: now,
       csrfToken: existing.csrfToken,
+      // Step-up within an existing session -- preserve issuedAt so
+      // the absolute TTL ceiling stays anchored to the original login.
+      issuedAt: existing.issuedAt,
     });
     jar.delete(env.mfaChallengeCookieName);
     return NextResponse.json(

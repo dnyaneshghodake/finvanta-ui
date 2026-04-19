@@ -79,6 +79,8 @@ export async function POST(req: NextRequest) {
       branchName: json.data.branchName || session.user.branchName,
     },
     csrfToken: session.csrfToken,
+    // Preserve original issuedAt -- branch switch is not a fresh login.
+    issuedAt: session.issuedAt,
   });
 
   return NextResponse.json(
