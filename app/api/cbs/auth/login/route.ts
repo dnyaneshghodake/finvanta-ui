@@ -33,35 +33,47 @@ interface LoginBody {
   rememberMe?: boolean;
 }
 
-interface SpringTokenResponse {
+/**
+ * Spring success response shape for POST /api/v1/auth/token.
+ */
+interface SpringTokenSuccessData {
+  accessToken: string;
+  refreshToken?: string;
+  tokenType?: string;
   /**
-   * Spring uses `status: "SUCCESS" | "ERROR"` (not boolean `success`).
-   * The BFF checks `upstream.ok` + `json.data?.accessToken` instead.
+   * Spring returns `expiresIn` (seconds until expiry, e.g. 900) per
+   * the backend contract. We also handle `expiresAt` (epoch seconds)
+   * as a fallback for alternative deployments.
    */
+  expiresIn?: number;
+  expiresAt?: number;
+  /** Server-authoritative business date from DayOpenService (YYYY-MM-DD). */
+  businessDate?: string;
+  user?: CbsSessionUser;
+}
+
+/**
+ * Spring error response shape — the `data` field carries error detail
+ * on 401/403/429, NOT a nested `error` object. Per the backend contract:
+ *
+ *   401: data = { code, message, remainingAttempts }
+ *   401: data = { code, message, lockoutDurationMinutes, remainingAttempts: 0 }
+ *   403: data = null (PASSWORD_EXPIRED)
+ *   429: data = null (RATE_LIMITED)
+ */
+interface SpringErrorData {
+  code?: string;
+  message?: string;
+  remainingAttempts?: number;
+  lockoutDurationMinutes?: number;
+}
+
+interface SpringTokenResponse {
   status?: string;
-  data?: {
-    accessToken: string;
-    refreshToken?: string;
-    tokenType?: string;
-    /**
-     * Spring returns `expiresIn` (seconds until expiry, e.g. 900) per
-     * the audited API catalogue §1.1. Some deployments may return
-     * `expiresAt` (epoch seconds) instead. We handle both.
-     */
-    expiresIn?: number;
-    expiresAt?: number;
-    /** Server-authoritative business date from DayOpenService (YYYY-MM-DD). */
-    businessDate?: string;
-    user?: CbsSessionUser;
-  };
-  error?: {
-    code?: string;
-    message?: string;
-    /** Remaining login attempts before account lock (Spring may include). */
-    remainingAttempts?: number;
-  };
+  data?: SpringTokenSuccessData | SpringErrorData | null;
   errorCode?: string;
   message?: string;
+  timestamp?: string;
 }
 
 interface SpringMfaChallengeResponse {
@@ -147,23 +159,44 @@ export async function POST(req: NextRequest) {
 
   const json = (await upstream.json().catch(() => ({}))) as SpringTokenResponse;
 
-  if (!upstream.ok || !json.data?.accessToken) {
+  // Determine if this is a success response by checking for accessToken.
+  // Spring uses status: "SUCCESS"/"ERROR" but we also check upstream.ok
+  // for robustness.
+  const successData = (upstream.ok && json.data && "accessToken" in json.data)
+    ? (json.data as SpringTokenSuccessData)
+    : null;
+
+  if (!successData?.accessToken) {
+    // Error path — read error detail from data (backend contract puts
+    // error info in `data: { code, message, remainingAttempts }` on 401,
+    // not in a nested `error` object).
+    const errData = json.data as SpringErrorData | null | undefined;
+    const errorCode =
+      errData?.code ||
+      json.errorCode ||
+      (upstream.status === 401 ? "AUTH_FAILED"
+        : upstream.status === 403 ? "PASSWORD_EXPIRED"
+        : upstream.status === 429 ? "RATE_LIMITED"
+        : "LOGIN_FAILED");
+
     return NextResponse.json(
       {
         success: false,
-        errorCode:
-          json.error?.code ||
-          json.errorCode ||
-          (upstream.status === 401 ? "AUTH_FAILED" : "LOGIN_FAILED"),
+        errorCode,
         message:
-          json.error?.message ||
+          errData?.message ||
           json.message ||
           "Login failed",
-        // Surface remaining attempts so the login page can warn the
-        // operator before account lock (Tier-1 CBS UX requirement).
-        data: json.error?.remainingAttempts !== undefined
-          ? { remainingAttempts: json.error.remainingAttempts }
-          : undefined,
+        // Surface remaining attempts + lockout duration so the login
+        // page can warn the operator (Tier-1 CBS UX requirement).
+        data: {
+          ...(errData?.remainingAttempts !== undefined
+            ? { remainingAttempts: errData.remainingAttempts }
+            : {}),
+          ...(errData?.lockoutDurationMinutes !== undefined
+            ? { lockoutDurationMinutes: errData.lockoutDurationMinutes }
+            : {}),
+        },
         correlationId,
       },
       {
@@ -174,32 +207,30 @@ export async function POST(req: NextRequest) {
   }
 
   const now = Date.now();
-  // Spring returns `expiresIn` (seconds, e.g. 900) per the audited API
-  // catalogue. Some deployments may return `expiresAt` (epoch seconds).
-  // Handle both; fall back to the configured session TTL.
+  // Spring returns `expiresIn` (seconds, e.g. 900) per the backend
+  // contract. We also handle `expiresAt` (epoch seconds) as fallback.
   let expiresAt: number;
-  if (json.data.expiresIn && json.data.expiresIn > 0) {
-    expiresAt = now + json.data.expiresIn * 1000;
-  } else if (json.data.expiresAt && json.data.expiresAt > now / 1000) {
-    expiresAt = json.data.expiresAt * 1000;
+  if (successData.expiresIn && successData.expiresIn > 0) {
+    expiresAt = now + successData.expiresIn * 1000;
+  } else if (successData.expiresAt && successData.expiresAt > now / 1000) {
+    expiresAt = successData.expiresAt * 1000;
   } else {
     expiresAt = now + env.sessionTtlSeconds * 1000;
   }
 
-  // Business date: Spring may include it in the token response
-  // (from DayOpenService). Fall back to the BFF server's clock date.
-  // In a CBS the business date can differ from the calendar date
-  // (e.g. after midnight before day-close), so the Spring-provided
-  // value takes precedence when available.
+  // Business date: Spring includes it from DayOpenService. Fall back to
+  // BFF server clock only when backend omits it (which is wrong for CBS
+  // operations — the business date can differ from the calendar date
+  // after midnight before day-close).
   const businessDate =
-    json.data.businessDate || new Date().toISOString().slice(0, 10);
+    successData.businessDate || new Date().toISOString().slice(0, 10);
 
   const session = await writeSession({
-    accessToken: json.data.accessToken,
-    refreshToken: json.data.refreshToken,
-    tokenType: json.data.tokenType || "Bearer",
+    accessToken: successData.accessToken,
+    refreshToken: successData.refreshToken,
+    tokenType: successData.tokenType || "Bearer",
     expiresAt,
-    user: json.data.user || {
+    user: successData.user || {
       username,
       roles: [],
       tenantId: env.defaultTenantId,
