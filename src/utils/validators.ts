@@ -44,11 +44,15 @@ export const validateIFSC = (ifsc: string): boolean => {
 };
 
 /**
- * Validate bank account number (length between 9-18 digits)
+ * Validate CBS account number.
+ *
+ * Finvanta uses a composite alphanumeric key shaped
+ * `<product>-<branchSol>-<serial>` (e.g. SB-HQ001-000001). The
+ * pattern mirrors the Zod schema on the transfer form and the
+ * AccountNo CBS primitive: `[A-Z0-9][A-Z0-9-]{5,24}`.
  */
 export const validateAccountNumber = (accountNumber: string): boolean => {
-  const cleaned = accountNumber.replace(/\D/g, '');
-  return cleaned.length >= 9 && cleaned.length <= 18;
+  return /^[A-Z0-9][A-Z0-9-]{5,24}$/.test(accountNumber.toUpperCase());
 };
 
 /**

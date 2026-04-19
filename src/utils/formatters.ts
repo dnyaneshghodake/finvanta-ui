@@ -65,13 +65,22 @@ export const formatPhoneNumber = (phone: string): string => {
 };
 
 /**
- * Format Indian bank account number: XXXX XX XXXXX
+ * Format CBS account number for display.
+ *
+ * Finvanta uses composite alphanumeric keys (e.g. SB-HQ001-000001)
+ * that already contain dashes as structural separators. These are
+ * returned as-is. Only legacy digit-only account numbers (12+ chars)
+ * are grouped into the traditional XXXX XX XXXXX format.
  */
 export const formatAccountNumber = (accountNumber: string): string => {
   const cleaned = accountNumber.replace(/\s/g, '');
-  if (cleaned.length < 12) return accountNumber;
-  
-  return `${cleaned.slice(0, 4)} ${cleaned.slice(4, 6)} ${cleaned.slice(6)}`;
+  // CBS alphanumeric keys already have structural separators — pass through.
+  if (/[A-Za-z-]/.test(cleaned)) return cleaned;
+  // Legacy digit-only format: group as XXXX XX XXXXX
+  if (cleaned.length >= 12) {
+    return `${cleaned.slice(0, 4)} ${cleaned.slice(4, 6)} ${cleaned.slice(6)}`;
+  }
+  return accountNumber;
 };
 
 /**

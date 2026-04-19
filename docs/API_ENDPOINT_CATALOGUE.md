@@ -149,7 +149,7 @@ Spring today.
 
 | Method | Path | Purpose |
 |---|---|---|
-| `POST` | `/api/cbs/session/heartbeat` | Resets idle timer inside BFF session. |
+| `GET`  | `/api/cbs/session/heartbeat` | Returns `{remainingSeconds, warning, expiresAt}` for server-synced countdown. |
 | `POST` | `/api/cbs/session/extend` | Issues a new access token via refresh and resets TTL. |
 | `POST` | `/api/cbs/session/switch-branch` | Swaps the `branchCode` claim inside the session blob; gated to HO roles. |
 

@@ -122,7 +122,7 @@ export const VALIDATION_PATTERNS = {
   PAN: /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/,
   AADHAR: /^\d{12}$/,
   IFSC: /^[A-Z]{4}0[A-Z0-9]{6}$/,
-  ACCOUNT_NUMBER: /^\d{9,18}$/,
+  ACCOUNT_NUMBER: /^[A-Z0-9][A-Z0-9-]{5,24}$/,
   URL: /^(https?:\/\/)?([\da-z\.-]+)\.([a-z\.]{2,6})([\/\w \.-]*)*\/?$/,
 } as const;
 
