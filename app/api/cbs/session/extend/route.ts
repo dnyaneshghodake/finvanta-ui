@@ -31,7 +31,7 @@ export async function POST(req: NextRequest) {
     );
   }
   const absoluteCeiling = session.issuedAt + env.sessionTtlSeconds * 1000;
-  const idleExtension = Date.now() + 15 * 60 * 1000;
+  const idleExtension = Date.now() + env.sessionIdleExtensionSeconds * 1000;
   await writeSession({
     ...session,
     expiresAt: Math.min(idleExtension, absoluteCeiling),

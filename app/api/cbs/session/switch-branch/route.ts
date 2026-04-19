@@ -51,6 +51,7 @@ export async function POST(req: NextRequest) {
         "content-type": "application/json",
         authorization: `${session.tokenType} ${session.accessToken}`,
         "x-correlation-id": correlationId,
+        "x-tenant-id": session.user.tenantId || env.defaultTenantId,
         accept: "application/json",
       },
       body: JSON.stringify({ branchCode: body.branchCode }),
