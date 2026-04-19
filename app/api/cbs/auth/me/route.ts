@@ -34,6 +34,9 @@ export async function GET(req: NextRequest) {
         mfaVerifiedAt: session.mfaVerifiedAt ?? null,
         businessDate:
           session.businessDate || new Date().toISOString().slice(0, 10),
+        businessDay: session.businessDay ?? null,
+        operationalConfig: session.operationalConfig ?? null,
+        transactionLimits: session.transactionLimits ?? null,
       },
       correlationId,
     },

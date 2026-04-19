@@ -40,23 +40,90 @@ interface LoginBody {
   rememberMe?: boolean;
 }
 
-/**
- * Spring success response shape for POST /api/v1/auth/token.
- */
-interface SpringTokenSuccessData {
+// ── Spring nested response shape for POST /api/v1/auth/token ──────
+// The response is deeply nested: data.token, data.user, data.branch,
+// data.businessDay, data.role, data.limits, data.operationalConfig.
+
+interface SpringToken {
   accessToken: string;
   refreshToken?: string;
   tokenType?: string;
-  /**
-   * Spring returns `expiresIn` (seconds until expiry, e.g. 900) per
-   * the backend contract. We also handle `expiresAt` (epoch seconds)
-   * as a fallback for alternative deployments.
-   */
   expiresIn?: number;
   expiresAt?: number;
-  /** Server-authoritative business date from DayOpenService (YYYY-MM-DD). */
+}
+
+interface SpringUser {
+  userId?: number;
+  username?: string;
+  displayName?: string;
+  authenticationLevel?: string;
+  loginTimestamp?: string;
+  lastLoginTimestamp?: string;
+  passwordExpiryDate?: string;
+  mfaEnabled?: boolean;
+}
+
+interface SpringBranch {
+  branchId?: number;
+  branchCode?: string;
+  branchName?: string;
+  ifscCode?: string;
+  branchType?: string;
+  zoneCode?: string;
+  regionCode?: string;
+  headOffice?: boolean;
+}
+
+interface SpringBusinessDay {
   businessDate?: string;
-  user?: CbsSessionUser;
+  dayStatus?: string;
+  isHoliday?: boolean;
+  previousBusinessDate?: string;
+  nextBusinessDate?: string;
+}
+
+interface SpringRole {
+  role?: string;
+  makerCheckerRole?: string;
+  permissionsByModule?: Record<string, string[]>;
+  allowedModules?: string[];
+}
+
+interface SpringTransactionLimit {
+  transactionType: string;
+  channel: string | null;
+  perTransactionLimit: number;
+  dailyAggregateLimit: number;
+}
+
+interface SpringLimits {
+  transactionLimits?: SpringTransactionLimit[];
+}
+
+interface SpringOperationalConfig {
+  baseCurrency?: string;
+  decimalPrecision?: number;
+  roundingMode?: string;
+  fiscalYearStartMonth?: number;
+  businessDayPolicy?: string;
+}
+
+interface SpringTokenSuccessData {
+  // New nested shape
+  token?: SpringToken;
+  user?: SpringUser;
+  branch?: SpringBranch;
+  businessDay?: SpringBusinessDay;
+  role?: SpringRole;
+  limits?: SpringLimits;
+  operationalConfig?: SpringOperationalConfig;
+  // Legacy flat shape (backward compat)
+  accessToken?: string;
+  refreshToken?: string;
+  tokenType?: string;
+  expiresIn?: number;
+  expiresAt?: number;
+  businessDate?: string;
 }
 
 /**
@@ -213,14 +280,13 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  // Determine if this is a success response by checking for accessToken.
-  // Spring uses status: "SUCCESS"/"ERROR" but we also check upstream.ok
-  // for robustness.
-  const successData = (upstream.ok && json.data && "accessToken" in json.data)
-    ? (json.data as SpringTokenSuccessData)
-    : null;
+  // Determine if this is a success response. The new Spring shape nests
+  // the access token under `data.token.accessToken`; the legacy shape
+  // has it flat at `data.accessToken`. We detect both.
+  const rawData = (upstream.ok && json.data) ? (json.data as SpringTokenSuccessData) : null;
+  const accessToken = rawData?.token?.accessToken || rawData?.accessToken;
 
-  if (!successData?.accessToken) {
+  if (!accessToken) {
     // Error path — per REST_API_COMPLETE_CATALOGUE §Standard Response
     // Envelope, error detail is in the `error` object:
     //   error: { code, message, remainingAttempts }
@@ -266,37 +332,86 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  // ── Extract token fields (nested or flat) ─────────────────────
+  const tok = rawData?.token;
+  const expiresIn = tok?.expiresIn ?? rawData?.expiresIn;
+  const expiresAtRaw = tok?.expiresAt ?? rawData?.expiresAt;
+
   const now = Date.now();
-  // Spring returns `expiresIn` (seconds, e.g. 900) per the backend
-  // contract. We also handle `expiresAt` (epoch seconds) as fallback.
   let expiresAt: number;
-  if (successData.expiresIn && successData.expiresIn > 0) {
-    expiresAt = now + successData.expiresIn * 1000;
-  } else if (successData.expiresAt && successData.expiresAt > now / 1000) {
-    expiresAt = successData.expiresAt * 1000;
+  if (expiresIn && expiresIn > 0) {
+    expiresAt = now + expiresIn * 1000;
+  } else if (expiresAtRaw && expiresAtRaw > now / 1000) {
+    expiresAt = expiresAtRaw * 1000;
   } else {
     expiresAt = now + env.sessionTtlSeconds * 1000;
   }
 
-  // Business date: Spring includes it from DayOpenService. Fall back to
-  // BFF server clock only when backend omits it (which is wrong for CBS
-  // operations — the business date can differ from the calendar date
-  // after midnight before day-close).
+  // ── Extract nested sub-objects ──────────────────────────────
+  const sUser = rawData?.user;
+  const sBranch = rawData?.branch;
+  const sBizDay = rawData?.businessDay;
+  const sRole = rawData?.role;
+  const sLimits = rawData?.limits;
+  const sOpConfig = rawData?.operationalConfig;
+
+  // Business date: prefer `data.businessDay.businessDate`, fall back
+  // to legacy flat `data.businessDate`, then BFF server clock.
   const businessDate =
-    successData.businessDate || new Date().toISOString().slice(0, 10);
+    sBizDay?.businessDate || rawData?.businessDate || new Date().toISOString().slice(0, 10);
+
+  // Flatten permissionsByModule → flat string[] for legacy compat
+  const flatPermissions = sRole?.permissionsByModule
+    ? Object.values(sRole.permissionsByModule).flat()
+    : [];
+
+  const sessionUser: CbsSessionUser = {
+    id: sUser?.userId,
+    username: sUser?.username || username,
+    displayName: sUser?.displayName,
+    roles: sRole?.role ? [sRole.role] : [],
+    makerCheckerRole: sRole?.makerCheckerRole,
+    permissionsByModule: sRole?.permissionsByModule,
+    permissions: flatPermissions.length > 0 ? flatPermissions : undefined,
+    allowedModules: sRole?.allowedModules,
+    branchCode: sBranch?.branchCode,
+    branchName: sBranch?.branchName,
+    branchId: sBranch?.branchId,
+    ifscCode: sBranch?.ifscCode,
+    branchType: sBranch?.branchType,
+    zoneCode: sBranch?.zoneCode,
+    regionCode: sBranch?.regionCode,
+    isHeadOffice: sBranch?.headOffice,
+    tenantId: env.defaultTenantId,
+    mfaEnrolled: sUser?.mfaEnabled,
+    authenticationLevel: sUser?.authenticationLevel,
+    lastLoginTimestamp: sUser?.lastLoginTimestamp,
+    passwordExpiryDate: sUser?.passwordExpiryDate,
+  };
 
   const session = await writeSession({
-    accessToken: successData.accessToken,
-    refreshToken: successData.refreshToken,
-    tokenType: successData.tokenType || "Bearer",
+    accessToken,
+    refreshToken: tok?.refreshToken ?? rawData?.refreshToken,
+    tokenType: tok?.tokenType || "Bearer",
     expiresAt,
-    user: successData.user || {
-      username,
-      roles: [],
-      tenantId: env.defaultTenantId,
-    },
+    user: sessionUser,
     correlationId,
     businessDate,
+    businessDay: sBizDay ? {
+      businessDate: sBizDay.businessDate || businessDate,
+      dayStatus: sBizDay.dayStatus || "UNKNOWN",
+      isHoliday: sBizDay.isHoliday ?? false,
+      previousBusinessDate: sBizDay.previousBusinessDate,
+      nextBusinessDate: sBizDay.nextBusinessDate,
+    } : undefined,
+    transactionLimits: sLimits?.transactionLimits,
+    operationalConfig: sOpConfig ? {
+      baseCurrency: sOpConfig.baseCurrency || "INR",
+      decimalPrecision: sOpConfig.decimalPrecision ?? 2,
+      roundingMode: sOpConfig.roundingMode || "HALF_UP",
+      fiscalYearStartMonth: sOpConfig.fiscalYearStartMonth ?? 4,
+      businessDayPolicy: sOpConfig.businessDayPolicy || "MON_TO_SAT",
+    } : undefined,
   });
 
   // Clean up any stale fv_mfa cookie from a previous abandoned MFA
@@ -313,6 +428,9 @@ export async function POST(req: NextRequest) {
         expiresAt: session.expiresAt,
         csrfToken: session.csrfToken,
         businessDate: session.businessDate,
+        businessDay: session.businessDay ?? null,
+        operationalConfig: session.operationalConfig ?? null,
+        transactionLimits: session.transactionLimits ?? null,
       },
       correlationId,
     },

@@ -11,12 +11,34 @@ import { authService } from "@/services/api/authService";
 import type { User } from "@/types/entities";
 import { logger } from "@/utils/logger";
 
+/** Business day context from Spring `data.businessDay`. */
+interface BusinessDay {
+  businessDate: string;
+  dayStatus: string;
+  isHoliday: boolean;
+  previousBusinessDate?: string;
+  nextBusinessDate?: string;
+}
+
+/** Operational config from Spring `data.operationalConfig`. */
+interface OperationalConfig {
+  baseCurrency: string;
+  decimalPrecision: number;
+  roundingMode: string;
+  fiscalYearStartMonth: number;
+  businessDayPolicy: string;
+}
+
 interface AuthState {
   user: User | null;
   csrfToken: string | null;
   expiresAt: number | null;
   /** Server-authoritative business date (YYYY-MM-DD). Header reads this. */
   businessDate: string | null;
+  /** Full business day context (day status, holiday flag, prev/next dates). */
+  businessDay: BusinessDay | null;
+  /** Operational config (currency, precision, rounding, fiscal year). */
+  operationalConfig: OperationalConfig | null;
   isAuthenticated: boolean;
   isLoading: boolean;
   isHydrated: boolean;

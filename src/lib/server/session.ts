@@ -21,14 +21,68 @@ export interface CbsSessionUser {
   firstName?: string;
   lastName?: string;
   email?: string;
+  /** Primary role from `data.role.role` (e.g. "MAKER"). */
   roles: string[];
+  /** Maker-checker role from `data.role.makerCheckerRole`. */
+  makerCheckerRole?: string;
+  /**
+   * Module → permission[] map from `data.role.permissionsByModule`.
+   * E.g. { DEPOSIT: ["DEPOSIT_OPEN", ...], LOAN: ["LOAN_CREATE", ...] }
+   */
+  permissionsByModule?: Record<string, string[]>;
+  /** Flat permission list (legacy compat — derived from permissionsByModule). */
   permissions?: string[];
+  /** Modules the operator is authorised to access. */
+  allowedModules?: string[];
   branchCode?: string;
   branchName?: string;
+  branchId?: number;
+  ifscCode?: string;
+  branchType?: string;
+  zoneCode?: string;
+  regionCode?: string;
+  isHeadOffice?: boolean;
   tenantId?: string;
-  /** Computed by Spring: firstName + " " + lastName. */
+  /** Computed by Spring: `data.user.displayName`. */
   displayName?: string;
   mfaEnrolled?: boolean;
+  authenticationLevel?: string;
+  lastLoginTimestamp?: string;
+  passwordExpiryDate?: string;
+}
+
+/**
+ * Business day context from `data.businessDay`.
+ * Stored in the session so the Header and dashboard can read it
+ * without an extra API call.
+ */
+export interface CbsBusinessDay {
+  businessDate: string;
+  dayStatus: string;
+  isHoliday: boolean;
+  previousBusinessDate?: string;
+  nextBusinessDate?: string;
+}
+
+/**
+ * Operator transaction limits from `data.limits.transactionLimits[]`.
+ */
+export interface CbsTransactionLimit {
+  transactionType: string;
+  channel: string | null;
+  perTransactionLimit: number;
+  dailyAggregateLimit: number;
+}
+
+/**
+ * Operational config from `data.operationalConfig`.
+ */
+export interface CbsOperationalConfig {
+  baseCurrency: string;
+  decimalPrecision: number;
+  roundingMode: string;
+  fiscalYearStartMonth: number;
+  businessDayPolicy: string;
 }
 
 export interface CbsSession {
@@ -43,13 +97,16 @@ export interface CbsSession {
   correlationId?: string;
   /**
    * Server-authoritative business date in ISO format (YYYY-MM-DD).
-   * Populated from Spring DayOpenService at login; falls back to
-   * server clock date when the backend does not supply it.
-   * The Header chrome bar reads this — never `new Date()` on the
-   * client — because the CBS business date can differ from the
-   * calendar date (e.g. after midnight before day-close).
+   * Populated from Spring `data.businessDay.businessDate` at login;
+   * falls back to server clock date when the backend does not supply it.
    */
   businessDate?: string;
+  /** Full business day context from `data.businessDay`. */
+  businessDay?: CbsBusinessDay;
+  /** Operator transaction limits from `data.limits`. */
+  transactionLimits?: CbsTransactionLimit[];
+  /** Operational config from `data.operationalConfig`. */
+  operationalConfig?: CbsOperationalConfig;
 }
 
 export async function readSession(): Promise<CbsSession | null> {

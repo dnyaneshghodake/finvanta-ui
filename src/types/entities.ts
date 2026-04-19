@@ -39,15 +39,28 @@ export interface User {
   // CBS-specific fields
   branchCode?: string;
   branchName?: string;
+  branchId?: number;
+  ifscCode?: string;
+  branchType?: string;
+  zoneCode?: string;
+  regionCode?: string;
+  isHeadOffice?: boolean;
   tenantId?: string;
   roles: UserRole[];
+  /** Maker-checker role (e.g. "MAKER", "CHECKER"). */
+  makerCheckerRole?: string;
+  /** Module → permission[] map from Spring `data.role.permissionsByModule`. */
+  permissionsByModule?: Record<string, string[]>;
+  /** Flat permission list (derived from permissionsByModule). */
   permissions?: string[];
-  /**
-   * Computed by Spring as `firstName + " " + lastName`.
-   * Per LOGIN_API_RESPONSE_CONTRACT §UserInfoDto.
-   */
+  /** Modules the operator is authorised to access. */
+  allowedModules?: string[];
+  /** Computed by Spring: `data.user.displayName`. */
   displayName?: string;
   mfaEnrolled?: boolean;
+  authenticationLevel?: string;
+  lastLoginTimestamp?: string;
+  passwordExpiryDate?: string;
 }
 
 /**
