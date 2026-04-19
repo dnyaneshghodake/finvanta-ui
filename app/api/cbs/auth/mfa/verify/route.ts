@@ -43,7 +43,7 @@ interface SpringMfaResponse {
   data?: {
     // New nested shape
     token?: { accessToken?: string; refreshToken?: string; tokenType?: string; expiresIn?: number; expiresAt?: number };
-    user?: { userId?: number; username?: string; displayName?: string; mfaEnabled?: boolean; authenticationLevel?: string; lastLoginTimestamp?: string; passwordExpiryDate?: string };
+    user?: { userId?: number; id?: number; username?: string; firstName?: string; lastName?: string; email?: string; displayName?: string; roles?: string[]; branchCode?: string; branchName?: string; tenantId?: string; mfaEnabled?: boolean; mfaEnrolled?: boolean; authenticationLevel?: string; lastLoginTimestamp?: string; passwordExpiryDate?: string };
     branch?: { branchId?: number; branchCode?: string; branchName?: string; ifscCode?: string; branchType?: string; zoneCode?: string; regionCode?: string; headOffice?: boolean };
     businessDay?: { businessDate?: string; dayStatus?: string; isHoliday?: boolean; previousBusinessDate?: string; nextBusinessDate?: string };
     role?: { role?: string; makerCheckerRole?: string; permissionsByModule?: Record<string, string[]>; allowedModules?: string[] };
@@ -208,27 +208,34 @@ export async function POST(req: NextRequest) {
     : [];
 
   const sessionUser: CbsSessionUser = sUser ? {
-    id: sUser.userId,
+    id: sUser.userId ?? sUser.id,
     username: sUser.username || existing?.user?.username || "unknown",
-    displayName: sUser.displayName,
-    roles: sRole?.role ? [sRole.role] : existing?.user?.roles || [],
-    makerCheckerRole: sRole?.makerCheckerRole,
-    permissionsByModule: sRole?.permissionsByModule,
-    permissions: flatPermissions.length > 0 ? flatPermissions : undefined,
-    allowedModules: sRole?.allowedModules,
-    branchCode: sBranch?.branchCode || existing?.user?.branchCode,
-    branchName: sBranch?.branchName || existing?.user?.branchName,
-    branchId: sBranch?.branchId,
-    ifscCode: sBranch?.ifscCode,
-    branchType: sBranch?.branchType,
-    zoneCode: sBranch?.zoneCode,
-    regionCode: sBranch?.regionCode,
-    isHeadOffice: sBranch?.headOffice,
-    tenantId: existing?.user?.tenantId || env.defaultTenantId,
-    mfaEnrolled: sUser.mfaEnabled,
-    authenticationLevel: sUser.authenticationLevel,
-    lastLoginTimestamp: sUser.lastLoginTimestamp,
-    passwordExpiryDate: sUser.passwordExpiryDate,
+    firstName: sUser.firstName || existing?.user?.firstName,
+    lastName: sUser.lastName || existing?.user?.lastName,
+    email: sUser.email || existing?.user?.email,
+    displayName: sUser.displayName
+      || (sUser.firstName && sUser.lastName ? `${sUser.firstName} ${sUser.lastName}` : undefined)
+      || existing?.user?.displayName,
+    roles: sRole?.role
+      ? [sRole.role]
+      : (sUser.roles?.length ? sUser.roles : existing?.user?.roles || []),
+    makerCheckerRole: sRole?.makerCheckerRole || existing?.user?.makerCheckerRole,
+    permissionsByModule: sRole?.permissionsByModule || existing?.user?.permissionsByModule,
+    permissions: flatPermissions.length > 0 ? flatPermissions : existing?.user?.permissions,
+    allowedModules: sRole?.allowedModules || existing?.user?.allowedModules,
+    branchCode: sBranch?.branchCode || sUser.branchCode || existing?.user?.branchCode,
+    branchName: sBranch?.branchName || sUser.branchName || existing?.user?.branchName,
+    branchId: sBranch?.branchId || existing?.user?.branchId,
+    ifscCode: sBranch?.ifscCode || existing?.user?.ifscCode,
+    branchType: sBranch?.branchType || existing?.user?.branchType,
+    zoneCode: sBranch?.zoneCode || existing?.user?.zoneCode,
+    regionCode: sBranch?.regionCode || existing?.user?.regionCode,
+    isHeadOffice: sBranch?.headOffice ?? existing?.user?.isHeadOffice,
+    tenantId: sUser.tenantId || existing?.user?.tenantId || env.defaultTenantId,
+    mfaEnrolled: sUser.mfaEnabled ?? sUser.mfaEnrolled ?? existing?.user?.mfaEnrolled,
+    authenticationLevel: sUser.authenticationLevel || existing?.user?.authenticationLevel,
+    lastLoginTimestamp: sUser.lastLoginTimestamp || existing?.user?.lastLoginTimestamp,
+    passwordExpiryDate: sUser.passwordExpiryDate || existing?.user?.passwordExpiryDate,
   } : (existing?.user || { username: "unknown", roles: [], tenantId: env.defaultTenantId });
 
   const session = await writeSession({

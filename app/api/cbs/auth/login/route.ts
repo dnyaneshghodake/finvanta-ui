@@ -53,14 +53,25 @@ interface SpringToken {
 }
 
 interface SpringUser {
+  // Nested shape fields (from data.user in nested response)
   userId?: number;
-  username?: string;
   displayName?: string;
   authenticationLevel?: string;
   loginTimestamp?: string;
   lastLoginTimestamp?: string;
   passwordExpiryDate?: string;
   mfaEnabled?: boolean;
+  // Flat shape fields (from data.user per LOGIN_API_RESPONSE_CONTRACT)
+  id?: number;
+  username?: string;
+  firstName?: string;
+  lastName?: string;
+  email?: string;
+  roles?: string[];
+  branchCode?: string;
+  branchName?: string;
+  tenantId?: string;
+  mfaEnrolled?: boolean;
 }
 
 interface SpringBranch {
@@ -365,25 +376,38 @@ export async function POST(req: NextRequest) {
     ? Object.values(sRole.permissionsByModule).flat()
     : [];
 
+  // Build session user from whichever shape Spring returned.
+  // Flat shape (LOGIN_API_RESPONSE_CONTRACT): data.user has id,
+  //   firstName, lastName, email, roles[], branchCode, branchName,
+  //   tenantId, displayName, mfaEnrolled.
+  // Nested shape: data.user has userId, displayName, mfaEnabled;
+  //   branch/role/permissions come from separate sub-objects.
+  // We read from both, preferring the more specific field when present.
   const sessionUser: CbsSessionUser = {
-    id: sUser?.userId,
+    id: sUser?.userId ?? sUser?.id,
     username: sUser?.username || username,
-    displayName: sUser?.displayName,
-    roles: sRole?.role ? [sRole.role] : [],
+    firstName: sUser?.firstName,
+    lastName: sUser?.lastName,
+    email: sUser?.email,
+    displayName: sUser?.displayName
+      || (sUser?.firstName && sUser?.lastName ? `${sUser.firstName} ${sUser.lastName}` : undefined),
+    roles: sRole?.role
+      ? [sRole.role]
+      : (sUser?.roles?.length ? sUser.roles : []),
     makerCheckerRole: sRole?.makerCheckerRole,
     permissionsByModule: sRole?.permissionsByModule,
     permissions: flatPermissions.length > 0 ? flatPermissions : undefined,
     allowedModules: sRole?.allowedModules,
-    branchCode: sBranch?.branchCode,
-    branchName: sBranch?.branchName,
+    branchCode: sBranch?.branchCode || sUser?.branchCode,
+    branchName: sBranch?.branchName || sUser?.branchName,
     branchId: sBranch?.branchId,
     ifscCode: sBranch?.ifscCode,
     branchType: sBranch?.branchType,
     zoneCode: sBranch?.zoneCode,
     regionCode: sBranch?.regionCode,
     isHeadOffice: sBranch?.headOffice,
-    tenantId: env.defaultTenantId,
-    mfaEnrolled: sUser?.mfaEnabled,
+    tenantId: sUser?.tenantId || env.defaultTenantId,
+    mfaEnrolled: sUser?.mfaEnabled ?? sUser?.mfaEnrolled,
     authenticationLevel: sUser?.authenticationLevel,
     lastLoginTimestamp: sUser?.lastLoginTimestamp,
     passwordExpiryDate: sUser?.passwordExpiryDate,
