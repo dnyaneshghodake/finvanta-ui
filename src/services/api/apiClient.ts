@@ -14,14 +14,23 @@ import { errorHandler, AppError } from '@/utils/errorHandler';
 import { useAuthStore } from '@/store/authStore';
 
 /**
+ * CSRF cookie name. Must match the server-side CBS_CSRF_COOKIE env var
+ * (see src/lib/server/env.ts:66). We expose it via NEXT_PUBLIC_CBS_CSRF_COOKIE
+ * so the client-side reader stays in sync with the server-side writer.
+ * Default: 'fv_csrf'.
+ */
+const CSRF_COOKIE_NAME = process.env.NEXT_PUBLIC_CBS_CSRF_COOKIE || 'fv_csrf';
+
+/**
  * Read the double-submit CSRF token that the BFF set as a readable
- * cookie (fv_csrf) at login time. This value is echoed in the
- * X-CSRF-Token header on every mutating request so the BFF can
- * compare it against the copy inside the encrypted session blob.
+ * cookie at login time. This value is echoed in the X-CSRF-Token
+ * header on every mutating request so the BFF can compare it against
+ * the copy inside the encrypted session blob.
  */
 const readCsrfFromCookie = (): string | null => {
   if (typeof document === 'undefined') return null;
-  const match = document.cookie.match(/(?:^|;\s*)fv_csrf=([^;]+)/);
+  const escaped = CSRF_COOKIE_NAME.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const match = document.cookie.match(new RegExp(`(?:^|;\\s*)${escaped}=([^;]+)`));
   return match ? decodeURIComponent(match[1]) : null;
 };
 
@@ -139,15 +148,33 @@ apiClient.interceptors.response.use(
     // 401 from the BFF means the session cookie is gone or expired.
     // We do not attempt a client-side refresh (JWTs are held server
     // side); we just clear local state and send the user to /login.
-    // Early return prevents callers from showing a flash of error UI
-    // (toast, inline message) in the brief window before the browser
-    // navigates away.
+    // Per LOGIN_API_RESPONSE_CONTRACT, specific errorCodes get
+    // targeted redirect reasons so the login page shows the right
+    // message.
     if (error.response?.status === 401) {
       useAuthStore.getState().clearAuth();
       if (typeof window !== 'undefined' && !window.location.pathname.startsWith('/login')) {
-        window.location.href = '/login?reason=session_expired';
+        const errorCode = (error.response?.data as Record<string, unknown>)?.errorCode;
+        let reason = 'session_expired';
+        if (errorCode === 'REFRESH_TOKEN_REUSED') reason = 'session_compromised';
+        else if (errorCode === 'ACCOUNT_INVALID') reason = 'account_invalid';
+        window.location.href = `/login?reason=${reason}`;
       }
       return Promise.reject(appError);
+    }
+
+    // 503 from the BFF means the Spring backend is down or unreachable.
+    // The BFF proxy returns structured { errorCode: "BACKEND_UNREACHABLE" }
+    // per REST_API_COMPLETE_CATALOGUE §Actuator. We surface this clearly
+    // so operators know it's a backend issue, not their session.
+    if (error.response?.status === 503) {
+      const errorCode = (error.response?.data as Record<string, unknown>)?.errorCode;
+      const msg = (error.response?.data as Record<string, unknown>)?.message;
+      return Promise.reject(new AppError(
+        typeof errorCode === 'string' ? errorCode : 'BACKEND_UNAVAILABLE',
+        typeof msg === 'string' ? msg : 'The banking server is temporarily unavailable. Please try again shortly.',
+        503,
+      ));
     }
 
     // Handle 429 Too Many Requests - Exponential backoff with max retries

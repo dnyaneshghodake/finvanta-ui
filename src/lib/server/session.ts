@@ -15,7 +15,8 @@ import { decryptSession, encryptSession, generateCsrfToken } from "./crypto";
 import { serverEnv } from "./env";
 
 export interface CbsSessionUser {
-  id?: string;
+  /** Database user ID — Spring returns Long (number), stored as-is. */
+  id?: string | number;
   username: string;
   firstName?: string;
   lastName?: string;
@@ -25,6 +26,8 @@ export interface CbsSessionUser {
   branchCode?: string;
   branchName?: string;
   tenantId?: string;
+  /** Computed by Spring: firstName + " " + lastName. */
+  displayName?: string;
   mfaEnrolled?: boolean;
 }
 

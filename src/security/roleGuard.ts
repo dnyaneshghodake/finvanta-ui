@@ -73,6 +73,10 @@ export const canApprove = (makerId: string): boolean => {
   // they are a different person from the maker. Hide the button and
   // let the backend reject if they attempt via an API call.
   if (!user.id) return false;
-  if (user.id === makerId) return false; // Self-approval blocked
+  // Coerce to string before comparing: Spring returns user.id as a
+  // number (Long), but makerId from workflow JSON is always a string.
+  // Strict equality (===) between number and string silently passes,
+  // defeating the self-approval gate.
+  if (String(user.id) === String(makerId)) return false; // Self-approval blocked
   return isChecker();
 };

@@ -33,10 +33,12 @@ export default function FdLienPage() {
     setError(null);
     setSuccess(null);
     try {
-      const res = await apiClient.post(`/fixed-deposits/${fdNumber.trim()}/lien/${action}`, {
-        amount: action === 'mark' ? Number(lienAmount) : undefined,
-        reason: lienReason.trim() || undefined,
-      });
+      // REST_API_COMPLETE_CATALOGUE §FD lien/mark expects `lienAmount` +
+      // `loanAccountNumber`; lien/release has empty body.
+      const body = action === 'mark'
+        ? { lienAmount: Number(lienAmount), loanAccountNumber: lienReason.trim() || undefined }
+        : {};
+      const res = await apiClient.post(`/fixed-deposits/${fdNumber.trim()}/lien/${action}`, body);
       const corr = res.headers?.['x-correlation-id'] as string | undefined;
       setCorrelationId(corr || null);
       if (res.data?.status === 'SUCCESS') {
@@ -108,10 +110,10 @@ export default function FdLienPage() {
                 </div>
               </div>
               <div>
-                <label className="cbs-field-label block mb-1">Reason</label>
+                <label className="cbs-field-label block mb-1">Loan Account Number (for Mark)</label>
                 <input
-                  className="cbs-input"
-                  placeholder="e.g. Loan collateral, Legal hold"
+                  className="cbs-input cbs-tabular uppercase"
+                  placeholder="e.g. LOAN0001"
                   value={lienReason}
                   onChange={(e) => setLienReason(e.target.value)}
                 />

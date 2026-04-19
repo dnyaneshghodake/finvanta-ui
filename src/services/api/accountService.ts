@@ -70,7 +70,8 @@ interface SpringTxn {
   id: number;
   transactionRef: string;
   transactionType: string;
-  debitCredit: 'D' | 'C' | string;
+  /** REST_API_COMPLETE_CATALOGUE uses "DR"/"CR" (not single-char "D"/"C"). */
+  debitCredit: 'DR' | 'CR' | 'D' | 'C' | string;
   amount: number | string;
   balanceAfter?: number | string | null;
   valueDate?: string | null;
@@ -136,14 +137,16 @@ function mapAccount(a: SpringAccount): Account {
 
 function mapTxn(t: SpringTxn, accountNumber: string): Transaction {
   const abs = Math.abs(toNumber(t.amount));
-  const signed = t.debitCredit === 'D' ? -abs : abs;
+  // REST_API_COMPLETE_CATALOGUE uses "DR"/"CR"; older code used "D"/"C".
+  const isDebit = t.debitCredit === 'DR' || t.debitCredit === 'D';
+  const signed = isDebit ? -abs : abs;
   return {
     id: t.transactionRef,
     transactionId: t.transactionRef,
     accountId: accountNumber,
     amount: signed,
     currency: 'INR',
-    transactionType: t.debitCredit === 'D' ? 'DEBIT' : 'CREDIT',
+    transactionType: isDebit ? 'DEBIT' : 'CREDIT',
     status: t.reversed ? 'REVERSED' : 'COMPLETED',
     description: t.narration || t.transactionType,
     valueDate: toDateOrNow(t.valueDate),
@@ -325,20 +328,24 @@ class AccountService {
   }
 
   /**
-   * Account opening is a MAKER-only action on Spring
-   * (`POST /v1/accounts/open`). The JSP-originating self-service
-   * form is not part of the Tier-1 branch workflow, so the React
-   * stub intentionally defers to the branch account-opening flow
-   * and returns a structured NOT_IMPLEMENTED envelope.
+   * Open a new deposit account.
+   * Per REST_API_COMPLETE_CATALOGUE §CASA: `POST /v1/accounts/open`
+   * creates an account in PENDING_ACTIVATION status.
    */
-  async createAccount(
-    _data: { accountType: string; currency: string },
-  ): Promise<ApiResponse<Account>> {
-    return errEnvelope<Account>(
-      'NOT_IMPLEMENTED',
-      'Account opening is performed through the branch MAKER workflow',
-      501,
+  async createAccount(data: {
+    customerId: number;
+    branchId: number;
+    accountType: string;
+    productCode?: string;
+    initialDeposit?: number;
+    nomineeName?: string;
+    nomineeRelationship?: string;
+  }): Promise<ApiResponse<Account>> {
+    const response = await apiClient.post<SpringEnvelope<SpringAccount>>(
+      '/accounts/open',
+      data,
     );
+    return adapt(response.data, mapAccount);
   }
 }
 

@@ -14,12 +14,29 @@ import { apiClient } from '@/services/api/apiClient';
 import { StatusRibbon } from '@/components/cbs';
 import { Spinner } from '@/components/atoms';
 
+/**
+ * Per REST_API_COMPLETE_CATALOGUE §GL chart-of-accounts, Spring returns:
+ *   { glCode, glName, accountType, debitBalance, creditBalance, netBalance,
+ *     headerAccount, parentGlCode, glLevel }
+ * We map `glName` → `accountName` and `netBalance` → `balance` for the UI.
+ */
+interface SpringGlEntry {
+  glCode: string;
+  glName: string;
+  accountType: string;
+  debitBalance: number;
+  creditBalance: number;
+  netBalance: number;
+  headerAccount?: boolean;
+  parentGlCode?: string | null;
+  glLevel?: number;
+}
+
 interface GlEntry {
   glCode: string;
   accountName: string;
   accountType: string;
   balance: number;
-  currency?: string;
 }
 
 const GL_TYPE_TONE: Record<string, string> = {
@@ -36,8 +53,18 @@ export default function GlInquiryPage() {
 
   useEffect(() => {
     let cancelled = false;
-    apiClient.get<{ status: string; data?: GlEntry[] }>('/gl/chart-of-accounts')
-      .then((res) => { if (!cancelled) setEntries(res.data?.data ?? []); })
+    apiClient.get<{ status: string; data?: SpringGlEntry[] }>('/gl/chart-of-accounts')
+      .then((res) => {
+        if (cancelled) return;
+        // Map Spring field names → UI field names per REST_API_COMPLETE_CATALOGUE
+        const raw = res.data?.data ?? [];
+        setEntries(raw.map((e) => ({
+          glCode: e.glCode,
+          accountName: e.glName || e.glCode,
+          accountType: e.accountType,
+          balance: e.netBalance ?? (e.debitBalance - e.creditBalance),
+        })));
+      })
       .catch(() => {})
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };

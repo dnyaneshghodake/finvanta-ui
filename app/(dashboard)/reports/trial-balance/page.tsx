@@ -14,6 +14,30 @@ import Link from 'next/link';
 import { apiClient } from '@/services/api/apiClient';
 import { Spinner } from '@/components/atoms';
 
+/**
+ * Per REST_API_COMPLETE_CATALOGUE §GL trial-balance, Spring returns:
+ *   data: { totalDebit, totalCredit, variance, balanced, accountCount,
+ *           accounts: [{ glCode, glName, debitBalance, creditBalance, ... }] }
+ */
+interface SpringTrialBalance {
+  totalDebit: number;
+  totalCredit: number;
+  variance: number;
+  balanced: boolean;
+  accountCount: number;
+  accounts: SpringGlEntry[];
+}
+
+interface SpringGlEntry {
+  glCode: string;
+  glName: string;
+  accountType?: string;
+  debitBalance: number;
+  creditBalance: number;
+  netBalance?: number;
+}
+
+/** Normalised entry for the UI table. */
 interface TrialBalanceEntry {
   glCode: string;
   accountName: string;
@@ -25,13 +49,37 @@ export default function TrialBalancePage() {
   const [entries, setEntries] = useState<TrialBalanceEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [asOfDate, setAsOfDate] = useState('');
+  const [serverBalanced, setServerBalanced] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
     const today = new Date().toISOString().split('T')[0];
     setAsOfDate(today);
-    apiClient.get<{ status: string; data?: TrialBalanceEntry[] }>('/gl/trial-balance', { params: { date: today } })
-      .then((res) => { if (!cancelled) setEntries(res.data?.data ?? []); })
+    apiClient.get<{ status: string; data?: SpringTrialBalance | SpringGlEntry[] }>('/gl/trial-balance', { params: { date: today } })
+      .then((res) => {
+        if (cancelled) return;
+        const raw = res.data?.data;
+        if (!raw) { setEntries([]); return; }
+        // Handle both shapes: wrapped { accounts: [...] } and flat array
+        if (Array.isArray(raw)) {
+          // Legacy flat array shape
+          setEntries(raw.map((e: SpringGlEntry) => ({
+            glCode: e.glCode,
+            accountName: e.glName || '',
+            debitTotal: e.debitBalance ?? 0,
+            creditTotal: e.creditBalance ?? 0,
+          })));
+        } else {
+          // REST_API_COMPLETE_CATALOGUE shape
+          setServerBalanced(raw.balanced);
+          setEntries((raw.accounts ?? []).map((e) => ({
+            glCode: e.glCode,
+            accountName: e.glName || '',
+            debitTotal: e.debitBalance ?? 0,
+            creditTotal: e.creditBalance ?? 0,
+          })));
+        }
+      })
       .catch(() => {})
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
@@ -39,7 +87,7 @@ export default function TrialBalancePage() {
 
   const totalDebit = entries.reduce((s, e) => s + e.debitTotal, 0);
   const totalCredit = entries.reduce((s, e) => s + e.creditTotal, 0);
-  const isBalanced = Math.abs(totalDebit - totalCredit) < 0.01;
+  const isBalanced = serverBalanced && Math.abs(totalDebit - totalCredit) < 0.01;
 
   const fmt = (n: number) => n.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 

@@ -38,13 +38,14 @@ interface SpringTokenResponse {
     accessToken?: string;
     refreshToken?: string;
     tokenType?: string;
-    /** Seconds until expiry (e.g. 900) — per audited API catalogue. */
+    /** Seconds until expiry (e.g. 900) — per LOGIN_API_RESPONSE_CONTRACT. */
     expiresIn?: number;
     /** Epoch seconds — alternative format some deployments may use. */
     expiresAt?: number;
+    /** Server-authoritative business date (YYYY-MM-DD) from DayOpenService. */
+    businessDate?: string;
     user?: CbsSessionUser;
   };
-  error?: { code?: string; message?: string };
   errorCode?: string;
   message?: string;
 }
@@ -86,15 +87,28 @@ export async function POST(req: NextRequest) {
     headers.authorization = `${existing.tokenType || "Bearer"} ${existing.accessToken}`;
   }
 
-  const upstream = await fetch(
-    `${env.backendBaseUrl}/api/v1/auth/mfa/verify`,
-    {
-      method: "POST",
-      headers,
-      body: JSON.stringify({ challengeId, otp: body.otp }),
-      cache: "no-store",
-    },
-  );
+  let upstream: Response;
+  try {
+    upstream = await fetch(
+      `${env.backendBaseUrl}/api/v1/auth/mfa/verify`,
+      {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ challengeId, otp: body.otp }),
+        cache: "no-store",
+      },
+    );
+  } catch {
+    return NextResponse.json(
+      {
+        success: false,
+        errorCode: "BACKEND_UNREACHABLE",
+        message: "The banking server is currently unavailable. Please try again shortly.",
+        correlationId,
+      },
+      { status: 503, headers: { "x-correlation-id": correlationId } },
+    );
+  }
 
   const json = (await upstream
     .json()
@@ -105,11 +119,9 @@ export async function POST(req: NextRequest) {
       {
         success: false,
         errorCode:
-          json.error?.code ||
           json.errorCode ||
           "MFA_VERIFICATION_FAILED",
         message:
-          json.error?.message ||
           json.message ||
           "MFA verification failed",
         correlationId,
@@ -161,13 +173,15 @@ export async function POST(req: NextRequest) {
     expiresAt = now + env.sessionTtlSeconds * 1000;
   }
 
-  // Business date: carry forward from the existing session if present,
-  // otherwise fall back to the BFF server clock. Without this the Header
-  // shows '--' for every MFA-authenticated operator until the first
-  // heartbeat fires (~30s), breaking a mandatory Tier-1 CBS context
-  // indicator.
+  // Business date: prefer the Spring response (MFA verify returns the
+  // same EnhancedTokenResponse as login, including businessDate per
+  // LOGIN_API_RESPONSE_CONTRACT §1.2). Fall back to existing session,
+  // then BFF server clock. Without this the Header shows '--' for
+  // every MFA-authenticated operator until the first heartbeat fires.
   const businessDate =
-    existing?.businessDate || new Date().toISOString().slice(0, 10);
+    json.data.businessDate ||
+    existing?.businessDate ||
+    new Date().toISOString().slice(0, 10);
 
   const session = await writeSession({
     accessToken: json.data.accessToken,

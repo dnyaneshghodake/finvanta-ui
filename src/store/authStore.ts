@@ -49,7 +49,8 @@ export const useAuthStore = create<AuthState>((set) => ({
         password,
       });
       if (!response.success || !response.data) {
-        const message = response.error?.message || "Login failed";
+        const message =
+          response.message || response.error?.message || "Login failed";
         set({ isLoading: false, error: message, isAuthenticated: false });
         throw new Error(message);
       }

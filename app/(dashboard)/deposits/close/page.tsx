@@ -33,8 +33,9 @@ export default function FdPrematureClosePage() {
     setError(null);
     setSuccess(null);
     try {
+      // REST_API_COMPLETE_CATALOGUE §FD premature-close expects `reason` (not `remarks`)
       const res = await apiClient.post(`/fixed-deposits/${fdNumber.trim()}/premature-close`, {
-        remarks: remarks.trim() || undefined,
+        reason: remarks.trim() || undefined,
       });
       const corr = res.headers?.['x-correlation-id'] as string | undefined;
       setCorrelationId(corr || null);

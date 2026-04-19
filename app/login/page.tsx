@@ -51,7 +51,11 @@ interface BffLoginErr {
   success: false;
   errorCode: string;
   message: string;
-  data?: { channel?: string; remainingAttempts?: number };
+  data?: {
+    channel?: string;
+    remainingAttempts?: number;
+    lockoutDurationMinutes?: number;
+  };
   correlationId?: string;
 }
 
@@ -66,6 +70,8 @@ function LoginInner() {
     if (reason === 'session_expired') return 'Your session has expired. Please sign in again.';
     if (reason === 'mfa_expired') return 'MFA challenge expired. Please sign in again to receive a new code.';
     if (reason === 'unauthorized') return 'You must sign in to access that page.';
+    if (reason === 'account_invalid') return 'Your account is no longer valid. Contact your administrator.';
+    if (reason === 'session_compromised') return 'Your session was interrupted for security. Please sign in again.';
     return null;
   });
   const [correlationId, setCorrelationId] = useState<string | null>(null);
@@ -98,9 +104,37 @@ function LoginInner() {
 
       if (response.status !== 200 || !response.data?.success) {
         const err = response.data as BffLoginErr;
-        let msg = err?.message || 'Unable to sign in. Please check your credentials.';
+        let msg: string;
+
+        // Map backend error codes to operator-friendly messages per
+        // the Tier-1 CBS login contract.
+        switch (err?.errorCode) {
+          case 'BACKEND_UNREACHABLE':
+          case 'BACKEND_TIMEOUT':
+            msg = 'The banking server is currently unavailable. This may be a scheduled maintenance window or a temporary outage. Please try again in a few minutes or contact IT support.';
+            break;
+          case 'ACCOUNT_LOCKED':
+            msg = err.message || 'Account locked.';
+            if (err.data?.lockoutDurationMinutes) {
+              msg += ` Try again in ${err.data.lockoutDurationMinutes} minutes or contact your branch administrator.`;
+            }
+            break;
+          case 'ACCOUNT_DISABLED':
+            msg = 'Your account has been disabled. Contact your branch administrator for reactivation.';
+            break;
+          case 'PASSWORD_EXPIRED':
+            msg = 'Your password has expired. Contact your branch administrator to reset it.';
+            break;
+          case 'RATE_LIMITED':
+            msg = err.message || 'Too many login attempts. Please wait and try again.';
+            break;
+          default:
+            msg = err?.message || 'Unable to sign in. Please check your credentials.';
+            break;
+        }
+
         // Surface remaining attempts before account lock (Tier-1 CBS UX).
-        if (err?.data?.remainingAttempts !== undefined) {
+        if (err?.data?.remainingAttempts !== undefined && err.errorCode !== 'ACCOUNT_LOCKED') {
           msg += ` (${err.data.remainingAttempts} attempt${err.data.remainingAttempts === 1 ? '' : 's'} remaining before account lock)`;
         }
         setError(msg);

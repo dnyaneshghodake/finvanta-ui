@@ -44,14 +44,19 @@ interface MfaErr {
 /** Discriminated union — axios sees the full shape via validateStatus. */
 type MfaResponse = MfaOk | MfaErr;
 
+/** Max OTP attempts before forcing re-authentication (per contract §MFA). */
+const MAX_OTP_ATTEMPTS = 3;
+
 export default function MfaPage() {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [correlationId, setCorrelationId] = useState<string | null>(null);
+  const [otpAttempts, setOtpAttempts] = useState(0);
 
   const {
     register,
     handleSubmit,
+    setValue,
     formState: { errors, isSubmitting },
   } = useForm<MfaForm>({
     resolver: zodResolver(mfaSchema),
@@ -71,11 +76,35 @@ export default function MfaPage() {
 
       if (response.status !== 200 || !response.data?.success) {
         const err = response.data as MfaErr;
+
+        // Challenge expired or tampered — must restart login.
         if (err?.errorCode === 'INVALID_MFA_CHALLENGE') {
           router.push('/login?reason=mfa_expired');
           return;
         }
-        setError(err?.message || 'OTP verification failed.');
+
+        // Challenge already consumed (replay detection) — restart login.
+        if (err?.errorCode === 'MFA_CHALLENGE_REUSED') {
+          router.push('/login?reason=mfa_expired');
+          return;
+        }
+
+        // Track failed OTP attempts per LOGIN_API_RESPONSE_CONTRACT §MFA.
+        const attempts = otpAttempts + 1;
+        setOtpAttempts(attempts);
+
+        if (attempts >= MAX_OTP_ATTEMPTS) {
+          setError('Too many invalid attempts. Please sign in again.');
+          // Brief delay so the operator sees the message before redirect.
+          setTimeout(() => router.push('/login'), 2000);
+          return;
+        }
+
+        const remaining = MAX_OTP_ATTEMPTS - attempts;
+        const msg = err?.message || 'Invalid OTP code.';
+        setError(`${msg} ${remaining} attempt${remaining === 1 ? '' : 's'} remaining.`);
+        // Clear the OTP input and re-focus for retry.
+        setValue('otp', '');
         return;
       }
 

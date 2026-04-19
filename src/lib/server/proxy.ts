@@ -143,13 +143,39 @@ export async function forward(
     if (ab.byteLength > 0) body = ab;
   }
 
-  const upstream = await fetch(upstreamUrl, {
-    method,
-    headers,
-    body,
-    redirect: "manual",
-    cache: "no-store",
-  });
+  let upstream: Response;
+  try {
+    upstream = await fetch(upstreamUrl, {
+      method,
+      headers,
+      body,
+      redirect: "manual",
+      cache: "no-store",
+    });
+  } catch (err) {
+    // ── Backend unreachable (ECONNREFUSED / DNS failure / timeout) ──
+    // Per REST_API_COMPLETE_CATALOGUE §Actuator, the backend exposes
+    // /actuator/health for liveness. When the fetch itself throws,
+    // Spring is down or the network path is broken. Return a
+    // structured 503 so the client interceptor can show the
+    // maintenance banner instead of a cryptic error.
+    const isTimeout = err instanceof Error && (
+      err.name === "AbortError" ||
+      (err as NodeJS.ErrnoException).code === "ECONNABORTED" ||
+      (err as NodeJS.ErrnoException).code === "UND_ERR_CONNECT_TIMEOUT"
+    );
+    return NextResponse.json(
+      {
+        success: false,
+        errorCode: isTimeout ? "BACKEND_TIMEOUT" : "BACKEND_UNREACHABLE",
+        message: isTimeout
+          ? "The banking server did not respond in time. Please retry."
+          : "The banking server is currently unavailable. Please try again shortly or contact IT support.",
+        correlationId,
+      },
+      { status: 503, headers: { "x-correlation-id": correlationId } },
+    );
+  }
 
   const resHeaders = new Headers();
   upstream.headers.forEach((value, key) => {

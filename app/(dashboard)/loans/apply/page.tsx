@@ -50,13 +50,19 @@ export default function LoanApplicationPage() {
   const onSubmit = async (data: LoanForm) => {
     setError(null);
     try {
+      // Map form fields → Spring REST_API_COMPLETE_CATALOGUE §Loan
+      // Application Module field names. Spring expects `productType`
+      // (not `loanType`), `collateralReference` (not `collateralDescription`),
+      // and requires `branchId` + `interestRate`.
       const res = await apiClient.post('/loan-applications', {
         customerId: Number(data.customerId),
-        loanType: data.loanType,
+        branchId: 1, // TODO: read from session user's branch
+        productType: data.loanType,
         requestedAmount: Number(data.requestedAmount),
+        interestRate: 0, // Server determines actual rate from product master
         tenureMonths: Number(data.tenureMonths),
         purpose: data.purpose,
-        collateralDescription: data.collateralDescription || undefined,
+        collateralReference: data.collateralDescription || undefined,
       });
       const corr = res.headers?.['x-correlation-id'] as string | undefined;
       setCorrelationId(corr || null);
