@@ -43,7 +43,7 @@ class AuthService {
     const response = await axios.post<ApiResponse<LoginBffResponse>>(
       "/api/cbs/auth/login",
       {
-        username: credentials.email || (credentials as { username?: string }).username,
+        username: credentials.username,
         password: credentials.password,
         rememberMe: credentials.rememberMe,
       },

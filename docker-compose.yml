@@ -30,8 +30,10 @@ services:
     environment:
       NODE_ENV: production
       CBS_BACKEND_URL: http://finvanta-backend:8080
-      CBS_SESSION_SECRET: "change-me-in-real-deploy-minimum-32-chars"
-      CBS_CSRF_SECRET: "change-me-in-real-deploy-minimum-32-chars"
+      # ⚠️  MUST be distinct, ≥ 32 chars of entropy each in production.
+      # serverEnv() rejects short secrets in production mode.
+      CBS_SESSION_SECRET: "dev-session-secret-change-me-min-32-chars"
+      CBS_CSRF_SECRET: "dev-csrf-secret-change-me-min-32-charsx"
       CBS_SESSION_COOKIE: fv_sid
       CBS_CSRF_COOKIE: fv_csrf
       CBS_MFA_COOKIE: fv_mfa

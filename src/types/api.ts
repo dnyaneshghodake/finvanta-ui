@@ -55,10 +55,15 @@ export interface FilterParams {
 }
 
 /**
- * Login request payload
+ * Login request payload.
+ *
+ * CBS operators authenticate with a corporate User ID (not an email).
+ * The `username` field accepts either a plain user ID (e.g. "maker1")
+ * or an email address — the BFF forwards it to Spring's
+ * `/api/v1/auth/token` as `username` regardless.
  */
 export interface LoginRequest {
-  email: string;
+  username: string;
   password: string;
   rememberMe?: boolean;
 }

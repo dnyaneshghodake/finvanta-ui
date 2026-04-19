@@ -35,6 +35,21 @@ export interface CbsModalProps {
   persistent?: boolean;
 }
 
+/**
+ * Ref-counted body scroll lock so nested modals (e.g. persistent
+ * confirmation inside a detail modal) don't prematurely restore
+ * overflow when the inner one closes.
+ */
+let modalCount = 0;
+function lockScroll() {
+  modalCount++;
+  if (modalCount === 1) document.body.style.overflow = 'hidden';
+}
+function unlockScroll() {
+  modalCount = Math.max(0, modalCount - 1);
+  if (modalCount === 0) document.body.style.overflow = '';
+}
+
 export function CbsModal({ open, onClose, title, size = 'md', children, persistent = false }: CbsModalProps) {
   const dialogRef = useRef<HTMLDivElement>(null);
 
@@ -48,12 +63,12 @@ export function CbsModal({ open, onClose, title, size = 'md', children, persiste
   useEffect(() => {
     if (!open) return;
     document.addEventListener('keydown', handleEscape);
-    document.body.style.overflow = 'hidden';
+    lockScroll();
     // Focus trap: focus the dialog on open
     dialogRef.current?.focus();
     return () => {
       document.removeEventListener('keydown', handleEscape);
-      document.body.style.overflow = '';
+      unlockScroll();
     };
   }, [open, handleEscape]);
 
