@@ -6,13 +6,13 @@
  * browser only ever sees HttpOnly fv_sid + JS-readable fv_csrf
  * cookies. Nothing here touches localStorage.
  *
- * Mutating session endpoints (extend, switch-branch) route through
- * the shared `apiClient` so the request interceptor automatically
- * attaches the `X-CSRF-Token` header (double-submit) that the BFF
- * route handlers enforce via `assertCsrf`. Pre-auth calls (login,
- * logout, mfa/verify, me) use a dedicated axios instance because
- * the CSRF token either does not exist yet or is explicitly rotated
- * by the handler itself.
+ * Mutating session endpoints (logout, extend, switch-branch) route
+ * through the shared `apiClient` so the request interceptor
+ * automatically attaches the `X-CSRF-Token` header (double-submit)
+ * that the BFF route handlers enforce via `assertCsrf`. Pre-auth
+ * calls (login, mfa/verify, me) use a dedicated axios instance
+ * because the CSRF token either does not exist yet or is explicitly
+ * rotated by the handler itself.
  */
 import axios from "axios";
 import { apiClient } from "./apiClient";
