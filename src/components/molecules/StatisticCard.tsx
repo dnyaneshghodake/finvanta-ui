@@ -1,15 +1,10 @@
 /**
- * StatisticCard component for CBS Banking Application
+ * CBS KPI card — data-dense statistic display.
  * @file src/components/molecules/StatisticCard.tsx
  */
 
 import React from 'react';
-import { Card } from '@/components/atoms/Card';
-import clsx from 'clsx';
 
-/**
- * StatisticCard component props
- */
 export interface StatisticCardProps {
   label: string;
   value: string | number;
@@ -22,9 +17,13 @@ export interface StatisticCardProps {
   color?: 'blue' | 'green' | 'red' | 'yellow';
 }
 
-/**
- * StatisticCard component
- */
+const COLOR_MAP = {
+  blue: 'bg-cbs-navy-50 text-cbs-navy-700',
+  green: 'bg-cbs-olive-50 text-cbs-olive-700',
+  red: 'bg-cbs-crimson-50 text-cbs-crimson-700',
+  yellow: 'bg-cbs-gold-50 text-cbs-gold-700',
+} as const;
+
 const StatisticCard: React.FC<StatisticCardProps> = ({
   label,
   value,
@@ -33,39 +32,31 @@ const StatisticCard: React.FC<StatisticCardProps> = ({
   className,
   color = 'blue',
 }) => {
-  const colorClasses = {
-    blue: 'bg-blue-50 text-blue-600',
-    green: 'bg-green-50 text-green-600',
-    red: 'bg-red-50 text-red-600',
-    yellow: 'bg-yellow-50 text-yellow-600',
-  };
-
   return (
-    <Card className={clsx('space-y-2', className)}>
+    <div className={`cbs-surface p-3 space-y-1.5 ${className || ''}`}>
       <div className="flex items-center justify-between">
-        <p className="text-sm text-gray-600">{label}</p>
+        <p className="cbs-field-label">{label}</p>
         {icon && (
-          <div className={clsx('p-2 rounded-lg', colorClasses[color])}>
+          <div className={`p-1.5 rounded-sm ${COLOR_MAP[color]}`}>
             {icon}
           </div>
         )}
       </div>
 
       <div className="flex items-end justify-between">
-        <h3 className="text-2xl font-bold text-gray-900">{value}</h3>
+        <h3 className="text-xl font-bold text-cbs-ink cbs-tabular">{value}</h3>
         {trend && (
           <div
-            className={clsx(
-              'flex items-center gap-1 text-xs font-medium',
-              trend.direction === 'up' ? 'text-green-600' : 'text-red-600'
-            )}
+            className={`flex items-center gap-1 text-xs font-semibold cbs-tabular ${
+              trend.direction === 'up' ? 'text-cbs-olive-700' : 'text-cbs-crimson-700'
+            }`}
           >
             {trend.direction === 'up' ? '↑' : '↓'}
             {trend.percentage}%
           </div>
         )}
       </div>
-    </Card>
+    </div>
   );
 };
 
