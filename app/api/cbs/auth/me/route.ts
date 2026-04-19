@@ -32,6 +32,8 @@ export async function GET(req: NextRequest) {
         expiresAt: session.expiresAt,
         csrfToken: session.csrfToken,
         mfaVerifiedAt: session.mfaVerifiedAt ?? null,
+        businessDate:
+          session.businessDate || new Date().toISOString().slice(0, 10),
       },
       correlationId,
     },

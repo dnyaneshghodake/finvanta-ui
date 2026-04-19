@@ -15,6 +15,8 @@ interface AuthState {
   user: User | null;
   csrfToken: string | null;
   expiresAt: number | null;
+  /** Server-authoritative business date (YYYY-MM-DD). Header reads this. */
+  businessDate: string | null;
   isAuthenticated: boolean;
   isLoading: boolean;
   isHydrated: boolean;
@@ -31,6 +33,7 @@ export const useAuthStore = create<AuthState>((set) => ({
   user: null,
   csrfToken: null,
   expiresAt: null,
+  businessDate: null,
   isAuthenticated: false,
   isLoading: false,
   isHydrated: false,
@@ -54,6 +57,7 @@ export const useAuthStore = create<AuthState>((set) => ({
         user: response.data.user,
         csrfToken: response.data.csrfToken,
         expiresAt: response.data.expiresAt,
+        businessDate: response.data.businessDate ?? null,
         isAuthenticated: true,
         isHydrated: true,
         isLoading: false,
@@ -90,6 +94,7 @@ export const useAuthStore = create<AuthState>((set) => ({
           user: response.data.user,
           csrfToken: response.data.csrfToken,
           expiresAt: response.data.expiresAt,
+          businessDate: response.data.businessDate ?? null,
           isAuthenticated: true,
           isHydrated: true,
         });
@@ -102,6 +107,7 @@ export const useAuthStore = create<AuthState>((set) => ({
       user: null,
       csrfToken: null,
       expiresAt: null,
+      businessDate: null,
       isAuthenticated: false,
       isHydrated: true,
     });
@@ -112,6 +118,7 @@ export const useAuthStore = create<AuthState>((set) => ({
       user: null,
       csrfToken: null,
       expiresAt: null,
+      businessDate: null,
       isAuthenticated: false,
     }),
 }));

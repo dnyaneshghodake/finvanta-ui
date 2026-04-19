@@ -24,6 +24,12 @@ export async function GET(req: NextRequest) {
     0,
     Math.floor((session.expiresAt - Date.now()) / 1000),
   );
+  // Business date: prefer the server-session value (populated from
+  // Spring DayOpenService at login). Fall back to the BFF server's
+  // clock date so the Header never needs `new Date()` on the client.
+  const businessDate =
+    session.businessDate ||
+    new Date().toISOString().slice(0, 10);
   return NextResponse.json(
     {
       success: true,
@@ -31,6 +37,7 @@ export async function GET(req: NextRequest) {
         remainingSeconds,
         warning: remainingSeconds <= 120,
         expiresAt: session.expiresAt,
+        businessDate,
       },
       correlationId,
     },

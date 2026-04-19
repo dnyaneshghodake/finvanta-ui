@@ -38,6 +38,15 @@ export interface CbsSession {
   mfaVerifiedAt?: number;
   issuedAt: number;
   correlationId?: string;
+  /**
+   * Server-authoritative business date in ISO format (YYYY-MM-DD).
+   * Populated from Spring DayOpenService at login; falls back to
+   * server clock date when the backend does not supply it.
+   * The Header chrome bar reads this — never `new Date()` on the
+   * client — because the CBS business date can differ from the
+   * calendar date (e.g. after midnight before day-close).
+   */
+  businessDate?: string;
 }
 
 export async function readSession(): Promise<CbsSession | null> {
