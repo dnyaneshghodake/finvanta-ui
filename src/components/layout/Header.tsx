@@ -79,18 +79,24 @@ const Header: FC<HeaderProps> = ({ className }) => {
   // Day status from the server-authoritative businessDay context.
   const businessDay = useAuthStore((s) => s.businessDay);
   const dayStatus = businessDay?.dayStatus || null;
+  // Per API_REFERENCE.md §2.1: dayStatus values are
+  // DAY_OPEN, EOD_RUNNING, DAY_CLOSED, NOT_OPENED.
   const DAY_STATUS_LABEL: Record<string, string> = {
     DAY_OPEN: 'Day Open',
     DAY_CLOSED: 'Day Closed',
     DAY_CLOSE: 'Day Closed',
-    EOD_IN_PROGRESS: 'EOD In Progress',
-    BOD_IN_PROGRESS: 'BOD In Progress',
+    EOD_RUNNING: 'EOD Running',
+    EOD_IN_PROGRESS: 'EOD Running',
+    NOT_OPENED: 'Not Opened',
+    BOD_IN_PROGRESS: 'BOD Running',
   };
   const DAY_STATUS_TONE: Record<string, string> = {
     DAY_OPEN: 'text-cbs-olive-700 bg-cbs-olive-50',
     DAY_CLOSED: 'text-cbs-crimson-700 bg-cbs-crimson-50',
     DAY_CLOSE: 'text-cbs-crimson-700 bg-cbs-crimson-50',
+    EOD_RUNNING: 'text-cbs-gold-700 bg-cbs-gold-50',
     EOD_IN_PROGRESS: 'text-cbs-gold-700 bg-cbs-gold-50',
+    NOT_OPENED: 'text-cbs-crimson-700 bg-cbs-crimson-50',
     BOD_IN_PROGRESS: 'text-cbs-gold-700 bg-cbs-gold-50',
   };
 

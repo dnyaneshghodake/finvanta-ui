@@ -33,12 +33,16 @@ import {
 } from '@/components/dashboard';
 import type { WidgetDef } from '@/components/dashboard';
 
+// Per API_REFERENCE.md §2.1: dayStatus values are
+// DAY_OPEN, EOD_RUNNING, DAY_CLOSED, NOT_OPENED.
 const DAY_STATUS_TONE: Record<string, string> = {
   OPEN: 'text-cbs-olive-700 bg-cbs-olive-50',
   CLOSED: 'text-cbs-crimson-700 bg-cbs-crimson-50',
-  EOD_IN_PROGRESS: 'text-cbs-gold-700 bg-cbs-gold-50',
   DAY_OPEN: 'text-cbs-olive-700 bg-cbs-olive-50',
   DAY_CLOSED: 'text-cbs-crimson-700 bg-cbs-crimson-50',
+  EOD_RUNNING: 'text-cbs-gold-700 bg-cbs-gold-50',
+  EOD_IN_PROGRESS: 'text-cbs-gold-700 bg-cbs-gold-50',
+  NOT_OPENED: 'text-cbs-crimson-700 bg-cbs-crimson-50',
 };
 
 /** Maps widget ID → component. QUICK_OPS has no API fetch. */
