@@ -54,6 +54,8 @@ interface SpringTxnResponse {
   amount: number | string;
   postingDate?: string | null;
   counterpartyAccount?: string | null;
+  /** SHA-256 audit hash prefix from TransactionEngine (first 12 hex chars). */
+  auditHashPrefix?: string | null;
 }
 
 function freshIdempotencyKey(): string {
@@ -117,6 +119,7 @@ class TransferService {
         typeof body.data.amount === 'number' ? body.data.amount : Number(body.data.amount);
       return okEnvelope<TransferResponse>({
         transactionRef: body.data.transactionRef,
+        auditHashPrefix: body.data.auditHashPrefix || undefined,
         fromAccountNumber: req.fromAccountNumber,
         toAccountNumber: req.toAccountNumber,
         amount: Number.isFinite(amount) ? Math.abs(amount) : req.amount,

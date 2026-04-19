@@ -47,7 +47,7 @@ interface BffLoginErr {
   success: false;
   errorCode: string;
   message: string;
-  data?: { channel?: string };
+  data?: { channel?: string; remainingAttempts?: number };
   correlationId?: string;
 }
 
@@ -91,7 +91,12 @@ function LoginInner() {
 
       if (response.status !== 200 || !response.data?.success) {
         const err = response.data as BffLoginErr;
-        setError(err?.message || 'Unable to sign in. Please check your credentials.');
+        let msg = err?.message || 'Unable to sign in. Please check your credentials.';
+        // Surface remaining attempts before account lock (Tier-1 CBS UX).
+        if (err?.data?.remainingAttempts !== undefined) {
+          msg += ` (${err.data.remainingAttempts} attempt${err.data.remainingAttempts === 1 ? '' : 's'} remaining before account lock)`;
+        }
+        setError(msg);
         return;
       }
 
@@ -180,10 +185,11 @@ function LoginInner() {
                 autoComplete="username"
                 className="cbs-input"
                 aria-invalid={!!errors.username}
+                aria-describedby={errors.username ? 'username-error' : undefined}
                 {...register('username')}
               />
               {errors.username && (
-                <div className="mt-1 text-xs text-cbs-crimson-700">
+                <div id="username-error" className="mt-1 text-xs text-cbs-crimson-700" role="alert">
                   {errors.username.message}
                 </div>
               )}
@@ -199,10 +205,11 @@ function LoginInner() {
                 autoComplete="current-password"
                 className="cbs-input"
                 aria-invalid={!!errors.password}
+                aria-describedby={errors.password ? 'password-error' : undefined}
                 {...register('password')}
               />
               {errors.password && (
-                <div className="mt-1 text-xs text-cbs-crimson-700">
+                <div id="password-error" className="mt-1 text-xs text-cbs-crimson-700" role="alert">
                   {errors.password.message}
                 </div>
               )}

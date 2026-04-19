@@ -142,10 +142,11 @@ export default function MfaPage() {
                 pattern="\d{6}"
                 className="cbs-input cbs-tabular tracking-[0.5em] text-center text-lg"
                 aria-invalid={!!errors.otp}
+                aria-describedby={errors.otp ? 'otp-error' : undefined}
                 {...register('otp')}
               />
               {errors.otp && (
-                <div className="mt-1 text-xs text-cbs-crimson-700">
+                <div id="otp-error" className="mt-1 text-xs text-cbs-crimson-700" role="alert">
                   {errors.otp.message}
                 </div>
               )}
