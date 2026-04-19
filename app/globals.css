@@ -100,22 +100,26 @@ body {
 /* ── WCAG 2.1 AA Accessibility ── */
 
 /* Skip-to-content link — WCAG 2.4.1 Bypass Blocks.
- * Visually hidden until focused via Tab. */
+ * Uses the sr-only clip pattern (not left:-9999px) so it never
+ * occupies layout space in flex/grid parents. Only becomes visible
+ * and positioned when focused via keyboard Tab. */
 .cbs-skip-link {
   position: absolute;
-  left: -9999px;
-  top: auto;
   width: 1px;
   height: 1px;
+  padding: 0;
+  margin: -1px;
   overflow: hidden;
-  z-index: 200;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+  /* Visual styling applied only when focused */
   background: var(--color-cbs-navy-700);
   color: #fff;
   font-size: 13px;
   font-weight: 600;
-  padding: 8px 16px;
   text-decoration: none;
-  border-radius: 0 0 var(--radius-cbs-md) 0;
+  z-index: 200;
 }
 
 .cbs-skip-link:focus {
@@ -124,7 +128,12 @@ body {
   top: 0;
   width: auto;
   height: auto;
+  padding: 8px 16px;
+  margin: 0;
   overflow: visible;
+  clip: auto;
+  white-space: normal;
+  border-radius: 0 0 var(--radius-cbs-md) 0;
 }
 
 /* Screen-reader only utility — WCAG. */
