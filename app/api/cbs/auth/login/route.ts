@@ -304,13 +304,16 @@ export async function POST(req: NextRequest) {
     // Older deployments may put it in `data`. Read from both.
     const errObj = json.error;
     const errData = json.data as SpringErrorData | null | undefined;
+    // Per API_REFERENCE.md §2.1, all auth errors return 401 except
+    // MFA_REQUIRED (428) and rate limit (429). The errorCode in the
+    // body is the authoritative discriminator — HTTP status is only
+    // a fallback when the body is empty.
     const errorCode =
       errObj?.code ||
       errData?.code ||
       json.errorCode ||
       (upstream.status === 401 ? "AUTH_FAILED"
-        : upstream.status === 403 ? "PASSWORD_EXPIRED"
-        : upstream.status === 429 ? "RATE_LIMITED"
+        : upstream.status === 429 ? "AUTH_RATE_LIMIT_EXCEEDED"
         : "LOGIN_FAILED");
 
     const remainingAttempts = errObj?.remainingAttempts ?? errData?.remainingAttempts;
