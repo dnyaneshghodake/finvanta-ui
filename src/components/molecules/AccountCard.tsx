@@ -50,8 +50,16 @@ const AccountCard: React.FC<AccountCardProps> = ({
           </div>
         </div>
 
-        <div className="text-xs text-cbs-steel-500 pt-2 border-t border-cbs-steel-100 cbs-tabular">
-          Opened: {formatCbsDate(account.openedDate)}
+        <div className="flex items-center justify-between text-xs text-cbs-steel-500 pt-2 border-t border-cbs-steel-100 cbs-tabular">
+          <span>Opened: {formatCbsDate(account.openedDate)}</span>
+          <span className="flex items-center gap-2">
+            {account.branchCode && (
+              <span title="Branch (SOL)">{account.branchCode}</span>
+            )}
+            {account.holdAmount > 0 && (
+              <span className="cbs-ribbon text-cbs-crimson-700 bg-cbs-crimson-50 border-cbs-crimson-600 text-[9px]" title={`Hold: ${formatCurrency(account.holdAmount, account.currency)}`}>HOLD</span>
+            )}
+          </span>
         </div>
       </div>
     </div>

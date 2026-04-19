@@ -11,20 +11,30 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { apiClient } from '@/services/api/apiClient';
-import { StatusRibbon } from '@/components/cbs';
+import { StatusRibbon, Breadcrumb } from '@/components/cbs';
 import { Spinner } from '@/components/atoms';
+import { formatCbsDate } from '@/utils/formatters';
 
 interface LoanRecord {
   id: number;
   accountNumber: string;
   customerName?: string;
+  customerNumber?: string;
   productCode: string;
+  sanctionedAmount: number;
   disbursedAmount: number;
   outstandingPrincipal: number;
   interestRate: number;
   emiAmount: number;
+  tenureMonths?: number;
+  sanctionDate?: string;
+  disbursementDate?: string;
   nextDueDate?: string;
   overdueAmount: number;
+  /** Days past due — drives NPA classification. */
+  dpd?: number;
+  /** RBI NPA classification: STANDARD, SMA-0, SMA-1, SMA-2, SUB_STANDARD, DOUBTFUL, LOSS. */
+  npaClassification?: string;
   status: string;
 }
 
@@ -41,8 +51,23 @@ export default function LoanInquiryPage() {
     return () => { cancelled = true; };
   }, []);
 
+  const NPA_TONE: Record<string, string> = {
+    STANDARD: 'text-cbs-olive-700 bg-cbs-olive-50 border-cbs-olive-600',
+    'SMA-0': 'text-cbs-gold-700 bg-cbs-gold-50 border-cbs-gold-600',
+    'SMA-1': 'text-cbs-gold-700 bg-cbs-gold-50 border-cbs-gold-600',
+    'SMA-2': 'text-cbs-crimson-700 bg-cbs-crimson-50 border-cbs-crimson-600',
+    SUB_STANDARD: 'text-cbs-crimson-700 bg-cbs-crimson-50 border-cbs-crimson-600',
+    DOUBTFUL: 'text-cbs-crimson-700 bg-cbs-crimson-50 border-cbs-crimson-600',
+    LOSS: 'text-white bg-cbs-crimson-700 border-cbs-crimson-700',
+  };
+
   return (
     <div className="space-y-4">
+      <Breadcrumb items={[
+        { label: 'Dashboard', href: '/dashboard' },
+        { label: 'Loans' },
+      ]} />
+
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-semibold text-cbs-ink">Loan Portfolio</h1>
