@@ -14,14 +14,23 @@ import { errorHandler, AppError } from '@/utils/errorHandler';
 import { useAuthStore } from '@/store/authStore';
 
 /**
+ * CSRF cookie name. Must match the server-side CBS_CSRF_COOKIE env var
+ * (see src/lib/server/env.ts:66). We expose it via NEXT_PUBLIC_CBS_CSRF_COOKIE
+ * so the client-side reader stays in sync with the server-side writer.
+ * Default: 'fv_csrf'.
+ */
+const CSRF_COOKIE_NAME = process.env.NEXT_PUBLIC_CBS_CSRF_COOKIE || 'fv_csrf';
+
+/**
  * Read the double-submit CSRF token that the BFF set as a readable
- * cookie (fv_csrf) at login time. This value is echoed in the
- * X-CSRF-Token header on every mutating request so the BFF can
- * compare it against the copy inside the encrypted session blob.
+ * cookie at login time. This value is echoed in the X-CSRF-Token
+ * header on every mutating request so the BFF can compare it against
+ * the copy inside the encrypted session blob.
  */
 const readCsrfFromCookie = (): string | null => {
   if (typeof document === 'undefined') return null;
-  const match = document.cookie.match(/(?:^|;\s*)fv_csrf=([^;]+)/);
+  const escaped = CSRF_COOKIE_NAME.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const match = document.cookie.match(new RegExp(`(?:^|;\\s*)${escaped}=([^;]+)`));
   return match ? decodeURIComponent(match[1]) : null;
 };
 

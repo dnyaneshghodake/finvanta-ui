@@ -43,21 +43,29 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const upstream = await fetch(
-    `${env.backendBaseUrl}/api/v1/session/switch-branch`,
-    {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-        authorization: `${session.tokenType} ${session.accessToken}`,
-        "x-correlation-id": correlationId,
-        "x-tenant-id": session.user.tenantId || env.defaultTenantId,
-        accept: "application/json",
+  let upstream: Response;
+  try {
+    upstream = await fetch(
+      `${env.backendBaseUrl}/api/v1/session/switch-branch`,
+      {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          authorization: `${session.tokenType} ${session.accessToken}`,
+          "x-correlation-id": correlationId,
+          "x-tenant-id": session.user.tenantId || env.defaultTenantId,
+          accept: "application/json",
+        },
+        body: JSON.stringify({ branchCode: body.branchCode }),
+        cache: "no-store",
       },
-      body: JSON.stringify({ branchCode: body.branchCode }),
-      cache: "no-store",
-    },
-  );
+    );
+  } catch {
+    return NextResponse.json(
+      { success: false, errorCode: "BACKEND_UNREACHABLE", message: "Cannot reach the banking server.", correlationId },
+      { status: 503, headers: { "x-correlation-id": correlationId } },
+    );
+  }
 
   const json = (await upstream.json().catch(() => ({}))) as {
     success?: boolean;
