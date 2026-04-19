@@ -9,7 +9,6 @@
 'use client';
 
 import React from 'react';
-import { Button } from '@/components/atoms/Button';
 
 export interface SessionTimeoutWarningProps {
   secondsRemaining: number;
@@ -26,47 +25,45 @@ const SessionTimeoutWarning: React.FC<SessionTimeoutWarningProps> = ({
   const seconds = secondsRemaining % 60;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-60 z-[100] flex items-center justify-center">
-      <div className="bg-white rounded-lg shadow-2xl p-6 max-w-md w-full mx-4">
+    <div className="fixed inset-0 bg-cbs-ink/60 z-[100] flex items-center justify-center">
+      <div className="cbs-surface shadow-md p-5 max-w-sm w-full mx-4">
         <div className="text-center">
           {/* Warning Icon */}
-          <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-yellow-100 mb-4">
-            <svg className="h-6 w-6 text-yellow-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <div className="mx-auto flex items-center justify-center h-10 w-10 rounded-sm bg-cbs-gold-50 border border-cbs-gold-600 mb-3">
+            <svg className="h-5 w-5 text-cbs-gold-700" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
             </svg>
           </div>
 
-          <h2 className="text-xl font-bold text-gray-900 mb-2">
+          <h2 className="text-lg font-semibold text-cbs-ink mb-1">
             Session Expiring
           </h2>
-          <p className="text-gray-600 mb-4">
+          <p className="text-sm text-cbs-steel-600 mb-3">
             Your session will expire due to inactivity in
           </p>
 
-          {/* Countdown */}
-          <div className="text-4xl font-mono font-bold text-red-600 mb-6">
+          {/* Countdown — CBS crimson, monospaced tabular */}
+          <div className="text-3xl cbs-tabular font-bold text-cbs-crimson-700 mb-4">
             {String(minutes).padStart(2, '0')}:{String(seconds).padStart(2, '0')}
           </div>
 
-          <p className="text-sm text-gray-500 mb-6">
-            Any unsaved changes will be lost. Click below to continue your session.
+          <p className="text-xs text-cbs-steel-500 mb-4">
+            Any unsaved changes will be lost.
           </p>
 
-          <div className="flex gap-3">
-            <Button
-              variant="primary"
-              fullWidth
+          <div className="flex gap-2">
+            <button
+              className="cbs-btn cbs-btn-primary flex-1"
               onClick={onStayLoggedIn}
             >
               Stay Logged In
-            </Button>
-            <Button
-              variant="ghost"
-              fullWidth
+            </button>
+            <button
+              className="cbs-btn cbs-btn-secondary flex-1"
               onClick={onLogout}
             >
               Logout Now
-            </Button>
+            </button>
           </div>
         </div>
       </div>

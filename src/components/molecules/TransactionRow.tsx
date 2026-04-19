@@ -1,6 +1,10 @@
 /**
- * TransactionRow component for CBS Banking Application
+ * CBS Transaction Row — ledger-style entry display.
  * @file src/components/molecules/TransactionRow.tsx
+ *
+ * Uses CBS design tokens: cbs-crimson for debit, cbs-olive for
+ * credit, cbs-tabular/cbs-amount for right-aligned monospaced
+ * amounts, cbs-steel for borders and secondary text.
  */
 
 import React from 'react';
@@ -11,20 +15,13 @@ import {
   formatTransactionStatus,
   formatDate,
 } from '@/utils/formatters';
-import clsx from 'clsx';
 
-/**
- * TransactionRow component props
- */
 export interface TransactionRowProps {
   transaction: Transaction;
   onClick?: () => void;
   className?: string;
 }
 
-/**
- * TransactionRow component
- */
 const TransactionRow: React.FC<TransactionRowProps> = ({
   transaction,
   onClick,
@@ -42,27 +39,22 @@ const TransactionRow: React.FC<TransactionRowProps> = ({
   return (
     <div
       onClick={onClick}
-      className={clsx(
-        'flex items-center justify-between p-3 border-b border-gray-200 hover:bg-gray-50 transition-colors',
-        onClick && 'cursor-pointer',
-        className
-      )}
+      className={`flex items-center justify-between px-3 py-2 border-b border-cbs-steel-100 hover:bg-cbs-navy-50 transition-colors ${onClick ? 'cursor-pointer' : ''} ${className || ''}`}
     >
       <div className="flex-1">
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2.5">
           <div
-            className={clsx(
-              'h-10 w-10 rounded-lg flex items-center justify-center text-sm font-semibold',
+            className={`h-8 w-8 rounded-sm flex items-center justify-center text-xs font-bold ${
               isDebit
-                ? 'bg-red-100 text-red-600'
-                : 'bg-green-100 text-green-600'
-            )}
+                ? 'bg-cbs-crimson-50 text-cbs-crimson-700'
+                : 'bg-cbs-olive-50 text-cbs-olive-700'
+            }`}
           >
-            {isDebit ? '↓' : '↑'}
+            {isDebit ? 'Dr' : 'Cr'}
           </div>
           <div>
-            <p className="font-medium text-gray-900">{transaction.description}</p>
-            <p className="text-xs text-gray-500">
+            <p className="text-sm font-medium text-cbs-ink">{transaction.description}</p>
+            <p className="text-xs text-cbs-steel-600 cbs-tabular">
               {formatDate(transaction.postingDate, 'dd/MM/yyyy HH:mm')}
             </p>
           </div>
@@ -71,16 +63,11 @@ const TransactionRow: React.FC<TransactionRowProps> = ({
 
       <div className="flex items-center gap-3 ml-4">
         <div className="text-right">
-          <p
-            className={clsx(
-              'font-semibold',
-              isDebit ? 'text-red-600' : 'text-green-600'
-            )}
-          >
+          <p className={`cbs-amount text-sm font-semibold ${isDebit ? 'cbs-amount-debit' : 'cbs-amount-credit'}`}>
             {isDebit ? '-' : '+'}
             {formatCurrency(Math.abs(transaction.amount), transaction.currency)}
           </p>
-          <p className="text-xs text-gray-500">{transaction.referenceNumber}</p>
+          <p className="text-xs text-cbs-steel-500 cbs-tabular">{transaction.referenceNumber}</p>
         </div>
         <Badge variant={statusColors[transaction.status as keyof typeof statusColors]}>
           {formatTransactionStatus(transaction.status)}

@@ -83,12 +83,12 @@ export default function DashboardLayout({
   }
 
   return (
-    <div className="flex flex-col min-h-screen">
+    <div className="flex flex-col min-h-screen bg-cbs-mist">
       <Header />
-      <div className="flex flex-1">
+      <div className="flex flex-1 overflow-hidden">
         <Sidebar />
         <main className="flex-1 overflow-auto">
-          <div className="p-4 sm:p-6 lg:p-8">{children}</div>
+          <div className="p-3 sm:p-4 lg:p-6">{children}</div>
         </main>
       </div>
 

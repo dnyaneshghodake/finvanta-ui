@@ -151,59 +151,42 @@ const Sidebar: React.FC<SidebarProps> = ({ className }) => {
       {/* Mobile Overlay */}
       {isSidebarOpen && (
         <div
-          className="fixed inset-0 bg-black bg-opacity-50 z-30 lg:hidden"
+          className="fixed inset-0 bg-cbs-ink/40 z-30 lg:hidden"
           onClick={() => setSidebarOpen(false)}
         />
       )}
 
-      {/* Sidebar */}
+      {/* Sidebar — CBS token palette, no rounded-lg */}
       <aside
         className={clsx(
-          'fixed left-0 top-16 h-[calc(100vh-64px)] w-64 bg-white border-r border-gray-200 overflow-y-auto transition-transform duration-300 z-40 lg:translate-x-0 lg:relative lg:top-0 lg:h-screen',
+          'fixed left-0 top-12 h-[calc(100vh-48px)] w-56 bg-cbs-paper border-r border-cbs-steel-200 overflow-y-auto transition-transform duration-200 z-40 lg:translate-x-0 lg:relative lg:top-0 lg:h-auto cbs-no-print',
           isSidebarOpen ? 'translate-x-0' : '-translate-x-full',
           className
         )}
       >
-        <nav className="px-4 py-6 space-y-2">
+        <nav className="px-2 py-3 space-y-0.5">
           {navItems.map((item) => (
             <div key={item.href}>
               <Link
                 href={item.href}
                 className={clsx(
-                  'flex items-center gap-3 px-4 py-2 rounded-lg transition-colors duration-200',
+                  'flex items-center gap-2.5 px-3 py-2 rounded-sm text-sm transition-colors duration-100',
                   isActive(item.href)
-                    ? 'bg-blue-50 text-blue-600 font-medium'
-                    : 'text-gray-700 hover:bg-gray-50'
+                    ? 'bg-cbs-navy-50 text-cbs-navy-700 font-semibold border-l-2 border-cbs-navy-600'
+                    : 'text-cbs-steel-700 hover:bg-cbs-mist'
                 )}
               >
                 {item.icon}
                 <span className="flex-1">{item.label}</span>
-                {item.children && (
-                  <svg
-                    className={clsx(
-                      'w-4 h-4 transition-transform duration-200'
-                    )}
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M19 14l-7 7m0 0l-7-7m7 7V3"
-                    />
-                  </svg>
-                )}
               </Link>
             </div>
           ))}
         </nav>
 
         {/* Sidebar Footer */}
-        <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-gray-200 bg-gray-50">
-          <p className="text-xs text-gray-500">
-            App Version {process.env.NEXT_PUBLIC_APP_VERSION}
+        <div className="absolute bottom-0 left-0 right-0 px-3 py-2 border-t border-cbs-steel-200 bg-cbs-mist">
+          <p className="text-[10px] text-cbs-steel-500 cbs-tabular">
+            v{process.env.NEXT_PUBLIC_APP_VERSION || '1.0.0'}
           </p>
         </div>
       </aside>
