@@ -4,10 +4,10 @@ import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { useAccountStore } from '@/store/accountStore';
-import { useUIStore } from '@/store/uiStore';
 import { accountService } from '@/services/api/accountService';
 import { StatisticCard, TransactionRow } from '@/components/molecules';
-import { Card, Button, Spinner, Badge } from '@/components/atoms';
+import { Button, Spinner } from '@/components/atoms';
+import { StatusRibbon } from '@/components/cbs/feedback';
 import { formatCurrency, formatAccountNumber, formatDate, formatAccountType } from '@/utils/formatters';
 import type { Account } from '@/types/entities';
 
@@ -24,7 +24,6 @@ export default function AccountDetailsPage() {
   const accountId = params.id as string;
 
   const { accounts, transactions, fetchTransactions, isLoading } = useAccountStore();
-  const { addToast } = useUIStore();
 
   // Try the in-memory store first (instant if the list page was visited).
   const storeAccount = accounts.find(acc => acc.id === accountId);
@@ -78,36 +77,27 @@ export default function AccountDetailsPage() {
 
   if (!account) {
     return (
-      <Card className="text-center py-12">
-        <div className="space-y-4">
-          <h3 className="text-xl font-bold text-gray-900">Account Not Found</h3>
-          <p className="text-gray-600">The account you&apos;re looking for doesn&apos;t exist</p>
+      <div className="cbs-surface text-center py-10">
+        <div className="space-y-3">
+          <h3 className="text-sm font-semibold text-cbs-ink">Account Not Found</h3>
+          <p className="text-xs text-cbs-steel-600">The account you&apos;re looking for doesn&apos;t exist.</p>
           <Link href="/accounts">
-            <Button>Back to Accounts</Button>
+            <Button size="sm">Back to Accounts</Button>
           </Link>
         </div>
-      </Card>
+      </div>
     );
   }
 
-  const statusColors = {
-    ACTIVE: 'success',
-    INACTIVE: 'warning',
-    FROZEN: 'danger',
-    CLOSED: 'danger',
-  } as const;
-
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {/* Page Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">{formatAccountType(account.accountType)}</h1>
-          <p className="text-gray-600 mt-1">{formatAccountNumber(account.accountNumber)}</p>
+          <h1 className="text-xl font-semibold text-cbs-ink">{formatAccountType(account.accountType)}</h1>
+          <p className="text-xs text-cbs-steel-600 cbs-tabular mt-0.5">{formatAccountNumber(account.accountNumber)}</p>
         </div>
-        <Badge variant={statusColors[account.status as keyof typeof statusColors]} className="text-base px-3 py-1">
-          {account.status}
-        </Badge>
+        <StatusRibbon status={account.status} />
       </div>
 
       {/* Account Overview */}
@@ -130,87 +120,77 @@ export default function AccountDetailsPage() {
       </div>
 
       {/* Account Details Card */}
-      <Card className="space-y-4">
-        <h2 className="text-xl font-bold text-gray-900">Account Details</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <section className="cbs-surface">
+        <div className="cbs-surface-header">
+          <span className="text-sm font-semibold uppercase tracking-wider text-cbs-steel-700">Account Details</span>
+        </div>
+        <div className="cbs-surface-body grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
-            <p className="text-sm text-gray-500 uppercase font-medium mb-1">Account Number</p>
-            <p className="text-lg font-semibold text-gray-900">{formatAccountNumber(account.accountNumber)}</p>
+            <p className="cbs-field-label">Account Number</p>
+            <p className="cbs-field-value cbs-tabular">{formatAccountNumber(account.accountNumber)}</p>
           </div>
           <div>
-            <p className="text-sm text-gray-500 uppercase font-medium mb-1">Account Type</p>
-            <p className="text-lg font-semibold text-gray-900">{formatAccountType(account.accountType)}</p>
+            <p className="cbs-field-label">Account Type</p>
+            <p className="cbs-field-value">{formatAccountType(account.accountType)}</p>
           </div>
           <div>
-            <p className="text-sm text-gray-500 uppercase font-medium mb-1">Currency</p>
-            <p className="text-lg font-semibold text-gray-900">{account.currency}</p>
+            <p className="cbs-field-label">Currency</p>
+            <p className="cbs-field-value">{account.currency}</p>
           </div>
           <div>
-            <p className="text-sm text-gray-500 uppercase font-medium mb-1">Account Status</p>
-            <p className="text-lg font-semibold text-gray-900">{account.status}</p>
+            <p className="cbs-field-label">Status</p>
+            <p className="cbs-field-value">{account.status}</p>
           </div>
           <div>
-            <p className="text-sm text-gray-500 uppercase font-medium mb-1">Date Opened</p>
-            <p className="text-lg font-semibold text-gray-900">{formatDate(account.openedDate, 'dd/MM/yyyy')}</p>
+            <p className="cbs-field-label">Date Opened</p>
+            <p className="cbs-field-value cbs-tabular">{formatDate(account.openedDate, 'dd/MM/yyyy')}</p>
           </div>
           {account.closedDate && (
             <div>
-              <p className="text-sm text-gray-500 uppercase font-medium mb-1">Date Closed</p>
-              <p className="text-lg font-semibold text-gray-900">{formatDate(account.closedDate, 'dd/MM/yyyy')}</p>
+              <p className="cbs-field-label">Date Closed</p>
+              <p className="cbs-field-value cbs-tabular">{formatDate(account.closedDate, 'dd/MM/yyyy')}</p>
             </div>
           )}
         </div>
-      </Card>
+      </section>
 
       {/* Quick Actions */}
       {account.status === 'ACTIVE' && (
-        <Card className="space-y-4">
-          <h2 className="text-xl font-bold text-gray-900">Quick Actions</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
-            <Link href={`/transfers?fromAccountId=${account.id}`}>
-              <Button fullWidth variant="primary">Transfer Money</Button>
-            </Link>
-            <Link href={`/beneficiaries?accountId=${account.id}`}>
-              <Button fullWidth variant="secondary">Add Beneficiary</Button>
-            </Link>
-            <Link href={`/accounts/${account.id}/statement`}>
-              <Button fullWidth variant="secondary">Download Statement</Button>
-            </Link>
-            <Button fullWidth variant="ghost" onClick={() => {
-              addToast({
-                type: 'info',
-                title: 'Settings',
-                message: 'Account settings coming soon',
-                duration: 2000,
-              });
-            }}>
-              Settings
-            </Button>
-          </div>
-        </Card>
+        <div className="flex flex-wrap gap-2">
+          <Link href={`/transfers?fromAccountId=${account.id}`}>
+            <Button size="sm" variant="primary">Transfer</Button>
+          </Link>
+          <Link href={`/beneficiaries?accountId=${account.id}`}>
+            <Button size="sm" variant="secondary">Add Beneficiary</Button>
+          </Link>
+          <Link href={`/accounts/${account.id}/statement`}>
+            <Button size="sm" variant="secondary">Statement</Button>
+          </Link>
+        </div>
       )}
 
       {/* Recent Transactions */}
-      <Card className="space-y-4">
-        <div className="flex items-center justify-between">
-          <h2 className="text-xl font-bold text-gray-900">Recent Transactions</h2>
+      <section className="cbs-surface">
+        <div className="cbs-surface-header">
+          <span className="text-sm font-semibold uppercase tracking-wider text-cbs-steel-700">Recent Transactions</span>
           <Link href={`/accounts/${account.id}/transactions`}>
-            <Button variant="ghost">View All →</Button>
+            <Button size="sm" variant="ghost">View All →</Button>
           </Link>
         </div>
-
-        {transactions.length === 0 ? (
-          <div className="text-center py-8">
-            <p className="text-gray-500">No transactions yet</p>
-          </div>
-        ) : (
-          <div className="divide-y divide-gray-200">
-            {transactions.slice(0, 5).map((transaction) => (
-              <TransactionRow key={transaction.id} transaction={transaction} />
-            ))}
-          </div>
-        )}
-      </Card>
+        <div>
+          {transactions.length === 0 ? (
+            <div className="text-center py-6">
+              <p className="text-sm text-cbs-steel-500">No transactions yet</p>
+            </div>
+          ) : (
+            <div className="divide-y divide-cbs-steel-100">
+              {transactions.slice(0, 5).map((transaction) => (
+                <TransactionRow key={transaction.id} transaction={transaction} />
+              ))}
+            </div>
+          )}
+        </div>
+      </section>
     </div>
   );
 }
