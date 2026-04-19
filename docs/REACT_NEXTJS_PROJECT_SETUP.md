@@ -46,27 +46,30 @@ touch .env.production
 
 ```bash
 # .env.local
-NEXT_PUBLIC_API_URL=http://localhost:8080/api
+#
+# IMPORTANT: The browser MUST talk only to the Next.js BFF (/api/cbs/**),
+# never directly to Spring. See SETUP.md for the full architecture.
+NEXT_PUBLIC_API_URL=/api/cbs
+
+# Server-side only: where the BFF forwards to Spring.
+CBS_BACKEND_URL=http://localhost:8080
+
 NEXT_PUBLIC_APP_NAME=CBS Banking App
 NEXT_PUBLIC_APP_VERSION=1.0.0
 NEXT_PUBLIC_ENVIRONMENT=development
 
-# JWT Configuration
-NEXT_PUBLIC_JWT_EXPIRY=3600
-NEXT_PUBLIC_REFRESH_TOKEN_EXPIRY=2592000
+# Session TTL is controlled server-side by CBS_SESSION_TTL_SECONDS.
+# JWTs are held in the encrypted fv_sid HttpOnly cookie — no
+# NEXT_PUBLIC_ JWT vars are needed.
 
 # API Configuration
 API_TIMEOUT=30000
 API_RETRY_ATTEMPTS=3
 
 # Feature Flags
-NEXT_PUBLIC_ENABLE_MFA=true
-NEXT_PUBLIC_ENABLE_BIOMETRIC=true
-NEXT_PUBLIC_ENABLE_REAL_TIME_UPDATE=true
-
-# Third-party Services
-NEXT_PUBLIC_SENTRY_DSN=https://...@sentry.io/...
-NEXT_PUBLIC_ANALYTICS_KEY=...
+NEXT_PUBLIC_ENABLE_MFA=false
+NEXT_PUBLIC_ENABLE_BIOMETRIC=false
+NEXT_PUBLIC_ENABLE_REAL_TIME_UPDATE=false
 ```
 
 ---

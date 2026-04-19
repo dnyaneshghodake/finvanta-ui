@@ -65,8 +65,10 @@ npm install -D jest @testing-library/react cypress
 ### Step 3: Setup Environment (3 min)
 ```bash
 # Create .env.local (from project setup guide)
-NEXT_PUBLIC_API_URL=http://localhost:8080/api
-NEXT_PUBLIC_WEBSOCKET_URL=http://localhost:8080
+# Browser talks to the BFF only — never directly to Spring.
+NEXT_PUBLIC_API_URL=/api/cbs
+# Server-side only: where the BFF forwards to Spring.
+CBS_BACKEND_URL=http://localhost:8080
 ```
 
 ### Step 4: Create Base Components (10 min)

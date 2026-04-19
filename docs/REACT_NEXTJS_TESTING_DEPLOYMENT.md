@@ -700,8 +700,8 @@ services:
     ports:
       - '3000:3000'
     environment:
-      - NEXT_PUBLIC_API_URL=http://localhost:8080/api
-      - NEXT_PUBLIC_WEBSOCKET_URL=http://localhost:8080
+      - NEXT_PUBLIC_API_URL=/api/cbs
+      - CBS_BACKEND_URL=http://cbs-backend:8080
       - NODE_ENV=production
     depends_on:
       - cbs-backend

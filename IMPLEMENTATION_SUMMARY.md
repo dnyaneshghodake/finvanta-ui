@@ -111,9 +111,10 @@ npm install
 # Create environment files
 cp .env.development .env.local
 
-# Configure Spring Boot backend URL
+# The browser talks to the BFF only — never directly to Spring.
 # Edit .env.local:
-NEXT_PUBLIC_API_URL=http://localhost:8080/api
+NEXT_PUBLIC_API_URL=/api/cbs
+CBS_BACKEND_URL=http://localhost:8080
 ```
 
 ### Development
