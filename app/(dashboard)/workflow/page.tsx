@@ -41,7 +41,7 @@ export default function WorkflowPage() {
         <div className="cbs-surface-body space-y-3 text-sm text-cbs-steel-700">
           <p>
             The React maker-checker inbox ships with the next release
-            once the backend exposes `/api/v1/workflow/**` as a REST
+            once the backend exposes `/v1/workflow/**` as a REST
             surface with server-supplied `allowedActions[]` and
             optimistic-lock semantics.
           </p>

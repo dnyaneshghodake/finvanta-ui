@@ -4,7 +4,7 @@
  * FINVANTA CBS — Account Opening (Phase 4.1).
  *
  * MAKER action: opens a CASA (Savings/Current/Salary) account.
- * Calls POST /api/v1/accounts/open via BFF proxy.
+ * Calls POST /v1/accounts/open via BFF proxy.
  *
  * Prerequisites:
  *   - Customer CIF must exist and be ACTIVE

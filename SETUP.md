@@ -87,7 +87,7 @@ Open `http://localhost:3000/login` and sign in with `maker1` /
                                                                     v
                                                             +----------------+
                                                             |  Spring CBS    |
-                                                            |  /api/v1/**    |
+                                                            |  /v1/**        |
                                                             +----------------+
 ```
 
