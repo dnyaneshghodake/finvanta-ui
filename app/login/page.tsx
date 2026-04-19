@@ -109,6 +109,10 @@ function LoginInner() {
         // Map backend error codes to operator-friendly messages per
         // the Tier-1 CBS login contract.
         switch (err?.errorCode) {
+          case 'BACKEND_UNREACHABLE':
+          case 'BACKEND_TIMEOUT':
+            msg = 'The banking server is currently unavailable. This may be a scheduled maintenance window or a temporary outage. Please try again in a few minutes or contact IT support.';
+            break;
           case 'ACCOUNT_LOCKED':
             msg = err.message || 'Account locked.';
             if (err.data?.lockoutDurationMinutes) {

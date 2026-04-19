@@ -87,15 +87,28 @@ export async function POST(req: NextRequest) {
     headers.authorization = `${existing.tokenType || "Bearer"} ${existing.accessToken}`;
   }
 
-  const upstream = await fetch(
-    `${env.backendBaseUrl}/api/v1/auth/mfa/verify`,
-    {
-      method: "POST",
-      headers,
-      body: JSON.stringify({ challengeId, otp: body.otp }),
-      cache: "no-store",
-    },
-  );
+  let upstream: Response;
+  try {
+    upstream = await fetch(
+      `${env.backendBaseUrl}/api/v1/auth/mfa/verify`,
+      {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ challengeId, otp: body.otp }),
+        cache: "no-store",
+      },
+    );
+  } catch {
+    return NextResponse.json(
+      {
+        success: false,
+        errorCode: "BACKEND_UNREACHABLE",
+        message: "The banking server is currently unavailable. Please try again shortly.",
+        correlationId,
+      },
+      { status: 503, headers: { "x-correlation-id": correlationId } },
+    );
+  }
 
   const json = (await upstream
     .json()
