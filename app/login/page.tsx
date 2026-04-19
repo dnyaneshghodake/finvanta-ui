@@ -19,6 +19,7 @@ import axios, { isAxiosError } from 'axios';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import { Loader2, ShieldCheck } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import type { User } from '@/types/entities';
 
@@ -68,6 +69,7 @@ function LoginInner() {
     return null;
   });
   const [correlationId, setCorrelationId] = useState<string | null>(null);
+  const [capsLockOn, setCapsLockOn] = useState(false);
 
   const {
     register,
@@ -216,9 +218,24 @@ function LoginInner() {
                 autoComplete="current-password"
                 className="cbs-input"
                 aria-invalid={!!errors.password}
-                aria-describedby={errors.password ? 'password-error' : undefined}
+                aria-describedby={
+                  [errors.password ? 'password-error' : '', capsLockOn ? 'caps-lock-warn' : '']
+                    .filter(Boolean)
+                    .join(' ') || undefined
+                }
+                onKeyUp={(e) => {
+                  if (typeof e.getModifierState === 'function') {
+                    setCapsLockOn(e.getModifierState('CapsLock'));
+                  }
+                }}
+                onBlur={() => setCapsLockOn(false)}
                 {...register('password')}
               />
+              {capsLockOn && (
+                <div id="caps-lock-warn" className="mt-1 text-xs text-cbs-gold-700 flex items-center gap-1">
+                  <span aria-hidden="true">⇪</span> Caps Lock is ON
+                </div>
+              )}
               {errors.password && (
                 <div id="password-error" className="mt-1 text-xs text-cbs-crimson-700" role="alert">
                   {errors.password.message}
@@ -232,7 +249,14 @@ function LoginInner() {
               className="cbs-btn cbs-btn-primary w-full text-sm uppercase tracking-wider"
               style={{ height: 36 }}
             >
-              {isSubmitting ? 'Signing in\u2009…' : 'Sign in'}
+              {isSubmitting ? (
+                <>
+                  <Loader2 size={14} className="animate-spin" aria-hidden="true" />
+                  Signing in{'\u2009'}…
+                </>
+              ) : (
+                'Sign in'
+              )}
             </button>
 
             {/* Tier-1 CBS: password resets are admin-initiated through the

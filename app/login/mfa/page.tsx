@@ -17,6 +17,7 @@ import axios, { isAxiosError } from 'axios';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import { Loader2 } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import type { User } from '@/types/entities';
 
@@ -159,7 +160,14 @@ export default function MfaPage() {
               className="cbs-btn cbs-btn-primary w-full text-sm uppercase tracking-wider"
               style={{ height: 36 }}
             >
-              {isSubmitting ? 'Verifying\u2009…' : 'Verify & Sign In'}
+              {isSubmitting ? (
+                <>
+                  <Loader2 size={14} className="animate-spin" aria-hidden="true" />
+                  Verifying{'\u2009'}…
+                </>
+              ) : (
+                'Verify & Sign In'
+              )}
             </button>
           </form>
 
