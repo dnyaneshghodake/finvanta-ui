@@ -1,3 +1,6 @@
+/**
+ * @deprecated Moved to app/(dashboard)/dashboard/page.tsx
+ */
 'use client';
 
 import { useEffect } from 'react';

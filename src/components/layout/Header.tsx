@@ -5,7 +5,7 @@
 
 'use client';
 
-import { useState, FC } from 'react';
+import { useState, useEffect, useRef, useCallback, FC } from 'react';
 import Link from 'next/link';
 import { useAuthStore } from '@/store/authStore';
 import { useUIStore } from '@/store/uiStore';
@@ -25,6 +25,23 @@ const Header: FC<HeaderProps> = ({ className }) => {
   const { user, logout } = useAuthStore();
   const { toggleSidebar } = useUIStore();
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // Close dropdown when clicking outside
+  const handleClickOutside = useCallback((event: MouseEvent) => {
+    if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+      setIsDropdownOpen(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (isDropdownOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isDropdownOpen, handleClickOutside]);
 
   const handleLogout = async () => {
     try {
@@ -76,7 +93,7 @@ const Header: FC<HeaderProps> = ({ className }) => {
           </div>
 
           {/* User Menu */}
-          <div className="relative">
+          <div className="relative" ref={dropdownRef}>
             <button
               onClick={() => setIsDropdownOpen(!isDropdownOpen)}
               className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-100 transition-colors"

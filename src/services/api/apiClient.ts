@@ -89,7 +89,6 @@ apiClient.interceptors.response.use(
 
     logger.info(`[RESPONSE] ${response.status} ${config.method?.toUpperCase()} ${config.url}`, {
       duration: `${duration}ms`,
-      dataSize: JSON.stringify(response.data).length,
     });
 
     return response;
