@@ -1,30 +1,37 @@
 'use client';
 
 /**
- * FINVANTA CBS - Fund Transfer (preview -> confirm).
+ * FINVANTA CBS - Fund Transfer (capture -> confirm).
  *
  * Tier-1 two-leg CBS transfer workflow, aligned with Finacle "Funds
  * Transfer" and Temenos T24 AC.FUNDS.TRANSFER. The UI never computes
  * fees, cutoffs, NPCI windows, or limit checks -- that is the sole
- * responsibility of Spring TransactionEngine.execute(). We simply:
+ * responsibility of Spring `TransactionEngine.execute()`. We simply:
  *
  *   1. Capture from / to / amount / narration / value date.
- *   2. Call `/api/cbs/accounts/transfer/preview` for a server-side
- *      informational dry-run (no ledger mutation).
- *   3. Show the operator what will happen, then require an explicit
- *      "Confirm" with a stable X-Idempotency-Key generated once at
- *      render of the confirm dialog. A transient network failure can
- *      safely retry -- the backend de-duplicates on the key.
- *   4. On success show the TransactionEngine's transactionRef and the
- *      SHA-256 audit-hash-prefix so the operator can trust the entry.
+ *   2. Require an explicit "Confirm" with a stable X-Idempotency-Key
+ *      minted once on the first Confirm click. A transient network
+ *      failure can safely retry -- the backend de-duplicates on the
+ *      same key.
+ *   3. On success show the TransactionEngine's transactionRef and
+ *      the correlation id so the operator can trust the entry.
+ *
+ * Preview is deliberately omitted: Spring has no dry-run endpoint
+ * and CBS preview semantics belong to `TransactionEngine` itself.
+ * Surfacing a client-computed preview would risk drift from server
+ * truth -- explicitly forbidden under RBI IT Governance 2023.
  */
 
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { isAxiosError } from 'axios';
-import { transferService, type TransferRequest, type TransferResponse } from '@/services/api/transferService';
+import {
+  transferService,
+  type TransferRequest,
+  type TransferResponse,
+} from '@/services/api/transferService';
 import {
   AccountNo,
   AmountInr,
@@ -36,13 +43,17 @@ import {
   StatusRibbon,
 } from '@/components/cbs';
 
+const ACCOUNT_NUMBER_RE = /^[A-Z0-9][A-Z0-9-]{5,24}$/;
+
 const schema = z.object({
   fromAccountNumber: z
     .string()
-    .regex(/^\d{10,20}$/, 'Enter a valid debit account number'),
+    .trim()
+    .regex(ACCOUNT_NUMBER_RE, 'Enter a valid debit account number'),
   toAccountNumber: z
     .string()
-    .regex(/^\d{10,20}$/, 'Enter a valid credit account number'),
+    .trim()
+    .regex(ACCOUNT_NUMBER_RE, 'Enter a valid credit account number'),
   amount: z
     .string()
     .regex(/^\d+(\.\d{1,2})?$/, 'Enter a valid amount')
@@ -53,7 +64,7 @@ const schema = z.object({
 
 type FormData = z.infer<typeof schema>;
 
-type Phase = 'capture' | 'preview' | 'posted';
+type Phase = 'capture' | 'posted';
 
 interface ErrorState {
   message: string;
@@ -66,7 +77,6 @@ export default function TransfersPage() {
     register,
     handleSubmit,
     formState: { errors, isSubmitting },
-    watch,
     reset,
   } = useForm<FormData>({
     resolver: zodResolver(schema),
@@ -80,65 +90,50 @@ export default function TransfersPage() {
   });
 
   const [phase, setPhase] = useState<Phase>('capture');
-  const [preview, setPreview] = useState<TransferResponse | null>(null);
   const [posted, setPosted] = useState<TransferResponse | null>(null);
-  const [pending, setPending] = useState(false);
   const [error, setError] = useState<ErrorState | null>(null);
-  // CBS: mint a stable idempotency key when the operator moves into
-  // the confirm phase. A network-level retry must not double-post.
+  // CBS: mint a stable idempotency key on the first confirm click.
+  // A network-level retry must reuse the same key so the backend
+  // de-duplicates via its Redis + DB idempotency cache.
   const [idempotencyKey, setIdempotencyKey] = useState<string | null>(null);
 
-  const current = watch();
-
   const toReq = (f: FormData): TransferRequest => ({
-    fromAccountNumber: f.fromAccountNumber,
-    toAccountNumber: f.toAccountNumber,
+    fromAccountNumber: f.fromAccountNumber.trim().toUpperCase(),
+    toAccountNumber: f.toAccountNumber.trim().toUpperCase(),
     amount: Number(f.amount),
     narration: f.narration || undefined,
     valueDate: f.valueDate || undefined,
   });
 
-  const onPreview = async (data: FormData) => {
+  const onConfirm = async (data: FormData) => {
     setError(null);
+    const key = idempotencyKey ?? transferService.mintKey();
+    if (!idempotencyKey) setIdempotencyKey(key);
     try {
-      const res = await transferService.preview(toReq(data));
+      const res = await transferService.confirm(toReq(data), key);
       if (!res.success || !res.data) {
-        throw new Error(res.error?.message || 'Preview unavailable');
-      }
-      setPreview(res.data);
-      setIdempotencyKey(transferService.mintKey());
-      setPhase('preview');
-    } catch (err) {
-      handleError(err);
-    }
-  };
-
-  const onConfirm = async () => {
-    if (!preview || !idempotencyKey) return;
-    setPending(true);
-    setError(null);
-    try {
-      const res = await transferService.confirm(toReq(current), idempotencyKey);
-      if (!res.success || !res.data) {
-        throw new Error(res.error?.message || 'Transfer failed');
+        setError({
+          message: res.error?.message || 'Transfer could not be processed',
+          errorCode: res.error?.code,
+        });
+        return;
       }
       setPosted(res.data);
       setPhase('posted');
     } catch (err) {
       handleError(err);
-    } finally {
-      setPending(false);
     }
   };
 
   const handleError = (err: unknown) => {
     if (isAxiosError(err)) {
       setError({
-        message: err.response?.data?.error?.message || err.message,
+        message: err.response?.data?.message || err.response?.data?.error?.message || err.message,
         correlationId:
           (err.response?.headers?.['x-correlation-id'] as string) ||
           err.response?.data?.correlationId,
-        errorCode: err.response?.data?.error?.code || err.response?.data?.errorCode,
+        errorCode:
+          err.response?.data?.errorCode || err.response?.data?.error?.code,
       });
       return;
     }
@@ -147,14 +142,11 @@ export default function TransfersPage() {
 
   const onReset = () => {
     setPhase('capture');
-    setPreview(null);
     setPosted(null);
     setIdempotencyKey(null);
     setError(null);
     reset();
   };
-
-  const disableConfirm = useMemo(() => pending || !idempotencyKey, [pending, idempotencyKey]);
 
   return (
     <div className="space-y-4">
@@ -197,7 +189,10 @@ export default function TransfersPage() {
               Capture details
             </div>
           </div>
-          <form onSubmit={handleSubmit(onPreview)} className="cbs-surface-body grid md:grid-cols-2 gap-4">
+          <form
+            onSubmit={handleSubmit(onConfirm)}
+            className="cbs-surface-body grid md:grid-cols-2 gap-4"
+          >
             <AccountNo
               label="Debit account"
               {...register('fromAccountNumber')}
@@ -231,57 +226,22 @@ export default function TransfersPage() {
                 </div>
               )}
             </div>
-            <div className="md:col-span-2 flex gap-2 justify-end pt-2 border-t border-cbs-steel-100">
-              <button type="submit" disabled={isSubmitting} className="cbs-btn cbs-btn-primary">
-                {isSubmitting ? 'Previewing...' : 'Preview'}
-              </button>
-            </div>
-          </form>
-        </section>
-      )}
-
-      {phase === 'preview' && preview && (
-        <section className="cbs-surface">
-          <div className="cbs-surface-header">
-            <div className="text-sm font-semibold uppercase tracking-wider text-cbs-steel-700">
-              Preview -- please verify before confirm
-            </div>
-            <StatusRibbon status="PENDING_APPROVAL" />
-          </div>
-          <div className="cbs-surface-body grid md:grid-cols-2 gap-4">
-            <KeyValue label="Debit account">{current.fromAccountNumber}</KeyValue>
-            <KeyValue label="Credit account">{current.toAccountNumber}</KeyValue>
-            <KeyValue label="Amount">
-              <AmountDisplay amount={current.amount} sign="debit" />
-            </KeyValue>
-            <KeyValue label="Value date">{current.valueDate || 'Today'}</KeyValue>
-            <div className="md:col-span-2">
-              <KeyValue label="Narration">{current.narration || <em className="text-cbs-steel-600">(none)</em>}</KeyValue>
-            </div>
             <div className="md:col-span-2 text-xs text-cbs-steel-600 border-t border-cbs-steel-100 pt-3">
               By clicking Confirm you authorise the TransactionEngine to post a
               double-entry journal into the general ledger. A stable idempotency
               key protects against retries. This action is maker-checker gated
               when the amount exceeds your role limit.
             </div>
-            <div className="md:col-span-2 flex gap-2 justify-end pt-2">
+            <div className="md:col-span-2 flex gap-2 justify-end pt-2 border-t border-cbs-steel-100">
               <button
-                type="button"
-                onClick={() => setPhase('capture')}
-                className="cbs-btn cbs-btn-secondary"
-              >
-                Back
-              </button>
-              <button
-                type="button"
-                onClick={onConfirm}
-                disabled={disableConfirm}
+                type="submit"
+                disabled={isSubmitting}
                 className="cbs-btn cbs-btn-primary"
               >
-                {pending ? 'Posting...' : 'Confirm transfer'}
+                {isSubmitting ? 'Posting...' : 'Confirm transfer'}
               </button>
             </div>
-          </div>
+          </form>
         </section>
       )}
 
@@ -300,7 +260,9 @@ export default function TransfersPage() {
               </KeyValue>
               <KeyValue label="Posted at">
                 <span className="cbs-tabular">
-                  {posted.postedAt ? new Date(posted.postedAt).toISOString().replace('T', ' ').slice(0, 19) : '--'}
+                  {posted.postedAt
+                    ? new Date(posted.postedAt).toISOString().replace('T', ' ').slice(0, 19)
+                    : '--'}
                 </span>
               </KeyValue>
               <KeyValue label="Debit account">{posted.fromAccountNumber}</KeyValue>

@@ -11,7 +11,7 @@
  * Key derivation: HKDF-SHA256(secret, salt='fv/session/v1').
  */
 import "server-only";
-import { createCipheriv, createDecipheriv, createHmac, randomBytes } from "node:crypto";
+import { createCipheriv, createDecipheriv, createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 import { serverEnv } from "./env";
 
 const IV_LEN = 12;
@@ -70,10 +70,11 @@ export function generateCsrfToken(): string {
 }
 
 export function constantTimeEquals(a: string, b: string): boolean {
-  if (a.length !== b.length) return false;
-  let diff = 0;
-  for (let i = 0; i < a.length; i += 1) {
-    diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
-  }
-  return diff === 0;
+  // Hash-pad both inputs to a fixed 32-byte HMAC so the comparison
+  // runs in constant time regardless of raw input length. A length
+  // short-circuit would leak the expected token size through timing.
+  const key = deriveKey(serverEnv().sessionSecret, "fv/ct-eq/v1");
+  const bufA = createHmac("sha256", key).update(a, "utf8").digest();
+  const bufB = createHmac("sha256", key).update(b, "utf8").digest();
+  return timingSafeEqual(bufA, bufB);
 }

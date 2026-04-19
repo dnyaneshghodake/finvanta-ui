@@ -5,6 +5,7 @@
  */
 import { NextResponse, type NextRequest } from "next/server";
 import { readCorrelationId } from "@/lib/server/correlation";
+import { assertCsrf } from "@/lib/server/csrf";
 import { serverEnv } from "@/lib/server/env";
 import { readSession, writeSession } from "@/lib/server/session";
 
@@ -19,6 +20,14 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(
       { success: false, errorCode: "NO_SESSION", correlationId },
       { status: 401, headers: { "x-correlation-id": correlationId } },
+    );
+  }
+  try {
+    assertCsrf(req, session);
+  } catch {
+    return NextResponse.json(
+      { success: false, errorCode: "CSRF_REJECTED", correlationId },
+      { status: 403, headers: { "x-correlation-id": correlationId } },
     );
   }
   const absoluteCeiling = session.issuedAt + env.sessionTtlSeconds * 1000;

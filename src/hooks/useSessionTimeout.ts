@@ -7,6 +7,12 @@
  * inactivity period. A warning modal appears before logout.
  *
  * Monitors: mousemove, mousedown, keypress, scroll, touchstart
+ *
+ * Internals: `isWarningActive` is intentionally tracked via a ref for
+ * the activity handler gate so that entering the warning phase does
+ * NOT re-run the wiring effect and cancel the countdown. The public
+ * `isWarningActive` state is still exposed for UI rendering but is
+ * kept in lock-step with the ref.
  */
 /* eslint-disable react-hooks/set-state-in-effect */
 
@@ -50,6 +56,12 @@ export const useSessionTimeout = (
   const warningRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const logoutTimeRef = useRef<number>(0);
+  const isWarningActiveRef = useRef<boolean>(false);
+
+  const setWarningActive = useCallback((active: boolean) => {
+    isWarningActiveRef.current = active;
+    setIsWarningActive(active);
+  }, []);
 
   const clearAllTimers = useCallback(() => {
     if (timeoutRef.current) clearTimeout(timeoutRef.current);
@@ -62,7 +74,7 @@ export const useSessionTimeout = (
 
   const handleLogout = useCallback(async () => {
     clearAllTimers();
-    setIsWarningActive(false);
+    setWarningActive(false);
     setSecondsRemaining(null);
     logger.warn('Session expired due to inactivity');
 
@@ -73,10 +85,10 @@ export const useSessionTimeout = (
         window.location.href = '/login?reason=session_expired';
       }
     }
-  }, [clearAllTimers, logout]);
+  }, [clearAllTimers, logout, setWarningActive]);
 
   const startCountdown = useCallback(() => {
-    setIsWarningActive(true);
+    setWarningActive(true);
     logoutTimeRef.current = Date.now() + warningBeforeMs;
 
     countdownRef.current = setInterval(() => {
@@ -87,13 +99,13 @@ export const useSessionTimeout = (
         handleLogout();
       }
     }, 1000);
-  }, [warningBeforeMs, handleLogout]);
+  }, [warningBeforeMs, handleLogout, setWarningActive]);
 
   const resetTimer = useCallback(() => {
     if (!isAuthenticated) return;
 
     clearAllTimers();
-    setIsWarningActive(false);
+    setWarningActive(false);
     setSecondsRemaining(null);
 
     // Set warning timer (fires warningBeforeMs before logout)
@@ -105,7 +117,15 @@ export const useSessionTimeout = (
     timeoutRef.current = setTimeout(() => {
       handleLogout();
     }, timeoutMs);
-  }, [isAuthenticated, timeoutMs, warningBeforeMs, clearAllTimers, startCountdown, handleLogout]);
+  }, [
+    isAuthenticated,
+    timeoutMs,
+    warningBeforeMs,
+    clearAllTimers,
+    startCountdown,
+    handleLogout,
+    setWarningActive,
+  ]);
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -116,9 +136,11 @@ export const useSessionTimeout = (
     // Start timer on mount
     resetTimer();
 
-    // Reset timer on user activity (but not during warning phase)
+    // Reset timer on user activity — but not during warning phase.
+    // Gate via ref so entering the warning phase does NOT re-run this
+    // effect (which would clear the countdown and restart the cycle).
     const handleActivity = () => {
-      if (!isWarningActive) {
+      if (!isWarningActiveRef.current) {
         resetTimer();
       }
     };
@@ -133,7 +155,7 @@ export const useSessionTimeout = (
         window.removeEventListener(event, handleActivity);
       });
     };
-  }, [isAuthenticated, isWarningActive, resetTimer, clearAllTimers]);
+  }, [isAuthenticated, resetTimer, clearAllTimers]);
 
   return { secondsRemaining, isWarningActive, resetTimer };
 };
