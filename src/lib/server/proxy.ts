@@ -77,18 +77,25 @@ export async function proxyToBackend(
     );
   }
 
-  try {
-    assertCsrf(req, session);
-  } catch {
-    return NextResponse.json(
-      {
-        success: false,
-        errorCode: "CSRF_REJECTED",
-        message: "Invalid or missing CSRF token",
-        correlationId,
-      },
-      { status: 403, headers: { "x-correlation-id": correlationId } },
-    );
+  // `opts.requireCsrf` defaults to true: every mutating call through the
+  // BFF must present a matching fv_csrf cookie + X-CSRF-Token header
+  // (double-submit). Callers can opt out (e.g. public read-only endpoints)
+  // by explicitly passing `requireCsrf: false`; otherwise the contract is
+  // unchanged and the default is the safe one.
+  if (opts.requireCsrf !== false) {
+    try {
+      assertCsrf(req, session);
+    } catch {
+      return NextResponse.json(
+        {
+          success: false,
+          errorCode: "CSRF_REJECTED",
+          message: "Invalid or missing CSRF token",
+          correlationId,
+        },
+        { status: 403, headers: { "x-correlation-id": correlationId } },
+      );
+    }
   }
 
   return forward(req, session, correlationId, targetPath, search);

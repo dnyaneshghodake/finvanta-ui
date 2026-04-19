@@ -12,7 +12,6 @@
 
 import { Suspense, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import Link from 'next/link';
 import axios, { isAxiosError } from 'axios';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -212,10 +211,11 @@ function LoginInner() {
               {isSubmitting ? 'Signing in...' : 'Sign in'}
             </button>
 
+            {/* Tier-1 CBS: password resets are admin-initiated through the
+                User Management maker-checker module, never self-service.
+                No "Forgot password?" public link. */}
             <div className="flex items-center justify-between text-xs text-cbs-steel-600">
-              <Link href="/forgot-password" className="hover:underline">
-                Forgot password?
-              </Link>
+              <span>Password reset: contact branch administrator.</span>
               <span>v{process.env.NEXT_PUBLIC_APP_VERSION || '1.0.0'}</span>
             </div>
           </form>

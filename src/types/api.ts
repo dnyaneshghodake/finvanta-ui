@@ -64,20 +64,6 @@ export interface LoginRequest {
 }
 
 /**
- * Register request payload
- */
-export interface RegisterRequest {
-  firstName: string;
-  lastName: string;
-  email: string;
-  phoneNumber: string;
-  password: string;
-  dateOfBirth: string;
-  gender: 'MALE' | 'FEMALE' | 'OTHER';
-  agreeToTerms: boolean;
-}
-
-/**
  * Password reset request
  */
 export interface PasswordResetRequest {

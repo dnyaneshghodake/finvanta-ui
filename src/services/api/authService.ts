@@ -16,13 +16,7 @@
  */
 import axios from "axios";
 import { apiClient } from "./apiClient";
-import type {
-  LoginRequest,
-  ApiResponse,
-  PasswordResetRequest,
-  PasswordResetConfirm,
-  RegisterRequest,
-} from "@/types/api";
+import type { LoginRequest, ApiResponse } from "@/types/api";
 import type { User } from "@/types/entities";
 
 export interface LoginBffResponse {
@@ -115,29 +109,14 @@ class AuthService {
     return response.data;
   }
 
-  async register(data: RegisterRequest): Promise<ApiResponse<User>> {
-    const response = await apiClient.post<ApiResponse<User>>(
-      "/auth/register",
-      data,
-    );
-    return response.data;
-  }
-
-  async requestPasswordReset(data: PasswordResetRequest): Promise<ApiResponse<null>> {
-    const response = await apiClient.post<ApiResponse<null>>(
-      "/auth/request-password-reset",
-      data,
-    );
-    return response.data;
-  }
-
-  async resetPassword(data: PasswordResetConfirm): Promise<ApiResponse<null>> {
-    const response = await apiClient.post<ApiResponse<null>>(
-      "/auth/reset-password",
-      data,
-    );
-    return response.data;
-  }
+  // NOTE: Self-service password reset is intentionally absent.
+  // Tier-1 CBS platforms (Finacle, Temenos T24, Oracle Flexcube, TCS
+  // BaNCS, BNP Paribas Core) never expose a public "forgot password"
+  // flow to anonymous browsers -- an operator credential reset is an
+  // admin-initiated maker-checker action under the User Management
+  // module, governed by RBI Master Direction on IT Governance 2023
+  // s8. If a reset path is ever reintroduced, it must live behind a
+  // dedicated authenticated BFF route, not the catch-all proxy.
 }
 
 export const authService = new AuthService();
