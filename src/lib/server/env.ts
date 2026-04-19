@@ -16,6 +16,9 @@ interface CbsServerEnv {
   csrfCookieName: string;
   mfaChallengeCookieName: string;
   sessionTtlSeconds: number;
+  /** Idle extension window in seconds (default 15 min). Must match
+   *  the client-side SESSION_TIMEOUT_MS in useSessionTimeout.ts. */
+  sessionIdleExtensionSeconds: number;
   mfaChallengeTtlSeconds: number;
   defaultTenantId: string;
   isProduction: boolean;
@@ -61,6 +64,9 @@ export function serverEnv(): CbsServerEnv {
     mfaChallengeCookieName: process.env.CBS_MFA_COOKIE || "fv_mfa",
     sessionTtlSeconds: Number(
       process.env.CBS_SESSION_TTL_SECONDS || 60 * 60 * 8,
+    ),
+    sessionIdleExtensionSeconds: Number(
+      process.env.CBS_SESSION_IDLE_SECONDS || 15 * 60,
     ),
     mfaChallengeTtlSeconds: Number(
       process.env.CBS_MFA_TTL_SECONDS || 5 * 60,

@@ -95,7 +95,11 @@ export const useAccountStore = create<AccountState>((set, get) => ({
   },
 
   fetchTransactions: async (accountId: string, page: number = 1) => {
-    set({ isLoading: true, error: null });
+    // Clear stale transactions immediately so the UI never briefly
+    // shows a previous account's data while the new fetch is in flight.
+    // In a CBS context, showing account A's transactions on account B's
+    // detail page — even for a split second — is unacceptable.
+    set({ isLoading: true, error: null, transactions: [] });
     try {
       const response = await accountService.getTransactions(accountId, { 
         page,
