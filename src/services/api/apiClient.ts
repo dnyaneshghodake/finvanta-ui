@@ -81,7 +81,7 @@ apiClient.interceptors.request.use(
     // its HttpOnly fv_sid cookie automatically via withCredentials.
 
     // Per-request id for UI-side logging; the BFF generates its own
-    // X-Correlation-Id (seeded by middleware.ts) that survives retries.
+    // X-Correlation-Id (seeded by proxy.ts) that survives retries.
     config.headers['X-Request-ID'] = generateRequestId();
     config.headers['X-Client-Version'] = process.env.NEXT_PUBLIC_APP_VERSION || '1.0.0';
 
