@@ -107,8 +107,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(
       {
         success: false,
-        errorCode: "INVALID_CREDENTIALS",
-        message: "Username and password are required",
+        errorCode: "VALIDATION_ERROR",
+        message: "username: Username is required; password: Password is required;",
         correlationId,
       },
       { status: 400, headers: { "x-correlation-id": correlationId } },

@@ -73,7 +73,7 @@ const Header: FC<HeaderProps> = ({ className }) => {
     (user?.firstName?.[0] || user?.username?.[0]?.toUpperCase() || '?') +
     (user?.lastName?.[0] || user?.username?.[1]?.toUpperCase() || '');
 
-  const displayName = user?.firstName || user?.username || 'Operator';
+  const displayName = user?.displayName || user?.firstName || user?.username || 'Operator';
   const primaryRole = user?.roles?.[0] || '';
 
   return (

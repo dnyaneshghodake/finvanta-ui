@@ -20,7 +20,8 @@
  * - permissions: field-level permission enforcement
  */
 export interface User {
-  id?: string;
+  /** Database user ID — Spring returns Long (number). */
+  id?: string | number;
   username: string;
   email?: string;
   firstName?: string;
@@ -41,6 +42,11 @@ export interface User {
   tenantId?: string;
   roles: UserRole[];
   permissions?: string[];
+  /**
+   * Computed by Spring as `firstName + " " + lastName`.
+   * Per LOGIN_API_RESPONSE_CONTRACT §UserInfoDto.
+   */
+  displayName?: string;
   mfaEnrolled?: boolean;
 }
 
@@ -58,7 +64,9 @@ export type UserRole =
   | 'MAKER'
   | 'CHECKER'
   | 'APPROVER'
-  | 'VIEWER';
+  | 'VIEWER'
+  | 'RECONCILER'
+  | 'ADMIN';
 
 /**
  * Bank account entity
@@ -140,13 +148,23 @@ export interface Beneficiary {
 }
 
 /**
- * Authentication token entity
+ * Authentication token entity.
+ *
+ * Per LOGIN_API_RESPONSE_CONTRACT §EnhancedTokenResponse, the Spring
+ * auth endpoints return tokens + user profile + businessDate in a
+ * single payload. The BFF holds the tokens server-side; the browser
+ * only sees the user/businessDate subset via /api/cbs/auth/me.
  */
 export interface AuthToken {
   accessToken: string;
   refreshToken: string;
-  expiresIn: number;
   tokenType: 'Bearer';
+  /** Seconds until accessToken expires (e.g. 900 = 15 min). */
+  expiresIn: number;
+  /** CBS operational date (YYYY-MM-DD) from DayOpenService. */
+  businessDate?: string;
+  /** User profile included in the token response. */
+  user?: User;
 }
 
 /**
