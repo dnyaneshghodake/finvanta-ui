@@ -20,10 +20,17 @@
  */
 
 import Link from 'next/link';
+import { Breadcrumb } from '@/components/cbs';
 
 export default function WorkflowPage() {
   return (
     <div className="space-y-4">
+      {/* Breadcrumb — mandatory CBS navigation trail */}
+      <Breadcrumb items={[
+        { label: 'Dashboard', href: '/dashboard' },
+        { label: 'Workflow' },
+      ]} />
+
       <div>
         <h1 className="text-xl font-semibold text-cbs-ink">Maker-Checker Queue</h1>
         <p className="text-xs text-cbs-steel-600">

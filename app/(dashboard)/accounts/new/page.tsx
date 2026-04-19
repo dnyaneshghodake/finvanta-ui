@@ -22,7 +22,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { apiClient } from '@/services/api/apiClient';
-import { AccountNo, AmountInr, ValueDate } from '@/components/cbs';
+import { AmountInr, Breadcrumb, CbsFieldset, CbsSelect } from '@/components/cbs';
 import { Button } from '@/components/atoms';
 import Link from 'next/link';
 
@@ -81,6 +81,13 @@ export default function AccountOpeningPage() {
 
   return (
     <div className="space-y-4">
+      {/* Breadcrumb — mandatory CBS navigation trail */}
+      <Breadcrumb items={[
+        { label: 'Dashboard', href: '/dashboard' },
+        { label: 'Accounts', href: '/accounts' },
+        { label: 'Open New Account' },
+      ]} />
+
       <div>
         <h1 className="text-xl font-semibold text-cbs-ink">Open New Account</h1>
         <p className="text-xs text-cbs-steel-600 mt-0.5">
@@ -98,50 +105,42 @@ export default function AccountOpeningPage() {
       )}
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-        {/* Customer & Product */}
-        <section className="cbs-surface">
-          <div className="cbs-surface-header">
-            <span className="text-sm font-semibold uppercase tracking-wider text-cbs-steel-700">
-              Customer & Product
-            </span>
-          </div>
-          <div className="cbs-surface-body grid grid-cols-1 md:grid-cols-3 gap-4">
+        <CbsFieldset legend="Customer & Product">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
-              <label className="cbs-field-label block mb-1">Customer ID (CIF) *</label>
-              <input className="cbs-input cbs-tabular" inputMode="numeric" placeholder="e.g. 1" {...register('customerId')} />
+              <label htmlFor="customerId" className="cbs-field-label block mb-1">
+                Customer ID (CIF)<span className="text-cbs-crimson-700 ml-0.5">*</span>
+              </label>
+              <input id="customerId" className="cbs-input cbs-tabular" inputMode="numeric" placeholder="e.g. 1" {...register('customerId')} />
               {errors.customerId && <p className="text-xs text-cbs-crimson-700 mt-1">{errors.customerId.message}</p>}
               {prefilledCustomerId && (
                 <p className="text-[10px] text-cbs-olive-700 mt-0.5">Pre-filled from customer record</p>
               )}
             </div>
-            <div>
-              <label className="cbs-field-label block mb-1">Account Type *</label>
-              <select className="cbs-input" {...register('accountType')}>
-                <option value="SAVINGS">Savings Account (SB)</option>
-                <option value="CURRENT">Current Account (CA)</option>
-                <option value="SALARY">Salary Account</option>
-              </select>
-            </div>
-            <div>
-              <label className="cbs-field-label block mb-1">Currency</label>
-              <select className="cbs-input cbs-tabular" {...register('currencyCode')}>
-                <option value="INR">INR — Indian Rupee</option>
-              </select>
-            </div>
+            <CbsSelect
+              label="Account Type"
+              options={[
+                { value: 'SAVINGS', label: 'Savings Account (SB)' },
+                { value: 'CURRENT', label: 'Current Account (CA)' },
+                { value: 'SALARY', label: 'Salary Account' },
+              ]}
+              {...register('accountType')}
+            />
+            <CbsSelect
+              label="Currency"
+              options={[
+                { value: 'INR', label: 'INR — Indian Rupee' },
+              ]}
+              {...register('currencyCode')}
+            />
           </div>
-        </section>
+        </CbsFieldset>
 
-        {/* Account Details */}
-        <section className="cbs-surface">
-          <div className="cbs-surface-header">
-            <span className="text-sm font-semibold uppercase tracking-wider text-cbs-steel-700">
-              Account Details
-            </span>
-          </div>
-          <div className="cbs-surface-body grid grid-cols-1 md:grid-cols-3 gap-4">
+        <CbsFieldset legend="Account Details">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
-              <label className="cbs-field-label block mb-1">Nominee Name</label>
-              <input className="cbs-input" placeholder="Optional" {...register('nomineeName')} />
+              <label htmlFor="nomineeName" className="cbs-field-label block mb-1">Nominee Name</label>
+              <input id="nomineeName" className="cbs-input" placeholder="Optional" {...register('nomineeName')} />
             </div>
             <AmountInr
               label="Initial Deposit"
@@ -150,7 +149,7 @@ export default function AccountOpeningPage() {
               error={errors.initialDeposit?.message}
             />
           </div>
-        </section>
+        </CbsFieldset>
 
         {/* Submit */}
         <div className="flex gap-2 justify-end border-t border-cbs-steel-200 pt-3">

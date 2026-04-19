@@ -9,7 +9,7 @@ import { StatisticCard, TransactionRow } from '@/components/molecules';
 import { Button, Spinner } from '@/components/atoms';
 import { StatusRibbon, KeyValue } from '@/components/cbs/feedback';
 import { Breadcrumb, CbsTabs, CbsTabPanel, CbsFormSkeleton } from '@/components/cbs';
-import { formatCurrency, formatAccountNumber, formatDate, formatAccountType } from '@/utils/formatters';
+import { formatCurrency, formatAccountNumber, formatDate, formatAccountType, formatCbsDate } from '@/utils/formatters';
 import type { Account } from '@/types/entities';
 
 /**
@@ -149,7 +149,7 @@ export default function AccountDetailsPage() {
         />
         <StatisticCard
           label="Account Opened"
-          value={formatDate(account.openedDate, 'dd/MM/yyyy')}
+          value={formatCbsDate(account.openedDate)}
           color="yellow"
         />
       </div>
@@ -235,11 +235,11 @@ export default function AccountDetailsPage() {
             <KeyValue label="Currency">{account.currency}</KeyValue>
             <KeyValue label="Status">{account.status}</KeyValue>
             <KeyValue label="Date Opened">
-              <span className="cbs-tabular">{formatDate(account.openedDate, 'dd/MM/yyyy')}</span>
+              <span className="cbs-tabular">{formatCbsDate(account.openedDate)}</span>
             </KeyValue>
             {account.closedDate && (
               <KeyValue label="Date Closed">
-                <span className="cbs-tabular">{formatDate(account.closedDate, 'dd/MM/yyyy')}</span>
+                <span className="cbs-tabular">{formatCbsDate(account.closedDate)}</span>
               </KeyValue>
             )}
           </div>
