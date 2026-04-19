@@ -153,6 +153,14 @@ export async function POST(req: NextRequest) {
       ? json.data.expiresAt * 1000
       : now + env.sessionTtlSeconds * 1000;
 
+  // Business date: carry forward from the existing session if present,
+  // otherwise fall back to the BFF server clock. Without this the Header
+  // shows '--' for every MFA-authenticated operator until the first
+  // heartbeat fires (~30s), breaking a mandatory Tier-1 CBS context
+  // indicator.
+  const businessDate =
+    existing?.businessDate || new Date().toISOString().slice(0, 10);
+
   const session = await writeSession({
     accessToken: json.data.accessToken,
     refreshToken: json.data.refreshToken,
@@ -164,6 +172,7 @@ export async function POST(req: NextRequest) {
       { username: "unknown", roles: [], tenantId: env.defaultTenantId },
     mfaVerifiedAt: now,
     correlationId,
+    businessDate,
   });
 
   jar.delete(env.mfaChallengeCookieName);
@@ -175,6 +184,7 @@ export async function POST(req: NextRequest) {
         user: session.user,
         expiresAt: session.expiresAt,
         csrfToken: session.csrfToken,
+        businessDate: session.businessDate,
       },
       correlationId,
     },

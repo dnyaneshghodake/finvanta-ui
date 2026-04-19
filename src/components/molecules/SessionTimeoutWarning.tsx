@@ -84,14 +84,26 @@ const SessionTimeoutWarning: React.FC<SessionTimeoutWarningProps> = ({
           </p>
 
           {/* Countdown — CBS crimson, monospaced tabular.
-            * aria-live="assertive" so screen readers announce changes. */}
+            *
+            * WCAG 2.1 AA: aria-live="polite" so screen readers do NOT
+            * interrupt every second (120 announcements would make the
+            * dialog unusable for visually impaired operators). The
+            * visual countdown updates every second, but the live region
+            * only announces at 30s intervals + a final assertive
+            * announcement at 10s remaining. */}
           <div
             className="text-3xl cbs-tabular font-bold text-cbs-crimson-700 mb-4"
-            aria-live="assertive"
+            aria-live="polite"
             aria-atomic="true"
           >
             {String(minutes).padStart(2, '0')}:{String(seconds).padStart(2, '0')}
           </div>
+          {/* Assertive announcement only at critical thresholds */}
+          {secondsRemaining <= 10 && (
+            <div className="sr-only" aria-live="assertive" aria-atomic="true">
+              {secondsRemaining} seconds until automatic logout
+            </div>
+          )}
 
           <p className="text-xs text-cbs-steel-500 mb-4">
             Any unsaved changes will be lost.

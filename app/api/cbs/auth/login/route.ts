@@ -39,7 +39,10 @@ interface SpringTokenResponse {
     accessToken: string;
     refreshToken?: string;
     tokenType?: string;
+    /** Epoch seconds or ISO string — Spring may return either. */
     expiresAt?: number;
+    /** Server-authoritative business date from DayOpenService (YYYY-MM-DD). */
+    businessDate?: string;
     user?: CbsSessionUser;
   };
   error?: {
@@ -169,7 +172,11 @@ export async function POST(req: NextRequest) {
 
   // Business date: Spring may include it in the token response
   // (from DayOpenService). Fall back to the BFF server's clock date.
-  const businessDate = new Date().toISOString().slice(0, 10);
+  // In a CBS the business date can differ from the calendar date
+  // (e.g. after midnight before day-close), so the Spring-provided
+  // value takes precedence when available.
+  const businessDate =
+    json.data.businessDate || new Date().toISOString().slice(0, 10);
 
   const session = await writeSession({
     accessToken: json.data.accessToken,
