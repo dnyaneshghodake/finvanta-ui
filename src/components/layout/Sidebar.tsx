@@ -21,7 +21,7 @@ import { useAuthStore } from '@/store/authStore';
 import clsx from 'clsx';
 import {
   LayoutDashboard, Landmark, ArrowLeftRight, ClipboardCheck,
-  Users, Banknote, CreditCard, BarChart3, Settings, Monitor,
+  Users, UserPlus, Banknote, CreditCard, BarChart3, Settings, Monitor,
   ChevronRight,
 } from 'lucide-react';
 import type { UserRole } from '@/types/entities';
@@ -67,6 +67,12 @@ const MODULES: NavModule[] = [
     { label: 'Disbursement', href: '/legacy/loan/disburse', roles: CHECKER },
     { label: 'Repayment', href: '/legacy/loan/repayment', roles: MAKER },
   ]},
+  { id: 'customers', label: 'Customers',
+    icon: <UserPlus size={ICON_SIZE} strokeWidth={ICON_STROKE} />, children: [
+    { label: 'Customer Search', href: '/customers' },
+    { label: 'New Customer (CIF)', href: '/customers/new', roles: MAKER },
+    { label: 'KYC Verification', href: '/customers/kyc', roles: CHECKER },
+  ]},
   { id: 'beneficiaries', label: 'Beneficiaries', href: '/beneficiaries',
     icon: <Users size={ICON_SIZE} strokeWidth={ICON_STROKE} /> },
   { id: 'workflow', label: 'Workflow', href: '/workflow',
@@ -79,11 +85,14 @@ const MODULES: NavModule[] = [
   ]},
   { id: 'admin', label: 'Administration', roles: ADMIN,
     icon: <Settings size={ICON_SIZE} strokeWidth={ICON_STROKE} />, children: [
-    { label: 'User Management', href: '/legacy/admin/users' },
-    { label: 'Product Setup', href: '/legacy/admin/products' },
-    { label: 'Charge Setup', href: '/legacy/admin/charges' },
-    { label: 'Branch Switch', href: '/legacy/admin/switch-branch' },
-    { label: 'Day Open / Close', href: '/legacy/calendar/day' },
+    { label: 'Tenant Setup', href: '/admin/tenants' },
+    { label: 'Branch Management', href: '/admin/branches' },
+    { label: 'Calendar & Holidays', href: '/admin/calendar' },
+    { label: 'User Management', href: '/admin/users' },
+    { label: 'GL Chart of Accounts', href: '/admin/gl' },
+    { label: 'Product Setup', href: '/admin/products' },
+    { label: 'Charge Setup', href: '/admin/charges' },
+    { label: 'Day Open / Close', href: '/admin/day' },
   ]},
   { id: 'legacy', label: 'Legacy Screens', href: '/legacy',
     icon: <Monitor size={ICON_SIZE} strokeWidth={ICON_STROKE} /> },
