@@ -55,6 +55,10 @@ class AuthService {
         headers: { "Content-Type": "application/json" },
         withCredentials: true,
         timeout: 30000,
+        // Accept 428 (MFA step-up) as a non-throwing response so
+        // callers can distinguish it from network errors. Without this,
+        // axios throws on any non-2xx and the MFA errorCode is lost.
+        validateStatus: (status) => status < 500,
       },
     );
     return response.data;

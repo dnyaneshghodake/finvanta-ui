@@ -256,8 +256,11 @@ function LoginInner() {
         </div>
       </section>
 
-      {/* Copyright footer — CBS regulatory requirement */}
-      <footer className="fixed bottom-0 inset-x-0 py-2 text-center text-[10px] text-cbs-steel-400 bg-cbs-mist border-t border-cbs-steel-100">
+      {/* Copyright footer — CBS regulatory requirement.
+          col-span-full so it spans both grid columns on md+ screens.
+          Sits in the natural document flow (not fixed) to avoid
+          overlapping form content on short viewports. */}
+      <footer className="col-span-full py-2 text-center text-[10px] text-cbs-steel-400 border-t border-cbs-steel-100">
         © {new Date().getFullYear()} FINVANTA Financial Technologies Pvt. Ltd. All rights reserved.
       </footer>
     </main>

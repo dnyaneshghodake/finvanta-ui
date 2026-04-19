@@ -80,8 +80,11 @@ export const useAuthStore = create<AuthState>((set) => ({
         user: null,
         csrfToken: null,
         expiresAt: null,
+        businessDate: null,
         isAuthenticated: false,
+        isHydrated: false,
         isLoading: false,
+        error: null,
       });
     }
   },
