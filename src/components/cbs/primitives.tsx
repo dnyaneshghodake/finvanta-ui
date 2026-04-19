@@ -156,7 +156,13 @@ export const Aadhaar = forwardRef<HTMLInputElement, BaseProps>(
   },
 );
 
-/** Account number: 10-20 digits, CBS opaque identifier. */
+/**
+ * Account number: CBS alphanumeric identifier (e.g. SB-HQ001-000001).
+ * Finvanta uses a composite alphanumeric key shaped
+ * `<product>-<branchSol>-<serial>`; digit-only enforcement would
+ * block every legitimate CBS account. Pattern mirrors the Zod
+ * schema on the transfer form (`[A-Z0-9][A-Z0-9-]{5,24}`).
+ */
 export const AccountNo = forwardRef<HTMLInputElement, BaseProps>(
   function AccountNo({ label, error, hint, id, ...rest }, ref) {
     const fieldId = id || `acct-${label.replace(/\s+/g, '-').toLowerCase()}`;
@@ -166,11 +172,13 @@ export const AccountNo = forwardRef<HTMLInputElement, BaseProps>(
           ref={ref}
           id={fieldId}
           type="text"
-          maxLength={20}
-          minLength={10}
-          pattern="\d{10,20}"
-          inputMode="numeric"
-          className="cbs-input cbs-tabular tracking-widest"
+          maxLength={25}
+          minLength={6}
+          pattern="[A-Z0-9][A-Z0-9-]{5,24}"
+          inputMode="text"
+          autoCapitalize="characters"
+          spellCheck={false}
+          className="cbs-input cbs-tabular uppercase tracking-widest"
           aria-invalid={!!error}
           {...rest}
         />

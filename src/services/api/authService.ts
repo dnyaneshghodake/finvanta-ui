@@ -5,6 +5,14 @@
  * The BFF holds the JWT in a server-side encrypted session; the
  * browser only ever sees HttpOnly fv_sid + JS-readable fv_csrf
  * cookies. Nothing here touches localStorage.
+ *
+ * Mutating session endpoints (extend, switch-branch) route through
+ * the shared `apiClient` so the request interceptor automatically
+ * attaches the `X-CSRF-Token` header (double-submit) that the BFF
+ * route handlers enforce via `assertCsrf`. Pre-auth calls (login,
+ * logout, mfa/verify, me) use a dedicated axios instance because
+ * the CSRF token either does not exist yet or is explicitly rotated
+ * by the handler itself.
  */
 import axios from "axios";
 import { apiClient } from "./apiClient";
@@ -87,20 +95,23 @@ class AuthService {
   }
 
   async extendSession(): Promise<ApiResponse<null>> {
-    const response = await axios.post<ApiResponse<null>>(
-      "/api/cbs/session/extend",
+    // Routed through apiClient so the CSRF interceptor attaches
+    // X-CSRF-Token from the fv_csrf cookie -- the BFF route handler
+    // rejects any POST without it (403 CSRF_REJECTED).
+    const response = await apiClient.post<ApiResponse<null>>(
+      "/session/extend",
       {},
-      { withCredentials: true },
     );
     return response.data;
   }
 
-  async switchBranch(branchCode: string): Promise<ApiResponse<{ branchCode: string; branchName?: string }>> {
-    const response = await axios.post<ApiResponse<{ branchCode: string; branchName?: string }>>(
-      "/api/cbs/session/switch-branch",
-      { branchCode },
-      { withCredentials: true },
-    );
+  async switchBranch(
+    branchCode: string,
+  ): Promise<ApiResponse<{ branchCode: string; branchName?: string }>> {
+    // Same rationale as extendSession -- CSRF header must be present.
+    const response = await apiClient.post<
+      ApiResponse<{ branchCode: string; branchName?: string }>
+    >("/session/switch-branch", { branchCode });
     return response.data;
   }
 
