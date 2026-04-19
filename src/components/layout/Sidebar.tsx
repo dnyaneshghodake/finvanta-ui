@@ -126,7 +126,9 @@ const Sidebar: React.FC<SidebarProps> = ({ className }) => {
 
   // Close sidebar on mobile after navigation.
   useEffect(() => {
-    if (window.innerWidth < 1024) setSidebarOpen(false);
+    if (typeof window !== 'undefined' && window.innerWidth < 1024) {
+      setSidebarOpen(false);
+    }
   }, [pathname, setSidebarOpen]);
 
   return (

@@ -40,6 +40,9 @@ interface MfaErr {
   correlationId?: string;
 }
 
+/** Discriminated union — axios sees the full shape via validateStatus. */
+type MfaResponse = MfaOk | MfaErr;
+
 export default function MfaPage() {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
@@ -58,7 +61,7 @@ export default function MfaPage() {
     setError(null);
     setCorrelationId(null);
     try {
-      const response = await axios.post<MfaOk>(
+      const response = await axios.post<MfaResponse>(
         '/api/cbs/auth/mfa/verify',
         { otp: data.otp },
         { withCredentials: true, validateStatus: () => true },
@@ -66,7 +69,7 @@ export default function MfaPage() {
       setCorrelationId(response.data?.correlationId ?? null);
 
       if (response.status !== 200 || !response.data?.success) {
-        const err = response.data as unknown as MfaErr;
+        const err = response.data as MfaErr;
         if (err?.errorCode === 'INVALID_MFA_CHALLENGE') {
           router.push('/login?reason=mfa_expired');
           return;

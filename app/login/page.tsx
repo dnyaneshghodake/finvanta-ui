@@ -50,6 +50,9 @@ interface BffLoginErr {
   correlationId?: string;
 }
 
+/** Discriminated union — axios sees the full shape via validateStatus. */
+type BffLoginResponse = BffLoginOk | BffLoginErr;
+
 function LoginInner() {
   const router = useRouter();
   const search = useSearchParams();
@@ -73,7 +76,7 @@ function LoginInner() {
     setError(null);
     setCorrelationId(null);
     try {
-      const response = await axios.post<BffLoginOk>(
+      const response = await axios.post<BffLoginResponse>(
         '/api/cbs/auth/login',
         { username: data.username, password: data.password },
         { withCredentials: true, validateStatus: () => true },
@@ -86,7 +89,7 @@ function LoginInner() {
       }
 
       if (response.status !== 200 || !response.data?.success) {
-        const err = response.data as unknown as BffLoginErr;
+        const err = response.data as BffLoginErr;
         setError(err?.message || 'Unable to sign in. Please check your credentials.');
         return;
       }
