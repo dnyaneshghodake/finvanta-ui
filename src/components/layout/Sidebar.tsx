@@ -55,10 +55,10 @@ const MODULES: NavModule[] = [
   ]},
   { id: 'deposits', label: 'Fixed Deposits',
     icon: <Banknote size={ICON_SIZE} strokeWidth={ICON_STROKE} />, children: [
-    { label: 'FD Inquiry', href: '/legacy/fd/inquiry' },
-    { label: 'Book FD', href: '/legacy/fd/book', roles: MAKER },
-    { label: 'Premature Close', href: '/legacy/fd/premature-close', roles: [...MAKER, ...CHECKER] },
-    { label: 'Lien Mark / Release', href: '/legacy/fd/lien', roles: [...MAKER, ...CHECKER] },
+    { label: 'FD Inquiry', href: '/deposits' },
+    { label: 'Book FD', href: '/deposits/new', roles: MAKER },
+    { label: 'Premature Close', href: '/deposits/close', roles: [...MAKER, ...CHECKER] },
+    { label: 'Lien Mark / Release', href: '/deposits/lien', roles: [...MAKER, ...CHECKER] },
   ]},
   { id: 'loans', label: 'Loans',
     icon: <CreditCard size={ICON_SIZE} strokeWidth={ICON_STROKE} />, children: [
