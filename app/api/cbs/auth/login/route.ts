@@ -60,13 +60,10 @@ interface SpringTokenSuccessData {
 }
 
 /**
- * Spring error response shape — the `data` field carries error detail
- * on 401/403/429, NOT a nested `error` object. Per the backend contract:
- *
- *   401: data = { code, message, remainingAttempts }
- *   401: data = { code, message, lockoutDurationMinutes, remainingAttempts: 0 }
- *   403: data = null (PASSWORD_EXPIRED)
- *   429: data = null (RATE_LIMITED)
+ * Spring error detail — per REST_API_COMPLETE_CATALOGUE §Standard
+ * Response Envelope, error detail is in the `error` object:
+ *   error: { code, message, remainingAttempts }
+ * Some deployments may also put error detail in `data`. We read both.
  */
 interface SpringErrorData {
   code?: string;

@@ -32,10 +32,19 @@ export default function LoanDisbursePage() {
     setError(null);
     setSuccess(null);
     try {
-      const res = await apiClient.post(`/loans/${loanAccount.trim().toUpperCase()}/disburse`, {
-        amount: Number(amount),
-        remarks: remarks.trim() || undefined,
-      });
+      // REST_API_COMPLETE_CATALOGUE §Loans:
+      //   POST /{accountNumber}/disburse — full disbursement (empty body)
+      //   POST /{accountNumber}/disburse-tranche — partial (body: { amount, narration })
+      // If amount is provided, use tranche endpoint; otherwise full disburse.
+      const acct = loanAccount.trim().toUpperCase();
+      const hasAmount = amount.trim() && !isNaN(Number(amount)) && Number(amount) > 0;
+      const endpoint = hasAmount
+        ? `/loans/${acct}/disburse-tranche`
+        : `/loans/${acct}/disburse`;
+      const body = hasAmount
+        ? { amount: Number(amount), narration: remarks.trim() || undefined }
+        : {};
+      const res = await apiClient.post(endpoint, body);
       const corr = res.headers?.['x-correlation-id'] as string | undefined;
       setCorrelationId(corr || null);
       if (res.data?.status === 'SUCCESS') {
