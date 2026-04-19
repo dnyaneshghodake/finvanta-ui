@@ -139,13 +139,17 @@ apiClient.interceptors.response.use(
     // 401 from the BFF means the session cookie is gone or expired.
     // We do not attempt a client-side refresh (JWTs are held server
     // side); we just clear local state and send the user to /login.
-    // Early return prevents callers from showing a flash of error UI
-    // (toast, inline message) in the brief window before the browser
-    // navigates away.
+    // Per LOGIN_API_RESPONSE_CONTRACT, specific errorCodes get
+    // targeted redirect reasons so the login page shows the right
+    // message.
     if (error.response?.status === 401) {
       useAuthStore.getState().clearAuth();
       if (typeof window !== 'undefined' && !window.location.pathname.startsWith('/login')) {
-        window.location.href = '/login?reason=session_expired';
+        const errorCode = (error.response?.data as Record<string, unknown>)?.errorCode;
+        let reason = 'session_expired';
+        if (errorCode === 'REFRESH_TOKEN_REUSED') reason = 'session_compromised';
+        else if (errorCode === 'ACCOUNT_INVALID') reason = 'account_invalid';
+        window.location.href = `/login?reason=${reason}`;
       }
       return Promise.reject(appError);
     }
