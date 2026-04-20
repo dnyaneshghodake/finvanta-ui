@@ -98,20 +98,6 @@ export async function proxyToBackend(
     }
   }
 
-  // NOTE: Session extension is handled ONLY by the explicit
-  // POST /api/cbs/session/extend endpoint (called by the "Stay Logged In"
-  // button in the session timeout warning). We do NOT extend the session
-  // on every proxied request because parallel requests (e.g. 4 dashboard
-  // widgets firing simultaneously) race on writeSession() — each one
-  // re-encrypts and re-sets the fv_sid cookie, and only the last
-  // Set-Cookie header survives. The intermediate cookies are lost,
-  // causing subsequent requests to fail with 401 (decrypt failure).
-  //
-  // The session's expiresAt is set at login time to
-  // now + sessionIdleExtensionSeconds (15 min), which matches the
-  // client-side useSessionTimeout. The explicit extend endpoint
-  // pushes it forward when the user clicks "Stay Logged In".
-
   // ── Sliding session window ──────────────────────────────────────
   // Every successful auth + CSRF check proves the operator is actively
   // using the system. Slide `expiresAt` forward by the idle-extension
@@ -119,6 +105,14 @@ export async function proxyToBackend(
   // after the JWT's short lifetime (~15 min) while the user is active.
   // The extension is capped at the absolute TTL ceiling anchored to
   // `issuedAt` so sessions cannot be extended indefinitely.
+  //
+  // Race mitigation: parallel requests (e.g. 4 dashboard widgets)
+  // could race on writeSession(). The 30-second threshold below
+  // ensures at most one cookie rewrite per 30s window, so concurrent
+  // requests within that window all read the same session blob and
+  // only the first one triggers a rewrite. The explicit "Stay Logged
+  // In" button (POST /api/cbs/session/extend) still works as before
+  // for the countdown-warning path.
   if (session) {
     const env2 = serverEnv();
     const now = Date.now();
