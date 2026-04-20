@@ -53,6 +53,7 @@ export async function POST(req: NextRequest) {
   let sessionBusinessDay = session.businessDay;
   let sessionOpConfig = session.operationalConfig;
   let sessionTxnLimits = session.transactionLimits;
+  let jwtExpiresAt = session.jwtExpiresAt;
 
   // Use jwtExpiresAt (JWT lifetime) for refresh scheduling, NOT session
   // expiresAt (idle timeout). The sliding session window continuously
@@ -94,6 +95,16 @@ export async function POST(req: NextRequest) {
           accessToken = newAccessToken;
           refreshToken = d?.token?.refreshToken ?? d?.refreshToken ?? refreshToken;
           tokenType = d?.token?.tokenType ?? d?.tokenType ?? tokenType;
+          // Update jwtExpiresAt from the new token's expiry
+          const newExpiresIn = d?.token?.expiresIn ?? d?.expiresIn;
+          const newExpiresAtRaw = d?.token?.expiresAt ?? d?.expiresAt;
+          if (newExpiresIn && newExpiresIn > 0) {
+            jwtExpiresAt = now + newExpiresIn * 1000;
+          } else if (newExpiresAtRaw && newExpiresAtRaw > now / 1000) {
+            jwtExpiresAt = newExpiresAtRaw * 1000;
+          } else {
+            jwtExpiresAt = now + 15 * 60 * 1000; // default 15 min
+          }
           // Update business date from refreshed response
           const newBizDate = d?.businessDay?.businessDate || d?.businessDate;
           if (newBizDate) businessDate = newBizDate;
@@ -141,6 +152,7 @@ export async function POST(req: NextRequest) {
     accessToken,
     refreshToken,
     tokenType,
+    jwtExpiresAt,
     user: sessionUser,
     businessDate,
     businessDay: sessionBusinessDay,
