@@ -29,6 +29,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { readCorrelationId } from "@/lib/server/correlation";
 import { serverEnv } from "@/lib/server/env";
 import { writeSession, type CbsSessionUser } from "@/lib/server/session";
+import { checkRateLimit, extractClientIp } from "@/lib/server/rateLimit";
 import { cookies } from "next/headers";
 
 export const runtime = "nodejs";
@@ -190,6 +191,35 @@ interface SpringMfaData {
 export async function POST(req: NextRequest) {
   const correlationId = readCorrelationId(req);
   const env = serverEnv();
+
+  // ── BFF-level rate limiting ────────────────────────────────────
+  // Per RBI Cyber Security Framework 2024 §6.2: rate-limit auth
+  // endpoints at the BFF layer BEFORE forwarding to Spring. This
+  // protects the Node.js event loop from crypto/JSON overhead on
+  // brute-force floods. Spring has its own limiter as a second layer.
+  const clientIp = extractClientIp(req.headers);
+  const rl = checkRateLimit(`login:${clientIp}`, {
+    maxRequests: 20,
+    windowSeconds: 60,
+  });
+  if (!rl.allowed) {
+    return NextResponse.json(
+      {
+        success: false,
+        errorCode: "AUTH_RATE_LIMIT_EXCEEDED",
+        message: `Too many login attempts. Try again in ${rl.retryAfterSeconds} seconds.`,
+        correlationId,
+      },
+      {
+        status: 429,
+        headers: {
+          "x-correlation-id": correlationId,
+          "retry-after": String(rl.retryAfterSeconds),
+        },
+      },
+    );
+  }
+
   const body = (await req.json().catch(() => ({}))) as LoginBody;
   const username = body.username || body.email;
 
