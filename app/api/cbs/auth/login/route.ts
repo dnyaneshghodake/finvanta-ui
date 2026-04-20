@@ -220,6 +220,11 @@ export async function POST(req: NextRequest) {
         password: body.password,
       }),
       cache: "no-store",
+      // CRITICAL: do not follow redirects. Spring Security's UI chain
+      // redirects unauthenticated POSTs to the HTML login page (302→200).
+      // Without this, fetch follows the redirect and the BFF sees an HTML
+      // page with status 200 instead of the actual 302/403 from Spring.
+      redirect: "manual",
     });
   } catch {
     // Backend unreachable — ECONNREFUSED, DNS failure, or timeout.
