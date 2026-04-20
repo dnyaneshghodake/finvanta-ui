@@ -90,15 +90,27 @@ export interface LoginRequest {
 // Governance Direction 2023 §8.
 
 /**
- * Transfer request payload
+ * Transfer request payload.
+ * Per API_REFERENCE.md §5 CASA Financial Operations — Transfer Request.
  */
 export interface TransferRequest {
-  fromAccountId: string;
+  /** Source account number (CBS alphanumeric key). */
+  fromAccountNumber: string;
+  /** Destination account number. */
   toAccountNumber: string;
-  toIfscCode: string;
+  /** Must be positive. */
   amount: number;
-  description: string;
-  transferType: 'INTERNAL' | 'EXTERNAL';
+  /** Transaction description / narration. */
+  description?: string;
+  /** Client dedup key — per API §5: recommended for financial ops. */
+  idempotencyKey?: string;
+  // ── Legacy compat fields (kept for existing callers) ──
+  /** @deprecated Use fromAccountNumber. */
+  fromAccountId?: string;
+  /** @deprecated External transfers use clearing module (API §12). */
+  toIfscCode?: string;
+  /** @deprecated Internal only — external uses clearing endpoints. */
+  transferType?: 'INTERNAL' | 'EXTERNAL';
 }
 
 /**

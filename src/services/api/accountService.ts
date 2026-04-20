@@ -91,22 +91,34 @@ interface SpringPage<T> {
   totalElements: number;
 }
 
+/**
+ * Spring TxnResponse — 19 fields per API_REFERENCE.md §5.
+ */
 interface SpringTxn {
   id: number;
   transactionRef: string;
   transactionType: string;
-  /** REST_API_COMPLETE_CATALOGUE uses "DR"/"CR" (not single-char "D"/"C"). */
+  /** Per API §5: "DR"/"CR". Legacy deployments may use "D"/"C". */
   debitCredit: 'DR' | 'CR' | 'D' | 'C' | string;
+  // Amount
   amount: number | string;
+  balanceBefore?: number | string | null;
   balanceAfter?: number | string | null;
+  // Dates
   valueDate?: string | null;
   postingDate?: string | null;
+  // Details
   narration?: string | null;
   counterpartyAccount?: string | null;
+  counterpartyName?: string | null;
   channel?: string | null;
+  chequeNumber?: string | null;
+  // Audit
   voucherNumber?: string | null;
   branchCode?: string | null;
   reversed?: boolean;
+  reversedByRef?: string | null;
+  idempotencyKey?: string | null;
 }
 
 /**
@@ -213,7 +225,7 @@ function mapAccount(a: SpringAccount): Account {
 
 function mapTxn(t: SpringTxn, accountNumber: string): Transaction {
   const abs = Math.abs(toNumber(t.amount));
-  // REST_API_COMPLETE_CATALOGUE uses "DR"/"CR"; older code used "D"/"C".
+  // Per API §5: "DR"/"CR". Legacy deployments may use "D"/"C".
   const isDebit = t.debitCredit === 'DR' || t.debitCredit === 'D';
   const signed = isDebit ? -abs : abs;
   return {
@@ -223,16 +235,26 @@ function mapTxn(t: SpringTxn, accountNumber: string): Transaction {
     amount: signed,
     currency: 'INR',
     transactionType: isDebit ? 'DEBIT' : 'CREDIT',
+    debitCredit: (t.debitCredit === 'DR' || t.debitCredit === 'D') ? 'DR' : 'CR',
     status: t.reversed ? 'REVERSED' : 'COMPLETED',
     description: t.narration || t.transactionType,
     valueDate: toDateOrNow(t.valueDate),
     postingDate: toDateOrNow(t.postingDate),
     referenceNumber: t.transactionRef,
+    // Amount context (per API §5 Response — Amount)
+    balanceBefore: t.balanceBefore != null ? toNumber(t.balanceBefore) : undefined,
     balanceAfter: t.balanceAfter != null ? toNumber(t.balanceAfter) : undefined,
+    // Details (per API §5 Response — Details)
     counterpartyAccount: t.counterpartyAccount || undefined,
+    counterpartyName: t.counterpartyName || undefined,
     channel: t.channel || undefined,
+    chequeNumber: t.chequeNumber || undefined,
+    // Audit (per API §5 Response — Audit)
     voucherNumber: t.voucherNumber || undefined,
     branchCode: t.branchCode || undefined,
+    reversed: t.reversed ?? false,
+    reversedByRef: t.reversedByRef || undefined,
+    idempotencyKey: t.idempotencyKey || undefined,
     createdAt: toDateOrNow(t.postingDate),
     updatedAt: toDateOrNow(t.postingDate),
   };
