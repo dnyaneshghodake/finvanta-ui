@@ -516,28 +516,127 @@ export async function POST(req: NextRequest) {
     passwordExpiryDate: sUser?.passwordExpiryDate,
   };
 
+  // ── Step 2: Context Bootstrap ─────────────────────────────────
+  // Per API_LOGIN_CONTRACT.md §7: after login returns identity + tokens,
+  // call GET /context/bootstrap to fetch the full operational context
+  // (branch, businessDay, permissions, limits, config). This is the
+  // "session activation" step per Finacle USER_SESSION / Temenos
+  // EB.USER.CONTEXT pattern. The login response (v2.0) only has minimal
+  // user identity — the heavy context comes from bootstrap.
+  let bootstrapUser = sUser;
+  let bootstrapBranch = sBranch;
+  let bootstrapBizDay = sBizDay;
+  let bootstrapRole = sRole;
+  let bootstrapLimits = sLimits;
+  let bootstrapOpConfig = sOpConfig;
+  let bootstrapBusinessDate = businessDate;
+
+  try {
+    const bsRes = await fetch(`${env.backendApiBase}/context/bootstrap`, {
+      method: "GET",
+      headers: {
+        accept: "application/json",
+        authorization: `${tokenTypeRaw || "Bearer"} ${accessToken}`,
+        "x-correlation-id": correlationId,
+        "x-tenant-id": env.defaultTenantId,
+      },
+      cache: "no-store",
+      redirect: "manual",
+    });
+    if (bsRes.ok) {
+      const bsText = await bsRes.text().catch(() => "");
+      const bsJson = bsText ? JSON.parse(bsText) : {};
+      const bs = bsJson.data;
+      if (bs) {
+        if (process.env.NODE_ENV !== "production") {
+          console.log(`[BFF login] bootstrap OK — keys=[${Object.keys(bs).join(",")}]`);
+        }
+        // Merge bootstrap context over login identity.
+        // Bootstrap has richer user info (lastLoginTimestamp, passwordExpiryDate).
+        if (bs.user) bootstrapUser = { ...sUser, ...bs.user };
+        if (bs.branch) bootstrapBranch = bs.branch;
+        if (bs.businessDay) {
+          bootstrapBizDay = bs.businessDay;
+          bootstrapBusinessDate = bs.businessDay.businessDate || businessDate;
+        }
+        if (bs.role) bootstrapRole = bs.role;
+        if (bs.limits) bootstrapLimits = bs.limits;
+        if (bs.operationalConfig) bootstrapOpConfig = bs.operationalConfig;
+      }
+    } else if (process.env.NODE_ENV !== "production") {
+      console.warn(`[BFF login] bootstrap failed: ${bsRes.status} — using login-only context`);
+    }
+  } catch (err) {
+    // Bootstrap is best-effort. If it fails, we still have the login
+    // identity and can render the dashboard header. The bootstrap
+    // context will be missing (no permissions, no business day) but
+    // the user won't be locked out.
+    if (process.env.NODE_ENV !== "production") {
+      console.warn(`[BFF login] bootstrap error — using login-only context`, err);
+    }
+  }
+
+  // Rebuild session user with bootstrap-enriched data
+  const bUser = bootstrapUser;
+  const bBranch = bootstrapBranch;
+  const bRole = bootstrapRole;
+  const bFlatPerms = bRole?.permissionsByModule
+    ? Object.values(bRole.permissionsByModule).flat()
+    : flatPermissions;
+
+  const enrichedUser: CbsSessionUser = {
+    id: bUser?.userId ?? bUser?.id ?? sessionUser.id,
+    username: bUser?.username || sessionUser.username,
+    firstName: bUser?.firstName || sessionUser.firstName,
+    lastName: bUser?.lastName || sessionUser.lastName,
+    email: bUser?.email || sessionUser.email,
+    displayName: bUser?.displayName || sessionUser.displayName,
+    roles: bRole?.role
+      ? [bRole.role]
+      : ((bUser as Record<string, unknown> | undefined)?.role
+        ? [String((bUser as Record<string, unknown>).role)]
+        : sessionUser.roles),
+    makerCheckerRole: bRole?.makerCheckerRole || sessionUser.makerCheckerRole,
+    permissionsByModule: bRole?.permissionsByModule || sessionUser.permissionsByModule,
+    permissions: bFlatPerms.length > 0 ? bFlatPerms : sessionUser.permissions,
+    allowedModules: bRole?.allowedModules || sessionUser.allowedModules,
+    branchCode: bBranch?.branchCode || sessionUser.branchCode,
+    branchName: bBranch?.branchName || sessionUser.branchName,
+    branchId: bBranch?.branchId || sessionUser.branchId,
+    ifscCode: bBranch?.ifscCode || sessionUser.ifscCode,
+    branchType: bBranch?.branchType || sessionUser.branchType,
+    zoneCode: bBranch?.zoneCode || sessionUser.zoneCode,
+    regionCode: bBranch?.regionCode || sessionUser.regionCode,
+    isHeadOffice: bBranch?.headOffice ?? sessionUser.isHeadOffice,
+    tenantId: sessionUser.tenantId,
+    mfaEnrolled: bUser?.mfaEnabled ?? sessionUser.mfaEnrolled,
+    authenticationLevel: bUser?.authenticationLevel || sessionUser.authenticationLevel,
+    lastLoginTimestamp: bUser?.lastLoginTimestamp || sessionUser.lastLoginTimestamp,
+    passwordExpiryDate: bUser?.passwordExpiryDate || sessionUser.passwordExpiryDate,
+  };
+
   const session = await writeSession({
     accessToken,
     refreshToken: refreshTokenRaw,
     tokenType: tokenTypeRaw || "Bearer",
     expiresAt,
-    user: sessionUser,
+    user: enrichedUser,
     correlationId,
-    businessDate,
-    businessDay: sBizDay ? {
-      businessDate: sBizDay.businessDate || businessDate,
-      dayStatus: sBizDay.dayStatus || "UNKNOWN",
-      isHoliday: sBizDay.isHoliday ?? false,
-      previousBusinessDate: sBizDay.previousBusinessDate,
-      nextBusinessDate: sBizDay.nextBusinessDate,
+    businessDate: bootstrapBusinessDate,
+    businessDay: bootstrapBizDay ? {
+      businessDate: bootstrapBizDay.businessDate || bootstrapBusinessDate,
+      dayStatus: bootstrapBizDay.dayStatus || "UNKNOWN",
+      isHoliday: bootstrapBizDay.isHoliday ?? false,
+      previousBusinessDate: bootstrapBizDay.previousBusinessDate,
+      nextBusinessDate: bootstrapBizDay.nextBusinessDate,
     } : undefined,
-    transactionLimits: sLimits?.transactionLimits,
-    operationalConfig: sOpConfig ? {
-      baseCurrency: sOpConfig.baseCurrency || "INR",
-      decimalPrecision: sOpConfig.decimalPrecision ?? 2,
-      roundingMode: sOpConfig.roundingMode || "HALF_UP",
-      fiscalYearStartMonth: sOpConfig.fiscalYearStartMonth ?? 4,
-      businessDayPolicy: sOpConfig.businessDayPolicy || "MON_TO_SAT",
+    transactionLimits: bootstrapLimits?.transactionLimits,
+    operationalConfig: bootstrapOpConfig ? {
+      baseCurrency: bootstrapOpConfig.baseCurrency || "INR",
+      decimalPrecision: bootstrapOpConfig.decimalPrecision ?? 2,
+      roundingMode: bootstrapOpConfig.roundingMode || "HALF_UP",
+      fiscalYearStartMonth: bootstrapOpConfig.fiscalYearStartMonth ?? 4,
+      businessDayPolicy: bootstrapOpConfig.businessDayPolicy || "MON_TO_SAT",
     } : undefined,
   });
 
