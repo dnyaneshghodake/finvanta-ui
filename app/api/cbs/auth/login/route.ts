@@ -63,7 +63,7 @@ interface SpringUser {
   lastLoginTimestamp?: string;
   passwordExpiryDate?: string;
   mfaEnabled?: boolean;
-  // Flat shape fields (from data.user per LOGIN_API_RESPONSE_CONTRACT)
+  // Flat shape fields (from data.user per API_LOGIN_CONTRACT.md §4)
   id?: number;
   username?: string;
   firstName?: string;
@@ -528,7 +528,7 @@ export async function POST(req: NextRequest) {
     : [];
 
   // Build session user from whichever shape Spring returned.
-  // Flat shape (LOGIN_API_RESPONSE_CONTRACT): data.user has id,
+  // Flat shape (API_LOGIN_CONTRACT.md §4): data.user has id,
   //   firstName, lastName, email, roles[], branchCode, branchName,
   //   tenantId, displayName, mfaEnrolled.
   // Nested shape: data.user has userId, displayName, mfaEnabled;
