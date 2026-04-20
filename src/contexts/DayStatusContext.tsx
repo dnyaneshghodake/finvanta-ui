@@ -9,8 +9,8 @@
  * open. This context propagates the posting-allowed flag to all
  * child components without prop drilling.
  *
- * CBS benchmark: Finacle's DAYOPR module disables all posting
- * menus when dayStatus != DAY_OPEN. T24 greys out transaction menus.
+ * CBS benchmark: the Tier-1 CBS day-open module disables all posting
+ * menus when dayStatus != DAY_OPEN. Tier-1 CBS peers apply the same lockout.
  *
  * Extracted from app/(dashboard)/layout.tsx so components can import
  * `useDayStatus` without coupling to the route-group layout file.

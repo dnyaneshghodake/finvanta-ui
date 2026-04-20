@@ -47,6 +47,10 @@ export default function BranchManagementPage() {
     } finally { setIsLoading(false); }
   }, [addToast]);
 
+  // `loadBranches` starts with `setIsLoading(true)` which React
+  // Compiler flags as set-state-in-effect. This is the standard
+  // fetch-on-mount pattern; the lint rule is overly strict here.
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { void loadBranches(); }, [loadBranches]);
 
   // CBS keyboard shortcuts: F3 = Focus search, F5 = Refresh list

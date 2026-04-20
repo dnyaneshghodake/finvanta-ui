@@ -3,7 +3,7 @@
 > **Version:** 3.0
 > **Backend Commit:** `5266c0bc`
 > **Compliance:** RBI IT Governance Direction 2023 §8.1, §8.3, §8.4, RBI Fair Practices Code 2023
-> **Architecture:** Tier-1 CBS (Finacle/T24/Flexcube) — Auth ≠ Context ≠ Dashboard
+> **Architecture:** Tier-1 CBS (Tier-1 CBS) — Auth ≠ Context ≠ Dashboard
 >
 > **What's new in v3.0:**
 > - Response envelope upgraded with `meta` (apiVersion, correlationId, timestamp) and structured `error` (code, message, severity, action)
@@ -36,7 +36,7 @@
 
 ## 1. Overview
 
-The Finvanta CBS login API implements a **three-phase post-login hydration** per Tier-1 CBS standards (Finacle/T24/Flexcube) and RBI IT Governance Direction 2023:
+The Finvanta CBS login API implements a **three-phase post-login hydration** per Tier-1 CBS standards (Tier-1 CBS) and RBI IT Governance Direction 2023:
 
 - **Phase 1 (Password):** `POST /api/v1/auth/token` — validates credentials, returns **identity + tokens ONLY** (non-MFA users) or a 428 MFA challenge (MFA-enrolled users). **No operational context.**
 - **Phase 2 (MFA):** `POST /api/v1/auth/mfa/verify` — exchanges the challenge token + TOTP code for identity + tokens. Only reached if Phase 1 returns 428.
@@ -637,7 +637,7 @@ Source: `AuthController.java:521-539`
 
 ## 7. Endpoint 4: GET /api/v1/context/bootstrap
 
-**Purpose:** Fetch the full Controlled Operational Context (COC) for the authenticated user. Called AFTER login, BEFORE dashboard rendering. This is the "session activation" step per Finacle USER_SESSION / Temenos EB.USER.CONTEXT.
+**Purpose:** Fetch the full Controlled Operational Context (COC) for the authenticated user. Called AFTER login, BEFORE dashboard rendering. This is the "session activation" step per Tier-1 CBS session-activation.
 
 **Auth:** JWT Bearer required (not `permitAll`)
 

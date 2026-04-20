@@ -12,6 +12,7 @@ import axios, {
 import { logger } from '@/utils/logger';
 import { errorHandler, AppError } from '@/utils/errorHandler';
 import { useAuthStore } from '@/store/authStore';
+import { findResponseSchema } from './schemas';
 
 /**
  * CSRF cookie name. Must match the server-side CBS_CSRF_COOKIE env var
@@ -145,6 +146,43 @@ apiClient.interceptors.response.use(
     logger.info(`[RESPONSE] ${response.status} ${config.method?.toUpperCase()} ${config.url}`, {
       duration: `${duration}ms`,
     });
+
+    // Contract validation — see src/services/api/schemas/index.ts.
+    // For registered endpoints, the Spring envelope MUST satisfy the
+    // corresponding Zod schema. A mismatch fails closed: the UI sees
+    // a normalised AppError('CONTRACT_MISMATCH') instead of a
+    // maliciously or accidentally mis-shaped payload.
+    try {
+      const method = (config.method || 'get').toUpperCase();
+      const url = config.url || '';
+      const rule = findResponseSchema(method, url);
+      if (rule) {
+        const parsed = rule.schema.safeParse(response.data);
+        if (!parsed.success) {
+          logger.error(`[CONTRACT_MISMATCH] ${rule.name} ${method} ${url}`, {
+            issues: parsed.error.issues.slice(0, 10),
+          });
+          throw new AppError(
+            'CONTRACT_MISMATCH',
+            'The banking server returned an unexpected response. Please retry; contact IT support if the issue persists.',
+            502,
+          );
+        }
+      }
+    } catch (err) {
+      if (err instanceof AppError) {
+        return Promise.reject(err);
+      }
+      // Never let a validator exception leak as a 2xx.
+      logger.error('[CONTRACT_VALIDATOR_ERROR]', err);
+      return Promise.reject(
+        new AppError(
+          'CONTRACT_VALIDATOR_ERROR',
+          'Response validation failed unexpectedly.',
+          500,
+        ),
+      );
+    }
 
     return response;
   },

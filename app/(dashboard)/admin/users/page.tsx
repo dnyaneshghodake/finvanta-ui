@@ -60,6 +60,8 @@ export default function UserManagementPage() {
     } finally { setIsLoading(false); }
   }, [addToast, statusFilter]);
 
+  // Standard fetch-on-mount: `loadOperators` calls `setIsLoading(true)`.
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { void loadOperators(); }, [loadOperators]);
 
   const handleToggleLock = async (op: Operator) => {
