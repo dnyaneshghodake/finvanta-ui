@@ -241,26 +241,34 @@ export async function POST(req: NextRequest) {
   // Debug: log the raw Spring response shape so we can diagnose
   // token extraction failures without guessing at the envelope.
   if (process.env.NODE_ENV !== "production") {
-    const dataKeys = json.data ? Object.keys(json.data as Record<string, unknown>) : [];
+    const topKeys = Object.keys(json);
+    const dataKeys = json.data && typeof json.data === "object" ? Object.keys(json.data as Record<string, unknown>) : [];
     console.log(
-      `[BFF login] upstream=${upstream.status} status=${json.status ?? "?"} ` +
-      `errorCode=${json.errorCode ?? "none"} data.keys=[${dataKeys.join(",")}]`,
+      `[BFF login] upstream=${upstream.status} topKeys=[${topKeys.join(",")}] ` +
+      `status=${json.status ?? "?"} errorCode=${json.errorCode ?? "none"} ` +
+      `data.keys=[${dataKeys.join(",")}]`,
     );
   }
 
   // ── MFA step-up detection ──────────────────────────────────────
   // Per API_LOGIN_CONTRACT.md §4: HTTP 428 with errorCode
   // "MFA_REQUIRED" and data: { challengeId, channel: "TOTP" }.
+  // Also check root-level errorCode for bare envelope (Shape C).
+  const rootObj = json as Record<string, unknown>;
   const isMfaRequired =
     upstream.status === 428 ||
-    json.errorCode === "MFA_REQUIRED";
+    json.errorCode === "MFA_REQUIRED" ||
+    rootObj.errorCode === "MFA_REQUIRED";
 
   if (isMfaRequired) {
-    // API_LOGIN_CONTRACT.md §4 puts challengeId in `data.challengeId`.
-    // We also read from `error` for backward compatibility.
+    // Check data wrapper, error object, and root level for challengeId.
     const mfaErr = json.error as SpringMfaError | undefined;
     const mfaData = json.data as SpringMfaData | undefined;
-    const challengeId = mfaErr?.challengeId || mfaData?.challengeId;
+    const challengeId =
+      mfaErr?.challengeId ||
+      mfaData?.challengeId ||
+      (rootObj.challengeId as string | undefined) ||
+      ((rootObj.data as Record<string, unknown> | undefined)?.challengeId as string | undefined);
     const channel = mfaErr?.method || mfaErr?.channel || mfaData?.method || mfaData?.channel || "TOTP";
     if (!challengeId) {
       return NextResponse.json(
@@ -296,20 +304,33 @@ export async function POST(req: NextRequest) {
   }
 
   // ── Extract access token from any supported response shape ─────
-  // Per API_LOGIN_CONTRACT.md v2.0 §4, the success response is a flat
-  // AuthResponse: data.accessToken (no nested data.token wrapper).
-  // Per v1.0, it was nested: data.token.accessToken.
-  // We detect ALL possible locations to be resilient across versions.
-  const d = (upstream.ok && json.data) ? (json.data as Record<string, unknown>) : null;
+  //
+  // Spring may return tokens in three different envelope shapes:
+  //
+  //   Shape A (v1.0 nested):  { status:"SUCCESS", data:{ token:{ accessToken } } }
+  //   Shape B (v2.0 wrapped): { status:"SUCCESS", data:{ accessToken } }
+  //   Shape C (v2.0 bare):    { accessToken, refreshToken, user:{...} }
+  //
+  // Shape C occurs when Spring returns the AuthResponse directly
+  // without the ApiResponse<T> envelope (no `status`/`data` wrapper).
+  // We detect ALL three to be resilient across backend versions.
+  const root = json as Record<string, unknown>;
+  const dataObj = (upstream.ok && json.data && typeof json.data === "object")
+    ? (json.data as Record<string, unknown>)
+    : null;
+
   const accessToken =
-    // v1.0 nested: data.token.accessToken
-    (d?.token as Record<string, unknown> | undefined)?.accessToken as string | undefined ||
-    // v2.0 flat: data.accessToken
-    (d?.accessToken as string | undefined) ||
-    // Fallback: check if entire json.data IS the token response (no wrapper)
+    // Shape A: data.token.accessToken
+    (dataObj?.token as Record<string, unknown> | undefined)?.accessToken as string | undefined ||
+    // Shape B: data.accessToken
+    (dataObj?.accessToken as string | undefined) ||
+    // Shape C: root-level accessToken (no data wrapper)
+    (upstream.ok && typeof root.accessToken === "string" ? root.accessToken : undefined) ||
     null;
 
-  // Cast to the full shape for field extraction below
+  // Unified data source: prefer the `data` wrapper, fall back to root
+  // (Shape C puts everything at the top level).
+  const d = dataObj ?? (upstream.ok && accessToken ? root : null);
   const rawData = d as SpringTokenSuccessData | null;
 
   if (!accessToken) {
