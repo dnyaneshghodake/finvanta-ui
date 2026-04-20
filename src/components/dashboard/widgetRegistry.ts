@@ -23,6 +23,10 @@ export type WidgetId =
   | 'NPA'
   | 'CASA'
   | 'PENDING_APPROVALS'
+  | 'TELLER_TXN_SUMMARY'
+  | 'APPROVAL_QUEUE'
+  | 'CLEARING_STATUS'
+  | 'RISK_METRICS'
   | 'QUICK_OPS';
 
 export interface WidgetDef {
@@ -82,6 +86,40 @@ export const WIDGET_DEFS: WidgetDef[] = [
     refreshInterval: 15_000,
     gridClass: 'col-span-full',
     roles: ['MAKER', 'CHECKER', 'ADMIN'],
+  },
+  // ── Teller Operational Widgets ──────────────────────────────
+  {
+    id: 'TELLER_TXN_SUMMARY',
+    endpoint: '/dashboard/widgets/teller/txn-summary',
+    errorRef: 'DSH-TTXN-01',
+    refreshInterval: 30_000,
+    gridClass: 'col-span-full',
+    roles: ['MAKER', 'ADMIN'],
+  },
+  {
+    id: 'APPROVAL_QUEUE',
+    endpoint: '/dashboard/widgets/teller/approval-queue',
+    errorRef: 'DSH-AQUE-01',
+    refreshInterval: 15_000,
+    gridClass: 'col-span-full',
+    roles: ['CHECKER', 'ADMIN'],
+  },
+  // ── Manager Risk Widgets ────────────────────────────────────
+  {
+    id: 'CLEARING_STATUS',
+    endpoint: '/dashboard/widgets/manager/clearing-status',
+    errorRef: 'DSH-CLR-01',
+    refreshInterval: 60_000,
+    gridClass: 'col-span-full',
+    roles: ['CHECKER', 'ADMIN'],
+  },
+  {
+    id: 'RISK_METRICS',
+    endpoint: '/dashboard/widgets/manager/risk-metrics',
+    errorRef: 'DSH-RISK-01',
+    refreshInterval: 60_000,
+    gridClass: 'col-span-full',
+    roles: ['CHECKER', 'ADMIN'],
   },
   {
     id: 'QUICK_OPS',

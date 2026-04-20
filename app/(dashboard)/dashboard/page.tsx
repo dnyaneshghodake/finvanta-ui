@@ -28,6 +28,10 @@ import {
   NpaWidget,
   CasaWidget,
   PendingApprovalsWidget,
+  TellerTxnSummaryWidget,
+  ApprovalQueueWidget,
+  ClearingStatusWidget,
+  RiskMetricsWidget,
   QuickOpsWidget,
 } from '@/components/dashboard';
 import type { WidgetDef } from '@/components/dashboard';
@@ -47,6 +51,10 @@ function renderWidget(def: WidgetDef) {
     case 'NPA': return <NpaWidget key={def.id} def={def} />;
     case 'CASA': return <CasaWidget key={def.id} def={def} />;
     case 'PENDING_APPROVALS': return <PendingApprovalsWidget key={def.id} def={def} />;
+    case 'TELLER_TXN_SUMMARY': return <TellerTxnSummaryWidget key={def.id} def={def} />;
+    case 'APPROVAL_QUEUE': return <ApprovalQueueWidget key={def.id} def={def} />;
+    case 'CLEARING_STATUS': return <ClearingStatusWidget key={def.id} def={def} />;
+    case 'RISK_METRICS': return <RiskMetricsWidget key={def.id} def={def} />;
     case 'QUICK_OPS': return <QuickOpsWidget key={def.id} />;
     default: return null;
   }

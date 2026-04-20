@@ -4,6 +4,10 @@ export {
   NpaWidget,
   CasaWidget,
   PendingApprovalsWidget,
+  TellerTxnSummaryWidget,
+  ApprovalQueueWidget,
+  ClearingStatusWidget,
+  RiskMetricsWidget,
 } from './DashboardWidgets';
 export { QuickOpsWidget } from './QuickOpsWidget';
 export {

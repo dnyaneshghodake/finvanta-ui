@@ -54,6 +54,45 @@ interface ApprovalsData {
   pendingCount: number;
 }
 
+/** GET /dashboard/widgets/teller/txn-summary */
+interface TellerTxnSummaryData {
+  todayCredits: number;
+  todayDebits: number;
+  todayTxnCount: number;
+  cashInHand: number;
+  vaultBalance: number;
+}
+
+/** GET /dashboard/widgets/teller/approval-queue */
+interface ApprovalQueueData {
+  items: Array<{
+    id: number;
+    refNo: string;
+    entityType: string;
+    amount: number;
+    makerName: string;
+    ageMinutes: number;
+    status: string;
+  }>;
+  totalCount: number;
+}
+
+/** GET /dashboard/widgets/manager/clearing-status */
+interface ClearingStatusData {
+  pendingOutward: number;
+  pendingInward: number;
+  settledToday: number;
+  failedToday: number;
+}
+
+/** GET /dashboard/widgets/manager/risk-metrics */
+interface RiskMetricsData {
+  limitBreaches: number;
+  suspenseAccountsPending: number;
+  highValueTxnsToday: number;
+  overdueApprovals: number;
+}
+
 /* ── Sub-components ───────────────────────────────────────────── */
 
 /**
@@ -180,13 +219,148 @@ export function PendingApprovalsWidget({ def }: { def: WidgetDef }) {
       isInitialLoad={w.isInitialLoad} onRetry={w.refetch}
       skeleton={<ActionSkeleton />}>
       <Link href="/workflow" className="block">
-        <div className={`flex items-center gap-3 p-3 border rounded-sm h-[52px] transition-colors hover:bg-cbs-navy-50 ${count > 0 ? 'border-cbs-gold-600 bg-cbs-gold-50 text-cbs-gold-700' : 'border-cbs-steel-200 bg-cbs-paper text-cbs-steel-600'}`}>
+        <div className={`flex items-center gap-3 p-4 border rounded-lg h-[52px] transition-colors hover:bg-cbs-navy-50 ${count > 0 ? 'border-cbs-gold-600 bg-cbs-gold-50 text-cbs-gold-700' : 'border-cbs-steel-200 bg-cbs-paper text-cbs-steel-600'}`}>
           <div className="flex-1 min-w-0">
             <div className="text-xs font-semibold uppercase tracking-wider">Pending Approvals</div>
           </div>
           <div className="text-xl font-bold cbs-tabular">{count}</div>
         </div>
       </Link>
+    </WidgetShell>
+  );
+}
+
+/* ── Widget: Teller Txn Summary (MAKER+ADMIN, 30s) ───────────── */
+
+export function TellerTxnSummaryWidget({ def }: { def: WidgetDef }) {
+  const w = useDashboardWidget<TellerTxnSummaryData>({
+    endpoint: def.endpoint,
+    errorRef: def.errorRef,
+    refreshInterval: def.refreshInterval,
+  });
+  return (
+    <WidgetShell status={w.status} error={w.error} errorRef={w.errorRef}
+      isInitialLoad={w.isInitialLoad} onRetry={w.refetch}
+      skeleton={<div className="grid grid-cols-2 md:grid-cols-5 gap-4">{Array.from({length:5},(_,i)=><div key={i} className="cbs-skeleton rounded-lg h-[128px]" />)}</div>}>
+      <section className="cbs-surface rounded-lg">
+        <div className="cbs-surface-header">
+          <span className="text-sm font-semibold uppercase tracking-wider text-cbs-steel-700">Today&apos;s Transactions</span>
+        </div>
+        <div className="cbs-surface-body grid grid-cols-2 md:grid-cols-5 gap-4">
+          <StatCard label="Credits" value={fmtCr(w.data?.todayCredits ?? 0)} sub={`${w.data?.todayTxnCount ?? 0} txns`} valueClass="text-cbs-olive-700" />
+          <StatCard label="Debits" value={fmtCr(w.data?.todayDebits ?? 0)} valueClass="cbs-amount-debit" />
+          <StatCard label="Txn Count" value={String(w.data?.todayTxnCount ?? 0)} />
+          <StatCard label="Cash In Hand" value={fmtCr(w.data?.cashInHand ?? 0)} />
+          <StatCard label="Vault Balance" value={fmtCr(w.data?.vaultBalance ?? 0)} />
+        </div>
+      </section>
+    </WidgetShell>
+  );
+}
+
+/* ── Widget: Approval Queue (CHECKER+ADMIN, 15s) ─────────────── */
+
+export function ApprovalQueueWidget({ def }: { def: WidgetDef }) {
+  const w = useDashboardWidget<ApprovalQueueData>({
+    endpoint: def.endpoint,
+    errorRef: def.errorRef,
+    refreshInterval: def.refreshInterval,
+  });
+  const items = w.data?.items ?? [];
+  return (
+    <WidgetShell status={w.status} error={w.error} errorRef={w.errorRef}
+      isInitialLoad={w.isInitialLoad} onRetry={w.refetch}
+      skeleton={<div className="cbs-skeleton rounded-lg h-[360px]" />}>
+      <section className="cbs-surface rounded-lg">
+        <div className="cbs-surface-header">
+          <span className="text-sm font-semibold uppercase tracking-wider text-cbs-steel-700">Approval Queue</span>
+          <span className="text-xs text-cbs-steel-500 cbs-tabular">{w.data?.totalCount ?? 0} pending</span>
+        </div>
+        <div className="overflow-x-auto" style={{ maxHeight: 360 }}>
+          <table className="cbs-grid-table">
+            <thead>
+              <tr>
+                <th style={{width:120}}>Ref No</th>
+                <th style={{width:100}}>Type</th>
+                <th className="text-right" style={{width:140}}>Amount</th>
+                <th style={{width:120}}>Maker</th>
+                <th style={{width:80}}>Age</th>
+                <th style={{width:100}}>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {items.length === 0 ? (
+                <tr><td colSpan={6} className="text-center text-sm text-cbs-steel-500 py-6">No pending approvals</td></tr>
+              ) : items.slice(0, 8).map((item) => (
+                <tr key={item.id}>
+                  <td className="cbs-tabular font-semibold text-cbs-navy-700">{item.refNo}</td>
+                  <td className="text-xs">{item.entityType}</td>
+                  <td className="cbs-amount">{formatCurrency(item.amount)}</td>
+                  <td className="text-xs text-cbs-steel-700">{item.makerName}</td>
+                  <td className={`cbs-tabular text-xs ${item.ageMinutes > 240 ? 'cbs-amount-debit' : item.ageMinutes > 60 ? 'text-cbs-gold-700' : ''}`}>
+                    {item.ageMinutes < 60 ? `${item.ageMinutes}m` : `${Math.floor(item.ageMinutes / 60)}h`}
+                  </td>
+                  <td><span className="cbs-ribbon text-cbs-gold-700 bg-cbs-gold-50 border-cbs-gold-600">{item.status}</span></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </WidgetShell>
+  );
+}
+
+/* ── Widget: Clearing Status (CHECKER+ADMIN, 60s) ────────────── */
+
+export function ClearingStatusWidget({ def }: { def: WidgetDef }) {
+  const w = useDashboardWidget<ClearingStatusData>({
+    endpoint: def.endpoint,
+    errorRef: def.errorRef,
+    refreshInterval: def.refreshInterval,
+  });
+  return (
+    <WidgetShell status={w.status} error={w.error} errorRef={w.errorRef}
+      isInitialLoad={w.isInitialLoad} onRetry={w.refetch}
+      skeleton={<div className="grid grid-cols-2 md:grid-cols-4 gap-4">{Array.from({length:4},(_,i)=><div key={i} className="cbs-skeleton rounded-lg h-[128px]" />)}</div>}>
+      <section className="cbs-surface rounded-lg">
+        <div className="cbs-surface-header">
+          <span className="text-sm font-semibold uppercase tracking-wider text-cbs-steel-700">Clearing Status</span>
+        </div>
+        <div className="cbs-surface-body grid grid-cols-2 md:grid-cols-4 gap-4">
+          <StatCard label="Pending Outward" value={String(w.data?.pendingOutward ?? 0)} valueClass={(w.data?.pendingOutward ?? 0) > 0 ? 'text-cbs-gold-700' : ''} />
+          <StatCard label="Pending Inward" value={String(w.data?.pendingInward ?? 0)} valueClass={(w.data?.pendingInward ?? 0) > 0 ? 'text-cbs-gold-700' : ''} />
+          <StatCard label="Settled Today" value={String(w.data?.settledToday ?? 0)} valueClass="text-cbs-olive-700" />
+          <StatCard label="Failed Today" value={String(w.data?.failedToday ?? 0)} valueClass={(w.data?.failedToday ?? 0) > 0 ? 'cbs-amount-debit' : ''} />
+        </div>
+      </section>
+    </WidgetShell>
+  );
+}
+
+/* ── Widget: Risk Metrics (CHECKER+ADMIN, 60s) ───────────────── */
+
+export function RiskMetricsWidget({ def }: { def: WidgetDef }) {
+  const w = useDashboardWidget<RiskMetricsData>({
+    endpoint: def.endpoint,
+    errorRef: def.errorRef,
+    refreshInterval: def.refreshInterval,
+  });
+  return (
+    <WidgetShell status={w.status} error={w.error} errorRef={w.errorRef}
+      isInitialLoad={w.isInitialLoad} onRetry={w.refetch}
+      skeleton={<div className="grid grid-cols-2 md:grid-cols-4 gap-4">{Array.from({length:4},(_,i)=><div key={i} className="cbs-skeleton rounded-lg h-[128px]" />)}</div>}>
+      <section className="cbs-surface rounded-lg">
+        <div className="cbs-surface-header">
+          <span className="text-sm font-semibold uppercase tracking-wider text-cbs-steel-700">Risk Metrics</span>
+        </div>
+        <div className="cbs-surface-body grid grid-cols-2 md:grid-cols-4 gap-4">
+          <StatCard label="Limit Breaches" value={String(w.data?.limitBreaches ?? 0)} valueClass={(w.data?.limitBreaches ?? 0) > 0 ? 'cbs-amount-debit' : ''} />
+          <StatCard label="Suspense Pending" value={String(w.data?.suspenseAccountsPending ?? 0)} valueClass={(w.data?.suspenseAccountsPending ?? 0) > 0 ? 'text-cbs-gold-700' : ''} />
+          <StatCard label="High Value Txns" value={String(w.data?.highValueTxnsToday ?? 0)} />
+          <StatCard label="Overdue Approvals" value={String(w.data?.overdueApprovals ?? 0)} valueClass={(w.data?.overdueApprovals ?? 0) > 0 ? 'cbs-amount-debit' : ''} />
+        </div>
+      </section>
     </WidgetShell>
   );
 }
