@@ -62,8 +62,8 @@ export const ENDPOINT_ALLOWLIST: ReadonlyArray<EndpointRule> = [
   { method: "POST", pathPattern: "/accounts/transfer" },
   { method: "PATCH", pathPattern: "/accounts/:acct" },
   { method: "POST", pathPattern: "/accounts/:acct/freeze" },
+  { method: "POST", pathPattern: "/accounts/:acct/activate" },
   { method: "POST", pathPattern: "/accounts/:acct/unfreeze" },
-  { method: "POST", pathPattern: "/accounts/:acct/close" },
 
   // ── Customers (CIF) ────────────────────────────────────────
   { method: "GET", pathPattern: "/customers" },
