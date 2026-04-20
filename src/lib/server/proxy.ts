@@ -143,8 +143,7 @@ export async function forward(
   search: string,
 ): Promise<NextResponse> {
   const env = serverEnv();
-  const base = env.backendBaseUrl.replace(/\/$/, "");
-  const upstreamUrl = `${base}${targetPath}${search}`;
+  const upstreamUrl = `${env.backendApiBase}${targetPath}${search}`;
 
   const headers = new Headers();
   req.headers.forEach((value, key) => {

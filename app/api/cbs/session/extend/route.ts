@@ -56,7 +56,7 @@ export async function POST(req: NextRequest) {
 
   if (refreshToken && session.expiresAt - now < env.sessionIdleExtensionSeconds * 1000 * 0.2) {
     try {
-      const upstream = await fetch(`${env.backendBaseUrl}/api/v1/auth/refresh`, {
+      const upstream = await fetch(`${env.backendApiBase}/auth/refresh`, {
         method: "POST",
         headers: {
           "content-type": "application/json",
