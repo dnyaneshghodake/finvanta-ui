@@ -27,8 +27,13 @@ export const accountResponseSchema = z.object({
   branchCode: z.string().nullish(),
   ifscCode: z.string().nullish(),
   currencyCode: z.string().nullish(),
-  ledgerBalance: numericString,
-  availableBalance: numericString,
+  // Spring returns `null` for balances on newly created accounts
+  // (status PENDING_ACTIVATION). The downstream `toNumber()` mapper
+  // in accountService.ts coerces null → 0, but the Zod interceptor
+  // runs first — a non-nullable schema here throws CONTRACT_MISMATCH
+  // before the mapper ever fires.
+  ledgerBalance: numericString.nullish(),
+  availableBalance: numericString.nullish(),
   holdAmount: numericString.nullish(),
   unclearedAmount: numericString.nullish(),
   odLimit: numericString.nullish(),
@@ -59,8 +64,8 @@ export const accountListSchema = z.object({
 export const accountBalanceResponseSchema = z.object({
   accountNumber: z.string().min(1),
   currencyCode: z.string().nullish(),
-  ledgerBalance: numericString,
-  availableBalance: numericString,
+  ledgerBalance: numericString.nullish(),
+  availableBalance: numericString.nullish(),
   holdAmount: numericString.nullish(),
   unclearedAmount: numericString.nullish(),
   odLimit: numericString.nullish(),

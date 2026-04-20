@@ -42,6 +42,23 @@ export interface ResponseSchemaRule {
   name: string;
 }
 
+/**
+ * Pre-compiled regex cache keyed by urlPattern string.
+ * Avoids constructing up to N RegExp objects on every API response
+ * (N = RESPONSE_SCHEMAS.length). Populated lazily on first match
+ * attempt for each pattern.
+ */
+const compiledPatterns = new Map<string, RegExp>();
+
+function getCompiledPattern(pattern: string): RegExp {
+  let re = compiledPatterns.get(pattern);
+  if (!re) {
+    re = new RegExp(pattern);
+    compiledPatterns.set(pattern, re);
+  }
+  return re;
+}
+
 export const RESPONSE_SCHEMAS: ReadonlyArray<ResponseSchemaRule> = [
   // Balance — most specific, so place before the generic /accounts rule.
   {
@@ -133,7 +150,7 @@ export function findResponseSchema(
   for (const rule of RESPONSE_SCHEMAS) {
     const methods = rule.methods ?? ['GET'];
     if (!methods.includes(m)) continue;
-    if (new RegExp(rule.urlPattern).test(url)) return rule;
+    if (getCompiledPattern(rule.urlPattern).test(url)) return rule;
   }
   return undefined;
 }
