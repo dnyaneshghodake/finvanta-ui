@@ -1,23 +1,31 @@
 /**
- * Root proxy — security headers, CSP nonce, correlation-id seeding.
+ * Root proxy — security headers, CSP nonce, host allow-list,
+ * request-size ceiling, correlation-id seeding.
  *
- * Next.js 16.2.4 uses `proxy.ts` at the project root with an exported
+ * Next.js 16 uses `proxy.ts` at the project root with an exported
  * `proxy` function. The old `middleware.ts` convention is deprecated.
  * See: https://nextjs.org/docs/messages/middleware-to-proxy
  *
- * Per RBI Master Direction on Information Technology Governance 2023 §8
- * and OWASP 2024, every HTML response from a Tier-1 banking portal must
- * carry: Strict-Transport-Security, Content-Security-Policy with a
- * per-request nonce, Referrer-Policy, Permissions-Policy,
- * X-Content-Type-Options, COOP, COEP, and CORP.
+ * Per RBI Master Direction on Information Technology Governance 2023
+ * §8 and OWASP 2024, every HTML response from a Tier-1 banking
+ * portal must carry Strict-Transport-Security, Content-Security-
+ * Policy with a per-request nonce, Referrer-Policy, Permissions-
+ * Policy, X-Content-Type-Options, COOP, COEP, and CORP. The proxy
+ * also:
  *
- * The proxy also seeds an X-Correlation-Id header on every server-
- * handled request so route handlers, server components, and the BFF
- * reverse-proxy all share the same trace id.
+ *   - Enforces a `Host` header allow-list so host-header injection
+ *     cannot redirect the UI to an attacker-controlled origin.
+ *   - Rejects requests larger than 1 MiB on non-upload routes so a
+ *     malicious caller cannot exhaust server memory. Upload-capable
+ *     routes (currently none on the BFF surface) are declared
+ *     explicitly in `UPLOAD_PATH_PREFIXES`.
+ *   - Seeds an `X-Correlation-Id` header on every server-handled
+ *     request so route handlers, server components, and the BFF
+ *     reverse-proxy all share the same trace id.
  *
- * NOTE: This file is NOT the same as src/lib/server/proxy.ts which is
- * the BFF reverse-proxy to Spring. This is the Next.js entry-point
- * convention file for request interception (formerly middleware.ts).
+ * NOTE: This file is NOT the same as `src/lib/server/proxy.ts` which
+ * is the BFF reverse-proxy to Spring. This is the Next.js entry-point
+ * convention file for request interception (formerly `middleware.ts`).
  */
 import { NextRequest, NextResponse } from "next/server";
 
@@ -25,6 +33,89 @@ const CORRELATION_HEADER = "x-correlation-id";
 const NONCE_HEADER = "x-cbs-csp-nonce";
 
 const CORRELATION_PATTERN = /^[A-Za-z0-9-]{16,64}$/;
+
+/**
+ * Maximum body size for non-upload routes.
+ * 1 MiB matches the Spring API ceiling and covers any JSON payload
+ * the CBS surface emits (a large transaction-history page is ~250 KB).
+ */
+const BODY_SIZE_CEILING_BYTES = 1024 * 1024;
+
+/**
+ * Path prefixes that are allowed to carry bodies larger than the
+ * generic ceiling. Reserved for future document-upload / statement
+ * import endpoints. Keep this list as short as possible.
+ */
+const UPLOAD_PATH_PREFIXES: readonly string[] = [
+  // Reserved for future /api/cbs/documents/upload, /api/cbs/imports/*, etc.
+];
+
+/**
+ * Host header allow-list. Populated from CBS_ALLOWED_HOSTS
+ * (comma-separated). Behaviour by `NODE_ENV`:
+ *
+ *   - `production`: the env var MUST be set and non-empty. If it is
+ *     not, we throw at module load so the deploy fails fast rather
+ *     than silently hard-blocking every real-hostname request or —
+ *     worse — accepting arbitrary Host headers. This matches the
+ *     RBI "fail-closed on misconfiguration" posture required for
+ *     a Tier-1 CBS surface.
+ *
+ *   - non-production (`development`, `test`): we fall back to the
+ *     well-known localhost variants so `next dev` and Playwright
+ *     still work without the operator having to set the env var.
+ *     A warning is logged so the condition is visible during local
+ *     runs but never silently carried into production.
+ *
+ * The result is cached — this function is called on every request.
+ */
+const LOCAL_DEV_HOSTS: ReadonlySet<string> = new Set([
+  "localhost",
+  "localhost:3000",
+  "127.0.0.1",
+  "127.0.0.1:3000",
+  "0.0.0.0",
+  "0.0.0.0:3000",
+]);
+
+let cachedAllowedHosts: ReadonlySet<string> | null = null;
+
+function parseAllowedHostsEnv(raw: string | undefined): Set<string> {
+  return new Set(
+    (raw ?? "")
+      .split(",")
+      .map((h) => h.trim().toLowerCase())
+      .filter((h) => h.length > 0),
+  );
+}
+
+function getAllowedHosts(): ReadonlySet<string> {
+  if (cachedAllowedHosts) return cachedAllowedHosts;
+  const parsed = parseAllowedHostsEnv(process.env.CBS_ALLOWED_HOSTS);
+  if (parsed.size === 0) {
+    if (process.env.NODE_ENV === "production") {
+      // Fail-closed: refuse to serve traffic with no allow-list.
+      throw new Error(
+        "CBS_ALLOWED_HOSTS is not set. In production this must be an " +
+          "explicit comma-separated list of fully-qualified Host headers " +
+          "(e.g. 'app.example.com,app.example.com:443'). Refusing to " +
+          "start with an empty host allow-list.",
+      );
+    }
+    console.warn(
+      "[proxy] CBS_ALLOWED_HOSTS unset — using localhost-only dev fallback. " +
+        "This MUST be set before deploying to any non-local environment.",
+    );
+    cachedAllowedHosts = LOCAL_DEV_HOSTS;
+    return cachedAllowedHosts;
+  }
+  cachedAllowedHosts = parsed;
+  return cachedAllowedHosts;
+}
+
+function isUploadPath(pathname: string): boolean {
+  return UPLOAD_PATH_PREFIXES.some((prefix) => pathname.startsWith(prefix));
+}
 
 function generateNonce(): string {
   const bytes = new Uint8Array(16);
@@ -50,7 +141,7 @@ function buildCsp(nonce: string, isDev: boolean): string {
   return [
     `default-src ${self}`,
     `base-uri ${self}`,
-    `frame-ancestors 'self'`,
+    `frame-ancestors 'none'`,
     `form-action ${self}`,
     `object-src 'none'`,
     `img-src ${self} data: blob:`,
@@ -60,12 +151,82 @@ function buildCsp(nonce: string, isDev: boolean): string {
     `connect-src ${self}`,
     `worker-src ${self} blob:`,
     `manifest-src ${self}`,
-    `frame-src ${self}`,
+    `frame-src 'none'`,
     `upgrade-insecure-requests`,
   ].join("; ");
 }
 
+/**
+ * Reject requests whose `Host` header is not in the allow-list. This
+ * runs BEFORE auth checks so an attacker cannot use host-header
+ * spoofing to trigger SSRF / password-reset-token leaks.
+ *
+ * Returns `null` when the request should proceed, or a pre-built
+ * `NextResponse` (400) when it should be rejected.
+ */
+function enforceHostAllowList(req: NextRequest): NextResponse | null {
+  const allowed = getAllowedHosts();
+  const host = (req.headers.get("host") ?? "").toLowerCase();
+  // Reject when the Host header is missing / empty too: HTTP/1.0
+  // requests can omit Host, and some HTTP/2 intermediaries drop it.
+  // Allowing those would let an attacker bypass the allow-list by
+  // simply stripping the header, defeating the SSRF / reset-token
+  // leak protection this function exists to provide.
+  if (!host || !allowed.has(host)) {
+    return new NextResponse(
+      JSON.stringify({
+        success: false,
+        errorCode: "HOST_REJECTED",
+        message: "Host header not in allow-list",
+      }),
+      {
+        status: 400,
+        headers: { "content-type": "application/json" },
+      },
+    );
+  }
+  return null;
+}
+
+/**
+ * Reject requests whose `Content-Length` exceeds the generic body
+ * ceiling on non-upload routes.
+ */
+function enforceBodyCeiling(req: NextRequest): NextResponse | null {
+  const method = req.method.toUpperCase();
+  if (method === "GET" || method === "HEAD" || method === "OPTIONS") {
+    return null;
+  }
+  if (isUploadPath(req.nextUrl.pathname)) {
+    return null;
+  }
+  const cl = req.headers.get("content-length");
+  if (!cl) return null;
+  const parsed = Number(cl);
+  if (!Number.isFinite(parsed) || parsed < 0) return null;
+  if (parsed > BODY_SIZE_CEILING_BYTES) {
+    return new NextResponse(
+      JSON.stringify({
+        success: false,
+        errorCode: "PAYLOAD_TOO_LARGE",
+        message: `Request body exceeds ${BODY_SIZE_CEILING_BYTES} bytes`,
+      }),
+      {
+        status: 413,
+        headers: { "content-type": "application/json" },
+      },
+    );
+  }
+  return null;
+}
+
 export function proxy(req: NextRequest): NextResponse {
+  const hostReject = enforceHostAllowList(req);
+  if (hostReject) return hostReject;
+
+  const bodyReject = enforceBodyCeiling(req);
+  if (bodyReject) return bodyReject;
+
   const isDev = process.env.NODE_ENV !== "production";
   const nonce = generateNonce();
 
@@ -84,7 +245,8 @@ export function proxy(req: NextRequest): NextResponse {
   res.headers.set("Content-Security-Policy", buildCsp(nonce, isDev));
   res.headers.set("X-Content-Type-Options", "nosniff");
   res.headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
-  res.headers.set("X-Frame-Options", "SAMEORIGIN");
+  // DENY (not SAMEORIGIN) — a banking UI must never be framed.
+  res.headers.set("X-Frame-Options", "DENY");
   res.headers.set(
     "Permissions-Policy",
     "accelerometer=(), camera=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), payment=(), usb=()",

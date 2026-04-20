@@ -11,7 +11,7 @@
  * Suitable for single-instance deployments. For multi-instance (K8s),
  * replace with Redis-backed counter via `@upstash/ratelimit`.
  *
- * CBS benchmark: Finacle Connect uses a Servlet filter with Guava
+ * CBS benchmark: Tier-1 CBS portal uses a Servlet filter with Guava
  * RateLimiter; this is the equivalent for the Next.js BFF layer.
  */
 import "server-only";

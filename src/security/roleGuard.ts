@@ -55,7 +55,7 @@ export const hasPermission = (permission: string): boolean => {
  * default — the backend gates independently, but the UI should not
  * show modules the operator may not be authorized for.
  *
- * CBS benchmark: Finacle's USRPRF and T24's EB.USER.CONTEXT both
+ * CBS benchmark: Tier-1 CBS user-context services both
  * fail-closed when the context service is unreachable.
  */
 export const hasModuleAccess = (module: string): boolean => {

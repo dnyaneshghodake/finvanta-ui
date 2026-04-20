@@ -83,6 +83,8 @@
     "**/*.test.tsx",
     "**/*.spec.ts",
     "e2e/**",
-    "src/test/**"
+    "src/test/**",
+    "playwright.config.ts",
+    "vitest.config.ts"
   ]
 }

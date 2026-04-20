@@ -10,9 +10,9 @@
  * history for any entity (account, loan, customer, transaction).
  *
  * CBS benchmark:
- *   Finacle: HFINLOG (Financial Log) — accessible from any transaction
- *   T24:     STMT.ENTRY audit — shows maker/checker/timestamp chain
- *   FLEXCUBE: CSTB_AUDIT_TRAIL — full field-level change history
+ *   Tier-1 CBS: HFINLOG (Financial Log) — accessible from any transaction
+ *   Tier-1 CBS:     STMT.ENTRY audit — shows maker/checker/timestamp chain
+ *   Tier-1 CBS: CSTB_AUDIT_TRAIL — full field-level change history
  *
  * Usage:
  *   <AuditTrailViewer entityType="ACCOUNT" entityId="CASA0001" />
@@ -125,9 +125,12 @@ export function AuditTrailViewer({
     }
   }, [entityType, entityId, maxEntries]);
 
+  // Standard fetch-on-mount: `loadAuditTrail` calls `setIsLoading(true)`.
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     void loadAuditTrail();
   }, [loadAuditTrail]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   // Loading state
   if (isLoading) {
@@ -238,7 +241,7 @@ export function AuditTrailViewer({
                     Actioned: {formatCbsTimestamp(entry.actionedAt)}
                   </div>
                 )}
-                {/* Field-level changes (FLEXCUBE-style diff) */}
+                {/* Field-level changes (Tier-1 CBS-style diff) */}
                 {entry.fieldChanges && entry.fieldChanges.length > 0 && (
                   <div className="mt-2">
                     <div className="text-[10px] font-semibold text-cbs-steel-500 uppercase tracking-wider mb-1">

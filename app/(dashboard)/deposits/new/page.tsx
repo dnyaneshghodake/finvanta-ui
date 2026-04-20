@@ -32,7 +32,7 @@ const fdSchema = z.object({
     .refine((v) => Number(v) >= 1000, 'Minimum FD amount is INR 1,000'),
   tenureMonths: z.string().regex(/^\d+$/, 'Enter tenure in months')
     .refine((v) => Number(v) >= 1 && Number(v) <= 120, 'Tenure must be 1-120 months'),
-  autoRenew: z.boolean().default(false),
+  autoRenew: z.boolean(),
   nomineeName: z.string().optional(),
 });
 

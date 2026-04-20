@@ -4,7 +4,7 @@
  * CBS Keyboard Navigation System — Tier-1 teller productivity.
  * @file src/hooks/useCbsKeyboardNav.ts
  *
- * Finacle/T24/FLEXCUBE operators rarely touch the mouse. The entire
+ * Tier-1 CBS operators rarely touch the mouse. The entire
  * workflow is driven by function keys and keyboard shortcuts:
  *
  *   F1  = Help / Context Help
@@ -78,7 +78,7 @@ function normalizeKey(e: KeyboardEvent): string {
 /**
  * Global CBS keyboard navigation hook.
  *
- * Provides the standard Finacle/T24 function key map plus
+ * Provides the standard Tier-1 CBS/Tier-1 CBS function key map plus
  * page-specific overrides. The shortcut help overlay (Ctrl+/)
  * is built-in.
  *
@@ -88,8 +88,14 @@ function normalizeKey(e: KeyboardEvent): string {
 export function useCbsKeyboardNav(pageKeyMap: CbsKeyMap = {}) {
   const router = useRouter();
   const [isHelpOpen, setIsHelpOpen] = useState(false);
+  // `pageKeyMapRef` lets the global keydown listener (below) read the
+  // latest page-level shortcut map without having to re-bind on every
+  // render. The ref is written inside a layout effect — writing it
+  // during render trips React Compiler's `react-hooks/refs` rule.
   const pageKeyMapRef = useRef(pageKeyMap);
-  pageKeyMapRef.current = pageKeyMap;
+  useEffect(() => {
+    pageKeyMapRef.current = pageKeyMap;
+  }, [pageKeyMap]);
 
   const toggleHelp = useCallback(() => {
     setIsHelpOpen((prev) => !prev);
@@ -191,10 +197,12 @@ export function useCbsKeyboardNav(pageKeyMap: CbsKeyMap = {}) {
     return () => window.removeEventListener('keydown', handler, { capture: true });
   }, [globalKeyMap]);
 
-  // Merge all active shortcuts for the help overlay
+  // Merge all active shortcuts for the help overlay. Read the prop
+  // directly (not the ref) so React Compiler doesn't flag a ref-read
+  // during render. The ref is only for the keydown listener closure.
   const activeKeyMap: CbsKeyMap = {
     ...globalKeyMap(),
-    ...pageKeyMapRef.current,
+    ...pageKeyMap,
   };
 
   return { isHelpOpen, toggleHelp, activeKeyMap };

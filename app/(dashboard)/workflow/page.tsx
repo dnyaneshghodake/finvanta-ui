@@ -2,7 +2,7 @@
 
 /**
  * FINVANTA CBS — Maker-Checker Workflow Queue (Tier-1 Grade).
- * CBS benchmark: Finacle HWRKFLW, T24 OFS.SOURCE, FLEXCUBE CSTB_APPROVAL.
+ * CBS benchmark: Tier-1 CBS approval workflow.
  * Per RBI IT Governance 2023 §8.2: maker-checker with audit trail.
  */
 
@@ -50,6 +50,8 @@ export default function WorkflowPage() {
     finally { setIsLoading(false); }
   }, [filter]);
 
+  // Standard fetch-on-mount: `load()` calls `setIsLoading(true)`.
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { void load(); }, [load]);
 
   const list = useMemo(() => {

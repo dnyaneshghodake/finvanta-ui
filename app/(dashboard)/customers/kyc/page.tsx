@@ -53,6 +53,10 @@ export default function KycVerificationPage() {
   const [success, setSuccess] = useState<string | null>(null);
   const [correlationId, setCorrelationId] = useState<string | null>(null);
 
+  // Fetch-on-mount for a single CIF. The `setLoading(false)` short-
+  // circuit on missing `customerId` is intentional and cannot be
+  // derived during render (it keeps the loading state machine linear).
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (!customerId) { setLoading(false); return; }
     let cancelled = false;
@@ -69,6 +73,7 @@ export default function KycVerificationPage() {
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
   }, [customerId]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   const handleVerify = async (action: 'approve' | 'reject') => {
     if (!customer) return;

@@ -52,6 +52,9 @@ export default function CalendarPage() {
     } finally { setIsLoading(false); }
   }, [addToast]);
 
+  // `loadHolidays` opens with `setIsLoading(true)` — see the note on
+  // the sibling /admin pages for the React Compiler exception.
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { void loadHolidays(); }, [loadHolidays]);
 
   const scopeLabel = (h: Holiday) => {

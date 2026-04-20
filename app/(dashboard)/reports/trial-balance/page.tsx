@@ -52,6 +52,11 @@ export default function TrialBalancePage() {
   const [asOfDate, setAsOfDate] = useState('');
   const [serverBalanced, setServerBalanced] = useState(true);
 
+  // Fetch-on-mount: compute as-of-date once per mount and load the
+  // trial balance. React Compiler flags `setAsOfDate(today)` inside
+  // the effect; the equivalent render-time derivation would recompute
+  // `today` on every render of this large report page.
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     let cancelled = false;
     const today = new Date().toISOString().split('T')[0];
@@ -85,6 +90,7 @@ export default function TrialBalancePage() {
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
   }, []);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   const totalDebit = entries.reduce((s, e) => s + e.debitTotal, 0);
   const totalCredit = entries.reduce((s, e) => s + e.creditTotal, 0);

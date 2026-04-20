@@ -13,10 +13,11 @@
  * during printing (Header, Sidebar, action buttons). Elements with
  * class `cbs-print-only` are shown only during printing.
  *
- * CBS benchmark:
- *   Finacle: F9 triggers screen print; HPRTVCH prints vouchers
- *   T24: OFS.PRINT generates formatted output
- *   FLEXCUBE: CSTB_PRINT_SCREEN for passbook/voucher
+ * Tier-1 CBS benchmark: operators routinely print counter vouchers,
+ * passbook extracts, and transaction slips directly from the screen.
+ * Print layouts must reflect the same field ordering, fonts, and
+ * margins as the on-screen form so tellers can cross-check a
+ * printed voucher against the live system without re-entering data.
  */
 
 /* ── Screen Print ──────────────────────────────────────────────── */
