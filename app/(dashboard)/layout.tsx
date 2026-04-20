@@ -24,6 +24,17 @@ import { redirect } from 'next/navigation';
 import { readSession } from '@/lib/server/session';
 import DashboardShell from './DashboardShell';
 
+/**
+ * The dashboard shell reads the encrypted `fv_sid` session cookie
+ * inside `readSession()` and only ever renders for an authenticated
+ * operator. Statically prerendering it at build time would both
+ * (a) attempt to read the session secret which is not available
+ * during the build step, and (b) serve a pre-computed dashboard
+ * frame to anonymous callers before the server-side session check
+ * runs. Forcing dynamic rendering closes both issues.
+ */
+export const dynamic = 'force-dynamic';
+
 export default async function DashboardLayout({
   children,
 }: {
