@@ -72,6 +72,12 @@ export async function POST(req: NextRequest) {
         },
         body: JSON.stringify({ refreshToken }),
         cache: "no-store",
+        // CRITICAL: do not follow redirects. Same rationale as the login
+        // route (app/api/cbs/auth/login/route.ts:257): Spring Security's
+        // UI chain redirects unauthenticated POSTs to an HTML login page
+        // (302→200). Without this, fetch follows the redirect and
+        // json().catch(() => ({})) silently produces an empty object.
+        redirect: "manual",
       });
 
       if (!upstream.ok) {
