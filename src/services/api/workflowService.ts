@@ -12,19 +12,43 @@
 import { apiClient } from './apiClient';
 import type { ApiResponse, PaginatedResponse } from '@/types/api';
 
+/**
+ * WorkflowResponse — per API_REFERENCE.md §15 (15 fields).
+ *
+ * Field naming: the backend returns `makerUserId` / `checkerUserId`
+ * (per API §15 Response — Users). We alias `makerId` / `checkerId`
+ * for backward compat with the workflow page, and map from either
+ * shape in the BFF response.
+ */
 export interface WorkflowItem {
   id: number;
   entityType: string;
   entityId: string | number;
+  /** Per API §15: `actionType` — the operation being approved. */
   action: string;
   status: 'PENDING_APPROVAL' | 'APPROVED' | 'REJECTED' | 'RECALLED';
+  // ── Users (per API §15 Response — Users) ──
+  /** Backend field: `makerUserId`. */
   makerId: string;
   makerName?: string;
+  /** Backend field: `checkerUserId`. */
   checkerId?: string;
   checkerName?: string;
-  submittedAt: string;
-  decidedAt?: string;
+  // ── Remarks (per API §15 Response — Remarks) ──
+  makerRemarks?: string;
+  checkerRemarks?: string;
+  /** Legacy alias — maps to makerRemarks for backward compat. */
   remarks?: string;
+  // ── Timestamps (per API §15 Response — Timestamps) ──
+  submittedAt: string;
+  /** Backend field: `actionedAt`. */
+  decidedAt?: string;
+  // ── SLA (per API §15 Response — SLA) ──
+  slaBreached?: boolean;
+  slaDeadline?: string;
+  escalationCount?: number;
+  escalatedTo?: string;
+  // ── Client-side extras ──
   version: number;
   allowedActions?: Array<'APPROVE' | 'REJECT' | 'RECALL'>;
   payloadSummary?: Record<string, string | number | boolean | null>;
@@ -79,6 +103,40 @@ class WorkflowService {
     const res = await apiClient.post<ApiResponse<WorkflowItem>>(
       `/workflow/${req.id}/recall`,
       { version: req.version, remarks: req.remarks },
+    );
+    return res.data;
+  }
+
+  /**
+   * Per API_REFERENCE.md §15 endpoint 70:
+   * GET /workflow/sla-breached — SLA-breached workflows (ADMIN only).
+   */
+  async listSlaBreached(params?: { page?: number; size?: number }) {
+    const res = await apiClient.get<ApiResponse<PaginatedResponse<WorkflowItem>>>(
+      '/workflow/sla-breached',
+      { params },
+    );
+    return res.data;
+  }
+
+  /**
+   * Per API_REFERENCE.md §15 endpoint 73:
+   * POST /workflow/escalate — Escalate all SLA-breached workflows to ADMIN.
+   */
+  async escalate() {
+    const res = await apiClient.post<ApiResponse<{ escalatedCount: number }>>(
+      '/workflow/escalate',
+    );
+    return res.data;
+  }
+
+  /**
+   * Per API_REFERENCE.md §15 endpoint 69:
+   * GET /workflow/history/{entityType}/{entityId} — Workflow history.
+   */
+  async getHistory(entityType: string, entityId: string) {
+    const res = await apiClient.get<ApiResponse<WorkflowItem[]>>(
+      `/workflow/history/${encodeURIComponent(entityType)}/${encodeURIComponent(entityId)}`,
     );
     return res.data;
   }
