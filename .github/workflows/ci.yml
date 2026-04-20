@@ -200,6 +200,17 @@ jobs:
         # Pinned to a concrete release tag (immutable) rather than
         # `@master` so a push to the action's default branch
         # cannot silently change scan semantics on a release day.
+        #
+        # vuln-type: os
+        #   Trivy covers the container/OS layer only. JavaScript
+        #   runtime / build dependencies are scanned in the
+        #   dedicated `audit` job via `npm audit --audit-level=high
+        #   --omit=dev`, which understands the npm `overrides`
+        #   block and resolves transitive deps correctly. Including
+        #   language deps here as well causes double-counting and
+        #   surfaces false positives for packages that npm's
+        #   resolver has already replaced via an override but the
+        #   Next.js standalone trace still references by path.
         uses: aquasecurity/trivy-action@v0.35.0
         with:
           image-ref: finvanta-ui:ci
@@ -208,6 +219,7 @@ jobs:
           severity: CRITICAL,HIGH
           exit-code: '1'
           ignore-unfixed: 'true'
+          vuln-type: 'os'
       - name: Upload Trivy SARIF
         if: always()
         uses: github/codeql-action/upload-sarif@v3

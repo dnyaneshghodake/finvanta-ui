@@ -167,7 +167,12 @@ function buildCsp(nonce: string, isDev: boolean): string {
 function enforceHostAllowList(req: NextRequest): NextResponse | null {
   const allowed = getAllowedHosts();
   const host = (req.headers.get("host") ?? "").toLowerCase();
-  if (host && !allowed.has(host)) {
+  // Reject when the Host header is missing / empty too: HTTP/1.0
+  // requests can omit Host, and some HTTP/2 intermediaries drop it.
+  // Allowing those would let an attacker bypass the allow-list by
+  // simply stripping the header, defeating the SSRF / reset-token
+  // leak protection this function exists to provide.
+  if (!host || !allowed.has(host)) {
     return new NextResponse(
       JSON.stringify({
         success: false,
