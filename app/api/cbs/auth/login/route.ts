@@ -241,6 +241,32 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  // If Spring redirected (302/303), it means the request hit the UI
+  // security chain instead of the API chain. Log the Location header
+  // so we can diagnose the security chain mismatch.
+  if (upstream.status >= 300 && upstream.status < 400) {
+    const location = upstream.headers.get("location");
+    if (process.env.NODE_ENV !== "production") {
+      console.error(
+        `[BFF login] Spring redirected: ${upstream.status} → ${location ?? "(no location)"}\n` +
+        `  Requested URL: ${env.backendApiBase}/auth/token\n` +
+        `  This usually means:\n` +
+        `  1. CBS_API_PREFIX is wrong (current: check .env.development)\n` +
+        `  2. Spring Security CSRF is blocking the POST (API chain should disable CSRF)\n` +
+        `  3. The request matched the UI security chain instead of the API chain`,
+      );
+    }
+    return NextResponse.json(
+      {
+        success: false,
+        errorCode: "BACKEND_REDIRECT",
+        message: "The banking server rejected the login request. This is a server configuration issue — contact IT support.",
+        correlationId,
+      },
+      { status: 502, headers: { "x-correlation-id": correlationId } },
+    );
+  }
+
   // Read the raw response text first, then parse as JSON.
   // This avoids silent failures from .json().catch(() => ({})) which
   // swallows parse errors and produces an empty object — making it
