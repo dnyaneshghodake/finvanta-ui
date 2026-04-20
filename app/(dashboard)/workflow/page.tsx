@@ -1,26 +1,28 @@
 'use client';
 
 /**
- * FINVANTA CBS - Maker-Checker Workflow Queue (stub).
- *
- * The React maker-checker inbox is gated behind a dedicated REST
- * surface (WorkflowController needs to be migrated from JSP MVC to
- * `@RestController` with allowedActions[] on every GET DTO). Until
- * that is landed, this page renders an explicit "coming soon"
- * placeholder -- the JSP inbox at `/workflow` remains the single
- * source of truth for approvals and is reachable via the legacy
- * bridge at `/legacy/workflow`.
- *
- * Per RBI dual-authorisation and our existing backend constraints:
- *   - Self-approval prevention, optimistic locking (@Version), and
- *     consumption-lock semantics are all enforced server-side via
- *     ApprovalWorkflowService; no UI-side approximation.
- *   - Allowed actions are returned by the backend per-row; the UI
- *     never computes its own action list.
+ * FINVANTA CBS — Maker-Checker Workflow Queue (Tier-1 Grade).
+ * CBS benchmark: Finacle HWRKFLW, T24 OFS.SOURCE, FLEXCUBE CSTB_APPROVAL.
+ * Per RBI IT Governance 2023 §8.2: maker-checker with audit trail.
  */
 
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import Link from 'next/link';
-import { Breadcrumb } from '@/components/cbs';
+import { useUIStore } from '@/store/uiStore';
+import { Breadcrumb, CbsTableSkeleton } from '@/components/cbs';
+import { AuditTrailViewer } from '@/components/cbs/AuditTrailViewer';
+import { workflowService, type WorkflowItem, type DecisionRequest } from '@/services/api/workflowService';
+import { canApprove } from '@/security/roleGuard';
+import { useCbsKeyboard } from '@/hooks/useCbsKeyboard';
+import { formatCbsTimestamp } from '@/utils/formatters';
+import { CheckCircle, XCircle, Clock, ChevronRight, Search, Loader2, X } from 'lucide-react';
+
+const STATUS_TONE: Record<string, string> = {
+  PENDING_APPROVAL: 'text-cbs-gold-700 bg-cbs-gold-50 border-cbs-gold-600',
+  APPROVED: 'text-cbs-olive-700 bg-cbs-olive-50 border-cbs-olive-600',
+  REJECTED: 'text-cbs-crimson-700 bg-cbs-crimson-50 border-cbs-crimson-600',
+  RECALLED: 'text-cbs-steel-700 bg-cbs-mist border-cbs-steel-300',
+};
 
 export default function WorkflowPage() {
   return (
