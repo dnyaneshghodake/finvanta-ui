@@ -13,27 +13,47 @@
 import { type ReactNode } from 'react';
 import { formatCbsTimestamp } from '@/utils/formatters';
 
+/**
+ * CBS status values — covers workflow, account lifecycle (API §18),
+ * and loan pipeline (API §18) statuses.
+ */
 export type CbsStatus =
   | 'PENDING_APPROVAL'
   | 'PENDING_VERIFICATION'
+  | 'PENDING_ACTIVATION'
   | 'APPROVED'
   | 'POSTED'
   | 'REJECTED'
   | 'REVERSED'
   | 'ACTIVE'
+  | 'DORMANT'
+  | 'INOPERATIVE'
   | 'FROZEN'
   | 'CLOSED'
-  | 'DRAFT';
+  | 'DECEASED'
+  | 'DRAFT'
+  | 'SUBMITTED'
+  | 'VERIFIED'
+  | 'DISBURSED'
+  | 'WRITTEN_OFF';
 
 const STATUS_TONE: Record<CbsStatus, string> = {
   PENDING_APPROVAL: 'text-cbs-gold-700 bg-cbs-gold-50 border-cbs-gold-600',
   PENDING_VERIFICATION: 'text-cbs-gold-700 bg-cbs-gold-50 border-cbs-gold-600',
+  PENDING_ACTIVATION: 'text-cbs-gold-700 bg-cbs-gold-50 border-cbs-gold-600',
   APPROVED: 'text-cbs-olive-700 bg-cbs-olive-50 border-cbs-olive-600',
   POSTED: 'text-cbs-olive-700 bg-cbs-olive-50 border-cbs-olive-600',
   ACTIVE: 'text-cbs-olive-700 bg-cbs-olive-50 border-cbs-olive-600',
+  DISBURSED: 'text-cbs-olive-700 bg-cbs-olive-50 border-cbs-olive-600',
+  VERIFIED: 'text-cbs-navy-700 bg-cbs-navy-50 border-cbs-navy-200',
+  SUBMITTED: 'text-cbs-violet-700 bg-cbs-violet-50 border-cbs-violet-600',
   REJECTED: 'text-cbs-crimson-700 bg-cbs-crimson-50 border-cbs-crimson-600',
   REVERSED: 'text-cbs-crimson-700 bg-cbs-crimson-50 border-cbs-crimson-600',
   FROZEN: 'text-cbs-crimson-700 bg-cbs-crimson-50 border-cbs-crimson-600',
+  DECEASED: 'text-cbs-crimson-700 bg-cbs-crimson-50 border-cbs-crimson-600',
+  WRITTEN_OFF: 'text-cbs-crimson-700 bg-cbs-crimson-50 border-cbs-crimson-600',
+  DORMANT: 'text-cbs-gold-700 bg-cbs-gold-50 border-cbs-gold-600',
+  INOPERATIVE: 'text-cbs-steel-700 bg-cbs-mist border-cbs-steel-400',
   CLOSED: 'text-cbs-steel-700 bg-cbs-mist border-cbs-steel-400',
   DRAFT: 'text-cbs-violet-700 bg-cbs-violet-50 border-cbs-violet-600',
 };
