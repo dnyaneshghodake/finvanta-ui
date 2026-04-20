@@ -72,7 +72,10 @@ function adaptPage<T>(
 }
 
 function adaptSingle<T>(body: SpringEnvelope<T>): ApiResponse<T> {
-  if (body.status === 'SUCCESS' && body.data !== undefined) {
+  // Use loose inequality (`!= null`) so both `null` and `undefined`
+  // are rejected. Spring can return `"data": null` on empty results
+  // and `null !== undefined` is `true` — same fix as accountService.ts.
+  if (body.status === 'SUCCESS' && body.data != null) {
     return okEnvelope(body.data);
   }
   return errEnvelope(body.errorCode || 'UNKNOWN', body.message || 'Request failed', 400);

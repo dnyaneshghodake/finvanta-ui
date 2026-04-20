@@ -190,14 +190,19 @@ export async function POST(req: NextRequest) {
   const expiresIn = tok?.expiresIn ?? d.expiresIn;
   const expiresAtRaw = tok?.expiresAt ?? d.expiresAt;
 
-  let expiresAt: number;
+  // JWT expiry — used for proactive refresh scheduling (same as login route)
+  let jwtExpiresAt: number;
   if (expiresIn && expiresIn > 0) {
-    expiresAt = now + expiresIn * 1000;
+    jwtExpiresAt = now + expiresIn * 1000;
   } else if (expiresAtRaw && expiresAtRaw > now / 1000) {
-    expiresAt = expiresAtRaw * 1000;
+    jwtExpiresAt = expiresAtRaw * 1000;
   } else {
-    expiresAt = now + env.sessionTtlSeconds * 1000;
+    jwtExpiresAt = now + 15 * 60 * 1000; // default 15 min
   }
+
+  // BFF session expiry — uses idle timeout, NOT JWT expiry
+  // (consistent with login route at app/api/cbs/auth/login/route.ts:476)
+  const expiresAt = now + env.sessionIdleExtensionSeconds * 1000;
 
   const businessDate =
     sBizDay?.businessDate || d.businessDate || existing?.businessDate || new Date().toISOString().slice(0, 10);
@@ -243,6 +248,7 @@ export async function POST(req: NextRequest) {
     refreshToken: tok?.refreshToken ?? d.refreshToken,
     tokenType: tok?.tokenType || "Bearer",
     expiresAt,
+    jwtExpiresAt,
     user: sessionUser,
     mfaVerifiedAt: now,
     correlationId,
