@@ -1,68 +1,62 @@
 'use client';
 
 /**
- * Dashboard KPI + Alert Widgets — independent fetch per widget.
+ * Dashboard Widgets — per backend dashboard contract.
  * @file src/components/dashboard/DashboardWidgets.tsx
+ *
+ * Endpoints:
+ *   GET /api/v1/dashboard/widgets/portfolio          → PortfolioWidget
+ *   GET /api/v1/dashboard/widgets/npa                → NpaWidget
+ *   GET /api/v1/dashboard/widgets/casa               → CasaWidget
+ *   GET /api/v1/dashboard/widgets/pending-approvals   → PendingApprovalsWidget
  */
 
 import Link from 'next/link';
 import { useDashboardWidget } from '@/hooks/useDashboardWidget';
-import { useAuthStore } from '@/store/authStore';
-import { formatCurrency, formatCbsTimestamp } from '@/utils/formatters';
+import { formatCurrency } from '@/utils/formatters';
 import {
   WidgetShell,
   KpiSkeleton,
   ActionSkeleton,
-  AnnouncementSkeleton,
 } from './WidgetShell';
 import type { WidgetDef } from './widgetRegistry';
-import {
-  ClipboardCheck, AlertTriangle, ShieldCheck, Info,
-} from 'lucide-react';
 
-/* ── Data shapes (server-driven) ─────────────────────────────── */
+/* ── Data shapes per backend dashboard contract ──────────────── */
 
-interface LastLoginData { at: string; ip?: string }
-
-interface Announcement {
-  id: string;
-  severity: 'info' | 'warning' | 'critical';
-  title: string;
-  body?: string;
-  publishedAt: string;
-}
-
-interface TxnSummaryData {
-  todayCredits: number;
-  todayDebits: number;
-  todayTxnCount: number;
-}
-
+/** GET /dashboard/widgets/portfolio */
 interface PortfolioData {
-  casaAccountsActive: number;
-  fdOutstanding: number;
-  overdueLoans: number;
-  unverifiedKyc: number;
+  totalCustomers: number;
+  casaAccounts: number;
+  activeLoans: number;
+  smaAccounts: number;
+  npaAccounts: number;
+  pendingApplications: number;
 }
 
-interface WorkflowAlertData {
-  pendingMyAction: number;
-  pendingApprovals: number;
-  overdueLoans: number;
-  unverifiedKyc: number;
+/** GET /dashboard/widgets/npa */
+interface NpaData {
+  totalOutstanding: number;
+  npaOutstanding: number;
+  totalProvisioning: number;
+  grossNpaRatio: number;
+  provisionCoverage: number;
 }
 
-/* ── Tone Maps ───────────────────────────────────────────────── */
+/** GET /dashboard/widgets/casa */
+interface CasaData {
+  totalDeposits: number;
+  casaAccountCount: number;
+  casaRatio: number;
+}
 
-const ANN_TONE: Record<string, string> = {
-  info: 'border-cbs-navy-200 bg-cbs-navy-50',
-  warning: 'border-cbs-gold-600 bg-cbs-gold-50',
-  critical: 'border-cbs-crimson-600 bg-cbs-crimson-50',
-};
+/** GET /dashboard/widgets/pending-approvals */
+interface ApprovalsData {
+  pendingCount: number;
+}
 
-/* ── File-local sub-components ───────────────────────────────── */
+/* ── Sub-components ───────────────────────────────────────────── */
 
-function KpiCard({ label, value, valueClass }: {
+function StatCard({ label, value, valueClass }: {
   label: string; value: string; valueClass?: string;
 }) {
   return (
@@ -75,35 +69,16 @@ function KpiCard({ label, value, valueClass }: {
   );
 }
 
-function ActionCard({ icon, label, value, tone }: {
-  icon: React.ReactNode; label: string; value: number;
-  tone: 'gold' | 'crimson' | 'steel';
-}) {
-  const toneMap = {
-    gold: 'border-cbs-gold-600 bg-cbs-gold-50 text-cbs-gold-700',
-    crimson: 'border-cbs-crimson-600 bg-cbs-crimson-50 text-cbs-crimson-700',
-    steel: 'border-cbs-steel-200 bg-cbs-paper text-cbs-steel-600',
-  };
-  return (
-    <div className={`flex items-center gap-3 p-3 border rounded-sm h-[52px] transition-colors hover:bg-cbs-navy-50 ${toneMap[tone]}`}>
-      <div className="shrink-0">{icon}</div>
-      <div className="flex-1 min-w-0">
-        <div className="text-xs font-semibold uppercase tracking-wider truncate">{label}</div>
-      </div>
-      <div className="text-xl font-bold cbs-tabular">{value}</div>
-    </div>
-  );
+/** Format large INR amounts as Cr/L for dashboard readability. */
+function fmtCr(n: number): string {
+  if (n >= 1_00_00_000) return `₹${(n / 1_00_00_000).toFixed(2)} Cr`;
+  if (n >= 1_00_000) return `₹${(n / 1_00_000).toFixed(2)} L`;
+  return formatCurrency(n);
 }
 
-function AnnIcon({ severity }: { severity: string }) {
-  if (severity === 'critical') return <AlertTriangle size={14} strokeWidth={1.75} className="text-cbs-crimson-700 shrink-0 mt-0.5" />;
-  if (severity === 'warning') return <AlertTriangle size={14} strokeWidth={1.75} className="text-cbs-gold-700 shrink-0 mt-0.5" />;
-  return <Info size={14} strokeWidth={1.75} className="text-cbs-navy-600 shrink-0 mt-0.5" />;
-}
+/* ── Widget: Portfolio Summary (ALL roles, 60s) ──────────────── */
 
-/* ── Widget: Last Login (RBI Security Audit) ─────────────────── */
-
-export function LastLoginWidget({ def }: { def: WidgetDef }) {
+export function PortfolioWidget({ def }: { def: WidgetDef }) {
   const user = useAuthStore((s) => s.user);
   const sessionLogin = user?.lastLoginTimestamp;
   const w = useDashboardWidget<LastLoginData>({

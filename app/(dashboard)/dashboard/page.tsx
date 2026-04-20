@@ -23,36 +23,29 @@ import { formatCbsDate } from '@/utils/formatters';
 import { useCbsKeyboard } from '@/hooks/useCbsKeyboard';
 import {
   getVisibleWidgets,
-  LastLoginWidget,
-  AnnouncementsWidget,
-  TxnSummaryWidget,
   PortfolioWidget,
-  WorkflowAlertsWidget,
+  NpaWidget,
+  CasaWidget,
+  PendingApprovalsWidget,
   QuickOpsWidget,
-  QuickOpsSkeleton,
 } from '@/components/dashboard';
 import type { WidgetDef } from '@/components/dashboard';
 
-// Per API_REFERENCE.md §2.1: dayStatus values are
-// DAY_OPEN, EOD_RUNNING, DAY_CLOSED, NOT_OPENED.
+// Per backend contract: dayStatus values
 const DAY_STATUS_TONE: Record<string, string> = {
-  OPEN: 'text-cbs-olive-700 bg-cbs-olive-50',
-  CLOSED: 'text-cbs-crimson-700 bg-cbs-crimson-50',
   DAY_OPEN: 'text-cbs-olive-700 bg-cbs-olive-50',
   DAY_CLOSED: 'text-cbs-crimson-700 bg-cbs-crimson-50',
   EOD_RUNNING: 'text-cbs-gold-700 bg-cbs-gold-50',
-  EOD_IN_PROGRESS: 'text-cbs-gold-700 bg-cbs-gold-50',
   NOT_OPENED: 'text-cbs-crimson-700 bg-cbs-crimson-50',
 };
 
-/** Maps widget ID → component. QUICK_OPS has no API fetch. */
+/** Maps widget ID → component per backend dashboard contract. */
 function renderWidget(def: WidgetDef) {
   switch (def.id) {
-    case 'LAST_LOGIN': return <LastLoginWidget key={def.id} def={def} />;
-    case 'ANNOUNCEMENTS': return <AnnouncementsWidget key={def.id} def={def} />;
-    case 'KPI_TXN_SUMMARY': return <TxnSummaryWidget key={def.id} def={def} />;
-    case 'KPI_PORTFOLIO': return <PortfolioWidget key={def.id} def={def} />;
-    case 'WORKFLOW_ALERTS': return <WorkflowAlertsWidget key={def.id} def={def} />;
+    case 'PORTFOLIO': return <PortfolioWidget key={def.id} def={def} />;
+    case 'NPA': return <NpaWidget key={def.id} def={def} />;
+    case 'CASA': return <CasaWidget key={def.id} def={def} />;
+    case 'PENDING_APPROVALS': return <PendingApprovalsWidget key={def.id} def={def} />;
     case 'QUICK_OPS': return <QuickOpsWidget key={def.id} />;
     default: return null;
   }

@@ -2,33 +2,32 @@
  * Dashboard Widget Registry — role-based widget blueprint.
  * @file src/components/dashboard/widgetRegistry.ts
  *
- * Tier-1 CBS pattern: the widget layout is determined by the
- * operator's role BEFORE any data fetch. This ensures:
- *   ✔ No unauthorized widget visible (zero-trust UI)
- *   ✔ Layout determined before data fetch (skeleton-first)
- *   ✔ Zero flicker of hidden data
+ * Per the backend dashboard contract, the widget endpoints are:
+ *   GET /api/v1/dashboard/widgets/portfolio          → 60s refresh
+ *   GET /api/v1/dashboard/widgets/npa                → 60s refresh
+ *   GET /api/v1/dashboard/widgets/casa               → 60s refresh
+ *   GET /api/v1/dashboard/widgets/pending-approvals   → 15s refresh
  *
- * Widget IDs map to components in the dashboard page.
- * Refresh intervals follow CBS operational cadence:
- *   - Approval queue: 15s (teller workflow driver)
- *   - Cash/txn position: 30s
- *   - GL/portfolio: 60s
- *   - Announcements: 120s (regulatory, infrequent)
+ * The BFF catch-all proxy at /api/cbs/[...path] forwards
+ * /dashboard/widgets/portfolio → /api/v1/dashboard/widgets/portfolio.
+ *
+ * Widget visibility is determined by the operator's role from the
+ * bootstrap context BEFORE any data fetch (skeleton-first pattern).
+ * QUICK_OPS has no backend endpoint — it's purely client-side.
  */
 
 import type { UserRole } from '@/types/entities';
 
 export type WidgetId =
-  | 'LAST_LOGIN'
-  | 'ANNOUNCEMENTS'
-  | 'KPI_TXN_SUMMARY'
-  | 'KPI_PORTFOLIO'
-  | 'WORKFLOW_ALERTS'
+  | 'PORTFOLIO'
+  | 'NPA'
+  | 'CASA'
+  | 'PENDING_APPROVALS'
   | 'QUICK_OPS';
 
 export interface WidgetDef {
   id: WidgetId;
-  /** API endpoint for this widget's data. */
+  /** API path relative to BFF base /api/cbs (e.g. "/dashboard/widgets/portfolio"). */
   endpoint: string;
   /** Error reference code for IT support. */
   errorRef: string;
@@ -36,62 +35,61 @@ export interface WidgetDef {
   refreshInterval: number;
   /** Grid span class (Tailwind). */
   gridClass: string;
-  /** Minimum roles required (ANY match). Empty = all roles. */
+  /**
+   * Roles that can see this widget. Empty = all roles.
+   * Per backend contract:
+   *   portfolio:          MAKER, CHECKER, ADMIN, AUDITOR
+   *   npa:                CHECKER, ADMIN, AUDITOR
+   *   casa:               CHECKER, ADMIN, AUDITOR
+   *   pending-approvals:  MAKER, CHECKER, ADMIN
+   */
   roles: UserRole[];
 }
 
 /**
- * Master widget definitions.
+ * Master widget definitions per backend dashboard contract.
  * Order determines render order on the dashboard.
  */
 export const WIDGET_DEFS: WidgetDef[] = [
   {
-    id: 'LAST_LOGIN',
-    endpoint: '/dashboard/last-login',
-    errorRef: 'DSH-LOGIN-01',
-    refreshInterval: 0,
-    gridClass: 'col-span-full',
-    roles: [], // All roles
-  },
-  {
-    id: 'ANNOUNCEMENTS',
-    endpoint: '/dashboard/announcements',
-    errorRef: 'DSH-ANN-01',
-    refreshInterval: 120_000,
-    gridClass: 'col-span-full',
-    roles: [], // All roles
-  },
-  {
-    id: 'KPI_TXN_SUMMARY',
-    endpoint: '/dashboard/txn-summary',
-    errorRef: 'DSH-TXN-01',
-    refreshInterval: 30_000,
-    gridClass: 'col-span-full',
-    roles: [], // All roles see txn summary
-  },
-  {
-    id: 'KPI_PORTFOLIO',
-    endpoint: '/dashboard/portfolio',
+    id: 'PORTFOLIO',
+    endpoint: '/dashboard/widgets/portfolio',
     errorRef: 'DSH-PORT-01',
     refreshInterval: 60_000,
     gridClass: 'col-span-full',
-    roles: ['MANAGER', 'ADMIN_HO', 'AUDITOR', 'CHECKER', 'APPROVER'],
+    roles: ['MAKER', 'CHECKER', 'ADMIN', 'AUDITOR'],
   },
   {
-    id: 'WORKFLOW_ALERTS',
-    endpoint: '/dashboard/workflow-alerts',
-    errorRef: 'DSH-WF-01',
+    id: 'NPA',
+    endpoint: '/dashboard/widgets/npa',
+    errorRef: 'DSH-NPA-01',
+    refreshInterval: 60_000,
+    gridClass: 'col-span-full',
+    roles: ['CHECKER', 'ADMIN', 'AUDITOR'],
+  },
+  {
+    id: 'CASA',
+    endpoint: '/dashboard/widgets/casa',
+    errorRef: 'DSH-CASA-01',
+    refreshInterval: 60_000,
+    gridClass: 'col-span-full',
+    roles: ['CHECKER', 'ADMIN', 'AUDITOR'],
+  },
+  {
+    id: 'PENDING_APPROVALS',
+    endpoint: '/dashboard/widgets/pending-approvals',
+    errorRef: 'DSH-APPR-01',
     refreshInterval: 15_000,
     gridClass: 'col-span-full',
-    roles: [], // All roles see workflow counts
+    roles: ['MAKER', 'CHECKER', 'ADMIN'],
   },
   {
     id: 'QUICK_OPS',
-    endpoint: '', // No API — purely role-driven static links
+    endpoint: '',
     errorRef: 'DSH-OPS-01',
     refreshInterval: 0,
     gridClass: 'col-span-full',
-    roles: [], // All roles (individual ops are role-gated inside)
+    roles: [],
   },
 ];
 
