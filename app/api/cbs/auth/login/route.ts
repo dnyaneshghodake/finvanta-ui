@@ -236,10 +236,34 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const json = (await upstream.json().catch(() => ({}))) as SpringTokenResponse;
+  // Read the raw response text first, then parse as JSON.
+  // This avoids silent failures from .json().catch(() => ({})) which
+  // swallows parse errors and produces an empty object — making it
+  // impossible to diagnose why the token extraction fails.
+  const rawText = await upstream.text().catch(() => "");
+  let json: SpringTokenResponse;
+  try {
+    json = rawText ? JSON.parse(rawText) : {};
+  } catch {
+    // Spring returned non-JSON (HTML error page, empty body, etc.)
+    if (process.env.NODE_ENV !== "production") {
+      console.error(
+        `[BFF login] upstream=${upstream.status} content-type=${upstream.headers.get("content-type")} ` +
+        `body=${rawText.slice(0, 500)}`,
+      );
+    }
+    return NextResponse.json(
+      {
+        success: false,
+        errorCode: "BACKEND_INVALID_RESPONSE",
+        message: "The banking server returned an unexpected response. Contact IT support.",
+        correlationId,
+      },
+      { status: 502, headers: { "x-correlation-id": correlationId } },
+    );
+  }
 
-  // Debug: log the raw Spring response shape so we can diagnose
-  // token extraction failures without guessing at the envelope.
+  // Debug: log the parsed response shape.
   if (process.env.NODE_ENV !== "production") {
     const topKeys = Object.keys(json);
     const dataKeys = json.data && typeof json.data === "object" ? Object.keys(json.data as Record<string, unknown>) : [];
