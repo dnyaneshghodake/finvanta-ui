@@ -133,6 +133,11 @@ export async function forward(
   if (session?.accessToken) {
     headers.set("authorization", `${session.tokenType || "Bearer"} ${session.accessToken}`);
   }
+  if (process.env.NODE_ENV !== "production") {
+    console.log(
+      `[BFF proxy] ${method} ${upstreamUrl} hasSession=${!!session} hasToken=${!!session?.accessToken} tokenPrefix=${session?.accessToken?.slice(0, 20) ?? "none"}`,
+    );
+  }
   if (session?.user?.branchCode) {
     headers.set("x-branch-code", session.user.branchCode);
   }
