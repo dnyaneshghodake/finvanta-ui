@@ -19,7 +19,10 @@ import type { UserRole } from '@/types/entities';
 import { useAuthStore } from '@/store/authStore';
 import { ShieldAlert } from 'lucide-react';
 
-const ADMIN_ROLES: UserRole[] = ['ADMIN_HO', 'BRANCH_ADMIN'];
+// Per API_REFERENCE.md §1: Spring returns role 'ADMIN' for full admin
+// access. 'ADMIN_HO' and 'BRANCH_ADMIN' are granular sub-roles.
+// All three must be included to avoid blocking backend admin users.
+const ADMIN_ROLES: UserRole[] = ['ADMIN', 'ADMIN_HO', 'BRANCH_ADMIN'];
 
 export interface AdminPageGuardProps {
   /** Override the default admin roles if a page needs stricter gating. */

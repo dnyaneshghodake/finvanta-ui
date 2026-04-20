@@ -56,8 +56,13 @@ function normalizeKey(e: KeyboardEvent): string {
   if (e.altKey) parts.push('Alt');
   if (e.shiftKey) parts.push('Shift');
 
-  // Normalize key name
+  // Guard: e.key can be undefined for dead keys, IME composition
+  // events, or browser-specific quirks. Bail out with an empty
+  // string so the caller's Map lookup silently misses.
   let key = e.key;
+  if (key == null) return parts.join('+') || '';
+
+  // Normalize key name
   if (key === ' ') key = 'Space';
   if (key === 'Enter') key = 'Enter';
   if (key.length === 1) key = key.toUpperCase();
@@ -97,11 +102,12 @@ export function useCbsKeyboardNav(pageKeyMap: CbsKeyMap = {}) {
       handler: () => { setIsHelpOpen(true); },
       category: 'system',
     },
-    'F5': {
-      label: 'Refresh Screen',
-      handler: () => { window.location.reload(); },
-      category: 'system',
-    },
+    // NOTE: F5 is intentionally NOT in the global key map.
+    // Page-level useCbsKeyboard handlers own F5 behavior (e.g.
+    // workflow page refreshes data, branches page reloads list).
+    // The dashboard page registers its own F5: window.location.reload().
+    // A global F5 here (capture phase) would override all page-specific
+    // handlers because capture fires before bubble.
     'Escape': {
       label: 'Close Dialog / Cancel',
       handler: () => {

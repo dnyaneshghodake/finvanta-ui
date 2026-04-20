@@ -25,7 +25,7 @@ interface CbsServerEnv {
   csrfCookieName: string;
   mfaChallengeCookieName: string;
   sessionTtlSeconds: number;
-  /** Idle extension window in seconds (default 15 min). Must match
+  /** Idle extension window in seconds (default 30 min). Must match
    *  the client-side SESSION_TIMEOUT_MS in useSessionTimeout.ts. */
   sessionIdleExtensionSeconds: number;
   mfaChallengeTtlSeconds: number;

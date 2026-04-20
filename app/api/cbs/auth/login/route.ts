@@ -227,7 +227,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(
       {
         success: false,
-        errorCode: "VALIDATION_ERROR",
+        errorCode: "VALIDATION_FAILED",
         message: "username: Username is required; password: Password is required;",
         correlationId,
       },

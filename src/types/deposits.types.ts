@@ -7,39 +7,96 @@
  */
 
 /**
- * Bank account entity — CBS-mandatory fields per RBI Master Direction
- * on KYC 2016 (as amended) and IT Governance Direction 2023 §8.
+ * Account type — per API_REFERENCE.md §4, Spring supports:
+ *   SAVINGS, CURRENT, CURRENT_OD, SAVINGS_NRI, SAVINGS_MINOR,
+ *   SAVINGS_JOINT, SAVINGS_PMJDY, SALARY
+ */
+export type AccountType =
+  | 'SAVINGS'
+  | 'CURRENT'
+  | 'CURRENT_OD'
+  | 'SAVINGS_NRI'
+  | 'SAVINGS_MINOR'
+  | 'SAVINGS_JOINT'
+  | 'SAVINGS_PMJDY'
+  | 'SALARY';
+
+/**
+ * Account status — per API_REFERENCE.md §18 Account Status Lifecycle:
+ *   PENDING_ACTIVATION → ACTIVE → DORMANT → INOPERATIVE
+ *   ACTIVE → FROZEN → ACTIVE (unfreeze)
+ *   ACTIVE → CLOSED / DECEASED
+ */
+export type AccountStatus =
+  | 'PENDING_ACTIVATION'
+  | 'ACTIVE'
+  | 'DORMANT'
+  | 'INOPERATIVE'
+  | 'FROZEN'
+  | 'CLOSED'
+  | 'DECEASED'
+  | 'INACTIVE';
+
+/**
+ * Freeze type — per API_REFERENCE.md §4 Freeze Request.
+ */
+export type FreezeType = 'DEBIT_FREEZE' | 'CREDIT_FREEZE' | 'TOTAL_FREEZE';
+
+/**
+ * Bank account entity — CBS AccountResponse (32 fields) per
+ * API_REFERENCE.md §4 CASA Account Lifecycle.
  */
 export interface Account {
   id: string;
   accountNumber: string;
   customerId: string;
-  accountType: 'SAVINGS' | 'CURRENT' | 'SALARY';
+  customerNumber?: string;
+  customerName?: string;
+  accountType: AccountType;
   productCode?: string;
   currency: string;
+  // ── Balances (per API §4 Response — Balances) ──
   balance: number;
   availableBalance: number;
   holdAmount: number;
+  unclearedAmount: number;
   odLimit: number;
+  effectiveAvailable: number;
+  minimumBalance: number;
+  // ── Interest ──
   interestRate: number;
   accruedInterest: number;
-  status: 'ACTIVE' | 'INACTIVE' | 'FROZEN' | 'CLOSED';
+  lastInterestCreditDate?: string;
+  // ── Status & Branch ──
+  status: AccountStatus;
   branchCode?: string;
   ifscCode?: string;
-  nomineeName?: string;
-  chequeBookEnabled: boolean;
-  debitCardEnabled: boolean;
+  // ── Lifecycle ──
   openedDate: Date;
   closedDate: Date | null;
+  closureReason?: string;
   lastTransactionDate?: Date;
+  // ── Freeze ──
+  freezeType?: FreezeType;
+  freezeReason?: string;
+  // ── Nomination ──
+  nomineeName?: string;
+  nomineeRelationship?: string;
+  jointHolderMode?: string;
+  // ── Facilities ──
+  chequeBookEnabled: boolean;
+  debitCardEnabled: boolean;
+  dailyWithdrawalLimit?: number;
+  dailyTransferLimit?: number;
+  // ── Legacy compat ──
   linkedAccounts: string[];
   createdAt: Date;
   updatedAt: Date;
 }
 
 /**
- * Transaction entity — CBS mini-statement / passbook fields per RBI
- * circular on transparency in bank charges and account statements.
+ * Transaction entity — CBS TxnResponse (19 fields) per
+ * API_REFERENCE.md §5 CASA Financial Operations.
  */
 export interface Transaction {
   id: string;
@@ -50,17 +107,28 @@ export interface Transaction {
   amount: number;
   currency: string;
   transactionType: 'DEBIT' | 'CREDIT' | 'TRANSFER';
+  /** Per API §5: debitCredit discriminator from Spring (DR/CR). */
+  debitCredit?: 'DR' | 'CR';
   status: 'PENDING' | 'COMPLETED' | 'FAILED' | 'REVERSED';
   description: string;
   valueDate: Date;
   postingDate: Date;
   referenceNumber: string;
   beneficiaryName?: string;
+  // ── Amount context (per API §5 Response — Amount) ──
+  balanceBefore?: number;
   balanceAfter?: number;
+  // ── Details (per API §5 Response — Details) ──
   counterpartyAccount?: string;
+  counterpartyName?: string;
   channel?: string;
+  chequeNumber?: string;
+  // ── Audit (per API §5 Response — Audit) ──
   voucherNumber?: string;
   branchCode?: string;
+  reversed?: boolean;
+  reversedByRef?: string;
+  idempotencyKey?: string;
   createdAt: Date;
   updatedAt: Date;
 }

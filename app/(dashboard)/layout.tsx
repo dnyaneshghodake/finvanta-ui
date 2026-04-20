@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useMemo, createContext, useContext } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { Header, Sidebar } from '@/components/layout';
 import { useAuthStore } from '@/store/authStore';
@@ -15,38 +15,13 @@ import { KeyboardHelpOverlay } from '@/components/cbs/KeyboardHelpOverlay';
 import { authService } from '@/services/api/authService';
 import { logger } from '@/utils/logger';
 import { formatCbsDate } from '@/utils/formatters';
+import {
+  DayStatusContext,
+  type DayStatusContextValue,
+} from '@/contexts/DayStatusContext';
 
-/* ── Day-Status Context ─────────────────────────────────────────
- * Per API_LOGIN_CONTRACT.md §14 Rule 8: dayStatus controls the
- * entire UI. Transaction buttons must be disabled when day is not
- * open. This context propagates the posting-allowed flag to all
- * child components without prop drilling.
- *
- * CBS benchmark: Finacle's DAYOPR module disables all posting
- * menus when dayStatus != DAY_OPEN. T24 greys out transaction menus.
- */
-interface DayStatusContextValue {
-  /** Whether financial postings are allowed. */
-  isPostingAllowed: boolean;
-  /** Current day status string for display. */
-  dayStatus: string | null;
-  /** Reason postings are blocked (for tooltip/message). */
-  blockReason: string | null;
-}
-
-const DayStatusContext = createContext<DayStatusContextValue>({
-  isPostingAllowed: true,
-  dayStatus: null,
-  blockReason: null,
-});
-
-/**
- * Hook to check if financial postings are allowed.
- * Use in transaction buttons: `const { isPostingAllowed } = useDayStatus();`
- */
-export function useDayStatus(): DayStatusContextValue {
-  return useContext(DayStatusContext);
-}
+// Re-export useDayStatus so existing imports from this file still work.
+export { useDayStatus } from '@/contexts/DayStatusContext';
 
 /* ── Day-Status Operational Banner ──────────────────────────────
  * Per API_LOGIN_CONTRACT.md §14 Rule 6:
@@ -154,7 +129,7 @@ export default function DashboardLayout({
   const { isAuthenticated, isHydrated, loadSession, logout } = useAuthStore();
   const [isInitialized, setIsInitialized] = useState(false);
 
-  // Session timeout — 15 min inactivity, 2 min warning
+  // Session timeout — 30 min inactivity (CBS_SESSION_IDLE_SECONDS), 2 min warning
   const { secondsRemaining, isWarningActive, resetTimer } = useSessionTimeout();
 
   // Backend health — polls Spring /actuator/health via BFF every 30s.

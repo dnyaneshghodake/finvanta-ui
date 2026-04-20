@@ -38,6 +38,9 @@ interface SpringEnvelope<T> {
   timestamp?: string;
 }
 
+/**
+ * Spring AccountResponse — 32 fields per API_REFERENCE.md §4.
+ */
 interface SpringAccount {
   id: number;
   accountNumber: string;
@@ -45,20 +48,40 @@ interface SpringAccount {
   productCode?: string | null;
   status: string;
   customerId?: number | string | null;
+  customerNumber?: string | null;
+  customerName?: string | null;
   branchCode?: string | null;
   ifscCode?: string | null;
   currencyCode?: string | null;
+  // Balances
   ledgerBalance: number | string;
   availableBalance: number | string;
   holdAmount?: number | string | null;
+  unclearedAmount?: number | string | null;
   odLimit?: number | string | null;
+  effectiveAvailable?: number | string | null;
+  minimumBalance?: number | string | null;
+  // Interest
   interestRate?: number | string | null;
   accruedInterest?: number | string | null;
+  lastInterestCreditDate?: string | null;
+  // Lifecycle
   openedDate?: string | null;
+  closedDate?: string | null;
+  closureReason?: string | null;
   lastTransactionDate?: string | null;
+  // Freeze
+  freezeType?: string | null;
+  freezeReason?: string | null;
+  // Nomination
   nomineeName?: string | null;
+  nomineeRelationship?: string | null;
+  jointHolderMode?: string | null;
+  // Facilities
   chequeBookEnabled?: boolean;
   debitCardEnabled?: boolean;
+  dailyWithdrawalLimit?: number | string | null;
+  dailyTransferLimit?: number | string | null;
 }
 
 interface SpringPage<T> {
@@ -68,41 +91,72 @@ interface SpringPage<T> {
   totalElements: number;
 }
 
+/**
+ * Spring TxnResponse — 19 fields per API_REFERENCE.md §5.
+ */
 interface SpringTxn {
   id: number;
   transactionRef: string;
   transactionType: string;
-  /** REST_API_COMPLETE_CATALOGUE uses "DR"/"CR" (not single-char "D"/"C"). */
+  /** Per API §5: "DR"/"CR". Legacy deployments may use "D"/"C". */
   debitCredit: 'DR' | 'CR' | 'D' | 'C' | string;
+  // Amount
   amount: number | string;
+  balanceBefore?: number | string | null;
   balanceAfter?: number | string | null;
+  // Dates
   valueDate?: string | null;
   postingDate?: string | null;
+  // Details
   narration?: string | null;
   counterpartyAccount?: string | null;
+  counterpartyName?: string | null;
   channel?: string | null;
+  chequeNumber?: string | null;
+  // Audit
   voucherNumber?: string | null;
   branchCode?: string | null;
   reversed?: boolean;
+  reversedByRef?: string | null;
+  idempotencyKey?: string | null;
 }
 
 /**
- * Map Spring's SB/CA/CURRENT_OD/SALARY account type codes to the UI's
- * presentational enum. Unknown codes fall back to `SAVINGS` so the
- * grid does not render blank cells for experimental product codes.
+ * Map Spring account type codes to the UI's AccountType enum.
+ * Per API_REFERENCE.md §4: SAVINGS, CURRENT, CURRENT_OD,
+ * SAVINGS_NRI, SAVINGS_MINOR, SAVINGS_JOINT, SAVINGS_PMJDY, SALARY.
+ * Unknown codes fall back to `SAVINGS`.
  */
 function mapAccountType(raw: string): Account['accountType'] {
   const normalised = (raw || '').toUpperCase();
+  if (normalised === 'CURRENT_OD') return 'CURRENT_OD';
+  if (normalised === 'CURRENT') return 'CURRENT';
+  if (normalised === 'SALARY') return 'SALARY';
+  if (normalised === 'SAVINGS_NRI') return 'SAVINGS_NRI';
+  if (normalised === 'SAVINGS_MINOR') return 'SAVINGS_MINOR';
+  if (normalised === 'SAVINGS_JOINT') return 'SAVINGS_JOINT';
+  if (normalised === 'SAVINGS_PMJDY') return 'SAVINGS_PMJDY';
   if (normalised.startsWith('CURRENT')) return 'CURRENT';
-  if (normalised.startsWith('SALARY')) return 'SALARY';
+  if (normalised.startsWith('SAVINGS')) return 'SAVINGS';
   return 'SAVINGS';
 }
 
+/**
+ * Map Spring status to UI AccountStatus.
+ * Per API_REFERENCE.md §18 Account Status Lifecycle:
+ *   PENDING_ACTIVATION → ACTIVE → DORMANT → INOPERATIVE
+ *   ACTIVE → FROZEN → ACTIVE (unfreeze)
+ *   ACTIVE → CLOSED / DECEASED
+ */
 function mapStatus(raw: string): Account['status'] {
   const normalised = (raw || '').toUpperCase();
-  if (normalised.includes('FROZEN')) return 'FROZEN';
-  if (normalised === 'CLOSED') return 'CLOSED';
+  if (normalised === 'PENDING_ACTIVATION') return 'PENDING_ACTIVATION';
   if (normalised === 'ACTIVE') return 'ACTIVE';
+  if (normalised === 'DORMANT') return 'DORMANT';
+  if (normalised === 'INOPERATIVE') return 'INOPERATIVE';
+  if (normalised.includes('FROZEN') || normalised === 'DEBIT_FROZEN' || normalised === 'CREDIT_FROZEN') return 'FROZEN';
+  if (normalised === 'CLOSED') return 'CLOSED';
+  if (normalised === 'DECEASED') return 'DECEASED';
   return 'INACTIVE';
 }
 
@@ -124,24 +178,45 @@ function mapAccount(a: SpringAccount): Account {
     id: a.accountNumber,
     accountNumber: a.accountNumber,
     customerId: a.customerId != null ? String(a.customerId) : '',
+    customerNumber: a.customerNumber || undefined,
+    customerName: a.customerName || undefined,
     accountType: mapAccountType(a.accountType),
     productCode: a.productCode || undefined,
     currency: a.currencyCode || 'INR',
+    // Balances
     balance: toNumber(a.ledgerBalance),
     availableBalance: toNumber(a.availableBalance),
     holdAmount: toNumber(a.holdAmount),
+    unclearedAmount: toNumber(a.unclearedAmount),
     odLimit: toNumber(a.odLimit),
+    effectiveAvailable: toNumber(a.effectiveAvailable),
+    minimumBalance: toNumber(a.minimumBalance),
+    // Interest
     interestRate: toNumber(a.interestRate),
     accruedInterest: toNumber(a.accruedInterest),
+    lastInterestCreditDate: a.lastInterestCreditDate || undefined,
+    // Status & Branch
     status: mapStatus(a.status),
     branchCode: a.branchCode || undefined,
     ifscCode: a.ifscCode || undefined,
+    // Lifecycle
+    openedDate: toDateOrNow(a.openedDate),
+    closedDate: a.closedDate ? toDateOrNow(a.closedDate) : null,
+    closureReason: a.closureReason || undefined,
+    lastTransactionDate: a.lastTransactionDate ? toDateOrNow(a.lastTransactionDate) : undefined,
+    // Freeze
+    freezeType: a.freezeType as Account['freezeType'],
+    freezeReason: a.freezeReason || undefined,
+    // Nomination
     nomineeName: a.nomineeName || undefined,
+    nomineeRelationship: a.nomineeRelationship || undefined,
+    jointHolderMode: a.jointHolderMode || undefined,
+    // Facilities
     chequeBookEnabled: a.chequeBookEnabled ?? false,
     debitCardEnabled: a.debitCardEnabled ?? false,
-    openedDate: toDateOrNow(a.openedDate),
-    closedDate: null,
-    lastTransactionDate: a.lastTransactionDate ? toDateOrNow(a.lastTransactionDate) : undefined,
+    dailyWithdrawalLimit: a.dailyWithdrawalLimit != null ? toNumber(a.dailyWithdrawalLimit) : undefined,
+    dailyTransferLimit: a.dailyTransferLimit != null ? toNumber(a.dailyTransferLimit) : undefined,
+    // Legacy compat
     linkedAccounts: [],
     createdAt: toDateOrNow(a.openedDate),
     updatedAt: toDateOrNow(a.lastTransactionDate || a.openedDate),
@@ -150,7 +225,7 @@ function mapAccount(a: SpringAccount): Account {
 
 function mapTxn(t: SpringTxn, accountNumber: string): Transaction {
   const abs = Math.abs(toNumber(t.amount));
-  // REST_API_COMPLETE_CATALOGUE uses "DR"/"CR"; older code used "D"/"C".
+  // Per API §5: "DR"/"CR". Legacy deployments may use "D"/"C".
   const isDebit = t.debitCredit === 'DR' || t.debitCredit === 'D';
   const signed = isDebit ? -abs : abs;
   return {
@@ -160,16 +235,26 @@ function mapTxn(t: SpringTxn, accountNumber: string): Transaction {
     amount: signed,
     currency: 'INR',
     transactionType: isDebit ? 'DEBIT' : 'CREDIT',
+    debitCredit: (t.debitCredit === 'DR' || t.debitCredit === 'D') ? 'DR' : 'CR',
     status: t.reversed ? 'REVERSED' : 'COMPLETED',
     description: t.narration || t.transactionType,
     valueDate: toDateOrNow(t.valueDate),
     postingDate: toDateOrNow(t.postingDate),
     referenceNumber: t.transactionRef,
+    // Amount context (per API §5 Response — Amount)
+    balanceBefore: t.balanceBefore != null ? toNumber(t.balanceBefore) : undefined,
     balanceAfter: t.balanceAfter != null ? toNumber(t.balanceAfter) : undefined,
+    // Details (per API §5 Response — Details)
     counterpartyAccount: t.counterpartyAccount || undefined,
+    counterpartyName: t.counterpartyName || undefined,
     channel: t.channel || undefined,
+    chequeNumber: t.chequeNumber || undefined,
+    // Audit (per API §5 Response — Audit)
     voucherNumber: t.voucherNumber || undefined,
     branchCode: t.branchCode || undefined,
+    reversed: t.reversed ?? false,
+    reversedByRef: t.reversedByRef || undefined,
+    idempotencyKey: t.idempotencyKey || undefined,
     createdAt: toDateOrNow(t.postingDate),
     updatedAt: toDateOrNow(t.postingDate),
   };
@@ -351,7 +436,7 @@ class AccountService {
 
   /**
    * Open a new deposit account.
-   * Per REST_API_COMPLETE_CATALOGUE §CASA: `POST /v1/accounts/open`
+   * Per API_REFERENCE.md §4: `POST /accounts/open`
    * creates an account in PENDING_ACTIVATION status.
    */
   async createAccount(data: {
@@ -368,6 +453,100 @@ class AccountService {
       data,
     );
     return adapt(response.data, mapAccount);
+  }
+
+  /**
+   * Real-time balance inquiry.
+   * Per API_REFERENCE.md §6 endpoint 21: `GET /accounts/{n}/balance`
+   * Returns BalanceResponse with effectiveAvailable for UPI/IMPS.
+   */
+  async getBalance(accountNumber: string): Promise<ApiResponse<{
+    accountNumber: string;
+    status: string;
+    ledgerBalance: number;
+    availableBalance: number;
+    holdAmount: number;
+    unclearedAmount: number;
+    odLimit: number;
+    effectiveAvailable: number;
+  }>> {
+    const response = await apiClient.get<SpringEnvelope<{
+      accountNumber: string;
+      status: string;
+      ledgerBalance: number | string;
+      availableBalance: number | string;
+      holdAmount: number | string;
+      unclearedAmount: number | string;
+      odLimit: number | string;
+      effectiveAvailable: number | string;
+    }>>(`/accounts/${encodeURIComponent(accountNumber)}/balance`);
+    return adapt(response.data, (d) => ({
+      accountNumber: d.accountNumber,
+      status: d.status,
+      ledgerBalance: toNumber(d.ledgerBalance),
+      availableBalance: toNumber(d.availableBalance),
+      holdAmount: toNumber(d.holdAmount),
+      unclearedAmount: toNumber(d.unclearedAmount),
+      odLimit: toNumber(d.odLimit),
+      effectiveAvailable: toNumber(d.effectiveAvailable),
+    }));
+  }
+
+  /**
+   * Full statement for date range.
+   * Per API_REFERENCE.md §6 endpoint 23:
+   *   `GET /accounts/{n}/statement?fromDate=YYYY-MM-DD&toDate=YYYY-MM-DD`
+   */
+  async getStatement(
+    accountNumber: string,
+    fromDate: string,
+    toDate: string,
+  ): Promise<ApiResponse<{
+    accountNumber: string;
+    accountType: string;
+    fromDate: string;
+    toDate: string;
+    ledgerBalance: number;
+    availableBalance: number;
+    transactionCount: number;
+    transactions: Transaction[];
+  }>> {
+    const response = await apiClient.get<SpringEnvelope<{
+      accountNumber: string;
+      accountType: string;
+      fromDate: string;
+      toDate: string;
+      ledgerBalance: number | string;
+      availableBalance: number | string;
+      transactionCount: number;
+      transactions: SpringTxn[];
+    }>>(`/accounts/${encodeURIComponent(accountNumber)}/statement`, {
+      params: { fromDate, toDate },
+    });
+    return adapt(response.data, (d) => ({
+      accountNumber: d.accountNumber,
+      accountType: d.accountType,
+      fromDate: d.fromDate,
+      toDate: d.toDate,
+      ledgerBalance: toNumber(d.ledgerBalance),
+      availableBalance: toNumber(d.availableBalance),
+      transactionCount: d.transactionCount,
+      transactions: d.transactions.map((t) => mapTxn(t, accountNumber)),
+    }));
+  }
+
+  /**
+   * All accounts for a customer CIF.
+   * Per API_REFERENCE.md §6 endpoint 24:
+   *   `GET /accounts/customer/{customerId}`
+   */
+  async getAccountsByCustomer(
+    customerId: string | number,
+  ): Promise<ApiResponse<Account[]>> {
+    const response = await apiClient.get<SpringEnvelope<SpringAccount[]>>(
+      `/accounts/customer/${encodeURIComponent(String(customerId))}`,
+    );
+    return adapt(response.data, (d) => d.map(mapAccount));
   }
 }
 

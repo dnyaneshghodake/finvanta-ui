@@ -30,7 +30,9 @@ const ICON_SIZE = 18;
 const ICON_STROKE = 1.75;
 const MAKER: UserRole[] = ['MAKER', 'TELLER', 'OFFICER'];
 const CHECKER: UserRole[] = ['CHECKER', 'MANAGER', 'APPROVER'];
-const ADMIN: UserRole[] = ['ADMIN_HO', 'BRANCH_ADMIN'];
+// Per API_REFERENCE.md §1: Spring returns 'ADMIN' for full admin access.
+// Must include all three admin-tier roles so sidebar items are visible.
+const ADMIN: UserRole[] = ['ADMIN', 'ADMIN_HO', 'BRANCH_ADMIN'];
 
 interface SubItem { label: string; href: string; roles?: UserRole[]; }
 interface NavModule { id: string; label: string; icon: React.ReactNode; href?: string; children?: SubItem[]; roles?: UserRole[]; }

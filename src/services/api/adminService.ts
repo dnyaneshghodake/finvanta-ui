@@ -78,6 +78,12 @@ function adaptSingle<T>(body: SpringEnvelope<T>): ApiResponse<T> {
   if (body.status === 'SUCCESS' && body.data != null) {
     return okEnvelope(body.data);
   }
+  // For void operations (DELETE), Spring returns {status:"SUCCESS", data:null}.
+  // Treat SUCCESS with null data as a successful void response rather than
+  // an error — otherwise HolidayService.remove() always reports failure.
+  if (body.status === 'SUCCESS') {
+    return okEnvelope(null as unknown as T);
+  }
   return errEnvelope(body.errorCode || 'UNKNOWN', body.message || 'Request failed', 400);
 }
 

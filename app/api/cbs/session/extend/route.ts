@@ -59,7 +59,12 @@ export async function POST(req: NextRequest) {
   // expiresAt (idle timeout). The sliding session window continuously
   // extends expiresAt, making the old condition always false for active
   // users. jwtExpiresAt tracks the actual JWT expiry from Spring.
-  const jwtExpiry = session.jwtExpiresAt ?? session.expiresAt;
+  //
+  // For legacy sessions without jwtExpiresAt (created before this field
+  // was added), fall back to issuedAt + 15min (default JWT lifetime).
+  // Using session.expiresAt as fallback would never trigger because the
+  // sliding window keeps it 30 min in the future.
+  const jwtExpiry = session.jwtExpiresAt ?? (session.issuedAt + 15 * 60 * 1000);
   if (refreshToken && jwtExpiry - now < 60_000) {
     try {
       const upstream = await fetch(`${env.backendApiBase}/auth/refresh`, {
@@ -72,6 +77,12 @@ export async function POST(req: NextRequest) {
         },
         body: JSON.stringify({ refreshToken }),
         cache: "no-store",
+        // CRITICAL: do not follow redirects. Same rationale as the login
+        // route (app/api/cbs/auth/login/route.ts:257): Spring Security's
+        // UI chain redirects unauthenticated POSTs to an HTML login page
+        // (302→200). Without this, fetch follows the redirect and
+        // json().catch(() => ({})) silently produces an empty object.
+        redirect: "manual",
       });
 
       if (!upstream.ok) {

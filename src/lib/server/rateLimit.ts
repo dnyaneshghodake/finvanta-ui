@@ -111,12 +111,17 @@ export function checkRateLimit(
  * Extract client IP from Next.js request headers.
  * Prefers X-Forwarded-For (set by load balancers), falls back to
  * X-Real-IP, then the connection remote address.
+ *
+ * CWE-117 mitigation: sanitize the extracted IP to prevent log
+ * injection via crafted headers. Only allow [0-9a-fA-F.:] (IPv4,
+ * IPv6, and port separators). Anything else is stripped.
  */
 export function extractClientIp(headers: Headers): string {
   const xff = headers.get("x-forwarded-for");
-  if (xff) {
-    // X-Forwarded-For can be comma-separated; first entry is the client
-    return xff.split(",")[0].trim();
-  }
-  return headers.get("x-real-ip") || "unknown";
+  const raw = xff
+    ? xff.split(",")[0].trim()
+    : (headers.get("x-real-ip") || "unknown");
+  // Strip characters that are not valid in IPv4/IPv6 addresses.
+  // This prevents CRLF injection, log forging, and unbounded Map keys.
+  return raw.replace(/[^0-9a-fA-F.:]/g, "").slice(0, 45) || "unknown";
 }

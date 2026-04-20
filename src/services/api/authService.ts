@@ -72,6 +72,10 @@ export interface HeartbeatResponse {
   expiresAt: number;
   /** Server-authoritative business date (YYYY-MM-DD). */
   businessDate?: string;
+  /** Full business day context — dayStatus may change during session
+   *  (e.g. DAY_OPEN → EOD_RUNNING). Per API_LOGIN_CONTRACT.md §15
+   *  Rule 8: dayStatus controls the entire UI. */
+  businessDay?: BusinessDay | null;
 }
 
 class AuthService {
