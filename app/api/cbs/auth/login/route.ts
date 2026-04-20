@@ -238,6 +238,16 @@ export async function POST(req: NextRequest) {
 
   const json = (await upstream.json().catch(() => ({}))) as SpringTokenResponse;
 
+  // Debug: log the raw Spring response shape so we can diagnose
+  // token extraction failures without guessing at the envelope.
+  if (process.env.NODE_ENV !== "production") {
+    const dataKeys = json.data ? Object.keys(json.data as Record<string, unknown>) : [];
+    console.log(
+      `[BFF login] upstream=${upstream.status} status=${json.status ?? "?"} ` +
+      `errorCode=${json.errorCode ?? "none"} data.keys=[${dataKeys.join(",")}]`,
+    );
+  }
+
   // ── MFA step-up detection ──────────────────────────────────────
   // Per API_LOGIN_CONTRACT.md §4: HTTP 428 with errorCode
   // "MFA_REQUIRED" and data: { challengeId, channel: "TOTP" }.
@@ -285,11 +295,22 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  // Determine if this is a success response. The new Spring shape nests
-  // the access token under `data.token.accessToken`; the legacy shape
-  // has it flat at `data.accessToken`. We detect both.
-  const rawData = (upstream.ok && json.data) ? (json.data as SpringTokenSuccessData) : null;
-  const accessToken = rawData?.token?.accessToken || rawData?.accessToken;
+  // ── Extract access token from any supported response shape ─────
+  // Per API_LOGIN_CONTRACT.md v2.0 §4, the success response is a flat
+  // AuthResponse: data.accessToken (no nested data.token wrapper).
+  // Per v1.0, it was nested: data.token.accessToken.
+  // We detect ALL possible locations to be resilient across versions.
+  const d = (upstream.ok && json.data) ? (json.data as Record<string, unknown>) : null;
+  const accessToken =
+    // v1.0 nested: data.token.accessToken
+    (d?.token as Record<string, unknown> | undefined)?.accessToken as string | undefined ||
+    // v2.0 flat: data.accessToken
+    (d?.accessToken as string | undefined) ||
+    // Fallback: check if entire json.data IS the token response (no wrapper)
+    null;
+
+  // Cast to the full shape for field extraction below
+  const rawData = d as SpringTokenSuccessData | null;
 
   if (!accessToken) {
     // Error path — per REST_API_COMPLETE_CATALOGUE §Standard Response
@@ -340,10 +361,12 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  // ── Extract token fields (nested or flat) ─────────────────────
+  // ── Extract token fields (nested v1.0 or flat v2.0) ────────────
   const tok = rawData?.token;
+  const refreshTokenRaw = tok?.refreshToken ?? (d?.refreshToken as string | undefined) ?? rawData?.refreshToken;
+  const tokenTypeRaw = tok?.tokenType ?? (d?.tokenType as string | undefined) ?? rawData?.tokenType;
   const expiresIn = tok?.expiresIn ?? rawData?.expiresIn;
-  const expiresAtRaw = tok?.expiresAt ?? rawData?.expiresAt;
+  const expiresAtRaw = tok?.expiresAt ?? (d?.expiresAt as number | undefined) ?? rawData?.expiresAt;
 
   const now = Date.now();
   let expiresAt: number;
@@ -356,7 +379,11 @@ export async function POST(req: NextRequest) {
   }
 
   // ── Extract nested sub-objects ──────────────────────────────
-  const sUser = rawData?.user;
+  // v2.0 flat AuthResponse: user is at data.user with role + branchCode
+  //   directly on the user object. No separate branch/role/limits objects.
+  // v1.0 nested LoginSessionContext: separate data.branch, data.role, etc.
+  // We read from both shapes.
+  const sUser = (d?.user as SpringUser | undefined) ?? rawData?.user;
   const sBranch = rawData?.branch;
   const sBizDay = rawData?.businessDay;
   const sRole = rawData?.role;
@@ -388,9 +415,12 @@ export async function POST(req: NextRequest) {
     email: sUser?.email,
     displayName: sUser?.displayName
       || (sUser?.firstName && sUser?.lastName ? `${sUser.firstName} ${sUser.lastName}` : undefined),
+    // v2.0: data.user.role is a string ("MAKER"); v1.0: data.role.role
     roles: sRole?.role
       ? [sRole.role]
-      : (sUser?.roles?.length ? sUser.roles : []),
+      : ((sUser as Record<string, unknown> | undefined)?.role
+        ? [String((sUser as Record<string, unknown>).role)]
+        : (sUser?.roles?.length ? sUser.roles : [])),
     makerCheckerRole: sRole?.makerCheckerRole,
     permissionsByModule: sRole?.permissionsByModule,
     permissions: flatPermissions.length > 0 ? flatPermissions : undefined,
@@ -412,8 +442,8 @@ export async function POST(req: NextRequest) {
 
   const session = await writeSession({
     accessToken,
-    refreshToken: tok?.refreshToken ?? rawData?.refreshToken,
-    tokenType: tok?.tokenType || "Bearer",
+    refreshToken: refreshTokenRaw,
+    tokenType: tokenTypeRaw || "Bearer",
     expiresAt,
     user: sessionUser,
     correlationId,
