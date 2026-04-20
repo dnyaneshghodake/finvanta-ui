@@ -185,7 +185,7 @@ export const formatAccountType = (type: string): string => {
 /**
  * Format date in CBS canonical audit format: DD-MMM-YYYY HH:mm
  *
- * Tier-1 CBS convention (Finacle / T24 / Flexcube): timestamps in
+ * Tier-1 CBS convention (Tier-1 CBS): timestamps in
  * audit trails, posting confirmations, and approval events use
  * DD-MMM-YYYY HH:mm (e.g. "19-APR-2026 10:42"). The month is
  * always 3-letter uppercase English, ASCII-only.

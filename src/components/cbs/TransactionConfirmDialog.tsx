@@ -15,10 +15,9 @@
  * no auto-submit, no double-click, and no keyboard shortcut that
  * bypasses this step.
  *
- * CBS benchmark:
- *   Finacle: HFINTRN confirmation screen before COMMIT
- *   T24: OFS.COMMIT step with full detail review
- *   FLEXCUBE: CSTB_TXN_CONFIRM with amount-in-words
+ * Tier-1 CBS benchmark: every monetary posting passes through a
+ * dedicated confirmation step that renders the full field-level
+ * detail (including amount-in-words) before the final commit.
  */
 
 import { useState, useEffect, useRef, type ReactNode } from 'react';

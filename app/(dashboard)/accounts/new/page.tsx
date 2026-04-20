@@ -29,7 +29,7 @@ import Link from 'next/link';
 const accountSchema = z.object({
   customerId: z.string().min(1, 'Customer ID is required'),
   accountType: z.enum(['SAVINGS', 'CURRENT', 'SALARY']),
-  currencyCode: z.string().default('INR'),
+  currencyCode: z.string().min(1),
   nomineeName: z.string().optional(),
   initialDeposit: z.string().regex(/^\d+(\.\d{1,2})?$/, 'Enter a valid amount').optional(),
 });

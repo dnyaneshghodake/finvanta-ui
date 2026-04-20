@@ -109,7 +109,7 @@ export function useDashboardWidget<T>(
       // the JWT was rejected by Spring. Unlike 404/500 (widget-
       // specific failures), a 401 affects ALL widgets and requires
       // a full re-authentication. Redirect to login immediately.
-      // Per CBS benchmark: Finacle Connect treats 401 on ANY call
+      // Per CBS benchmark: Tier-1 CBS portal treats 401 on ANY call
       // as a session-termination signal regardless of the endpoint.
       if (res.status === 401) {
         const errorCode = (res.data as Record<string, unknown> | undefined)?.errorCode;
@@ -138,7 +138,11 @@ export function useDashboardWidget<T>(
       // Non-2xx means the widget endpoint failed (may not exist yet).
       // Show the widget error state — do NOT trigger a logout.
       if (res.status < 200 || res.status >= 300) {
-        const errMsg = res.data?.message || res.data?.errorCode || `HTTP ${res.status}`;
+        const envelope = res.data as
+          | { message?: string; errorCode?: string }
+          | undefined;
+        const errMsg =
+          envelope?.message || envelope?.errorCode || `HTTP ${res.status}`;
         throw new Error(String(errMsg));
       }
 

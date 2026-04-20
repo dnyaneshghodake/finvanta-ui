@@ -571,7 +571,7 @@ export async function POST(req: NextRequest) {
   // Per API_LOGIN_CONTRACT.md §7: after login returns identity + tokens,
   // call GET /context/bootstrap to fetch the full operational context
   // (branch, businessDay, permissions, limits, config). This is the
-  // "session activation" step per Finacle USER_SESSION / Temenos
+  // "session activation" step per Tier-1 CBS USER_SESSION / Tier-1 CBS
   // EB.USER.CONTEXT pattern. The login response (v2.0) only has minimal
   // user identity — the heavy context comes from bootstrap.
   let bootstrapUser = sUser;

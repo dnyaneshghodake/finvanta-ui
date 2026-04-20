@@ -8,7 +8,7 @@
  * by category (system, navigation, action, form). Dismissed by
  * Escape or clicking outside.
  *
- * CBS benchmark: Finacle shows "Key Help" via F1; T24 has a
+ * CBS benchmark: Tier-1 CBS shows "Key Help" via F1; Tier-1 CBS has a
  * similar shortcut reference accessible from every screen.
  */
 

@@ -1,13 +1,15 @@
 /**
  * Vitest configuration for FINVANTA CBS.
+ *
  * @file vitest.config.ts
  *
- * Per RBI IT Governance Direction 2023 §8.4: all financial computation
- * modules, access-control logic, and session-management code MUST have
- * automated regression tests. This config covers:
- *   - Unit tests (src/**/*.test.ts) via Vitest
- *   - React component tests via @testing-library/react
- *   - Path aliases matching tsconfig.json
+ * Per RBI IT Governance Direction 2023 section 8.4, all financial
+ * computation modules, access-control logic, and session-management
+ * code MUST have automated regression tests. This config covers:
+ *
+ *   - Unit tests (src/... /*.test.ts) via Vitest.
+ *   - React component tests via @testing-library/react.
+ *   - Path aliases matching tsconfig.json.
  */
 import { defineConfig } from 'vitest/config';
 import path from 'path';
@@ -48,12 +50,58 @@ export default defineConfig({
         'src/test/**',
         'src/**/index.ts',
       ],
+      /**
+       * Coverage floors (per the Tier-1 CBS hardening audit).
+       *
+       * Global: 80% statements / branches / functions / lines.
+       * Hot-spot directories (security primitives, server-side BFF
+       * code, and the PII / formatter / validator utility modules)
+       * must hit 95% because regressions there silently break
+       * authentication, PII masking, or the Spring wire contract.
+       *
+       * Vitest supports per-glob overrides in the `thresholds` map
+       * alongside the global numbers. Each glob is evaluated
+       * independently — a drop under the per-path floor fails the
+       * build even when the global floor is met.
+       *
+       * These floors are enforced by CI (see .github/workflows/ci.yml);
+       * locally you can run `npm run test -- --coverage` to check.
+       */
       thresholds: {
-        // CBS audit minimum — increase as coverage grows
-        statements: 40,
-        branches: 30,
-        functions: 40,
-        lines: 40,
+        statements: 80,
+        branches: 80,
+        functions: 80,
+        lines: 80,
+        'src/security/**': {
+          statements: 95,
+          branches: 95,
+          functions: 95,
+          lines: 95,
+        },
+        'src/lib/server/**': {
+          statements: 95,
+          branches: 95,
+          functions: 95,
+          lines: 95,
+        },
+        'src/utils/formatters.ts': {
+          statements: 95,
+          branches: 95,
+          functions: 95,
+          lines: 95,
+        },
+        'src/utils/validators.ts': {
+          statements: 95,
+          branches: 95,
+          functions: 95,
+          lines: 95,
+        },
+        'src/utils/pii.ts': {
+          statements: 95,
+          branches: 95,
+          functions: 95,
+          lines: 95,
+        },
       },
     },
   },

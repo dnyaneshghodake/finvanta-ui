@@ -66,13 +66,22 @@ async function proactiveRefresh(
         if (newAccessToken) {
           const newExpiresIn = d?.token?.expiresIn ?? d?.expiresIn;
           const newExpiresAtRaw = d?.token?.expiresAt ?? d?.expiresAt;
+          // Spring is the authority on JWT lifetime. When the refresh
+          // response lacks an explicit expiresIn / expiresAt we fail the
+          // refresh instead of inventing a 15-minute fallback: a silent
+          // fallback masks a contract regression and lets a client hold
+          // an already-expired token. A Tier-1 CBS never trusts the UI
+          // layer to guess JWT lifetimes.
           let newJwtExpiresAt: number;
           if (newExpiresIn && newExpiresIn > 0) {
             newJwtExpiresAt = now + newExpiresIn * 1000;
           } else if (newExpiresAtRaw && newExpiresAtRaw > now / 1000) {
             newJwtExpiresAt = newExpiresAtRaw * 1000;
           } else {
-            newJwtExpiresAt = now + 15 * 60 * 1000;
+            if (process.env.NODE_ENV !== "production") {
+              console.warn("[BFF proxy] JWT refresh response missing expiresIn/expiresAt — failing refresh");
+            }
+            return null;
           }
           const refreshed: CbsSession = {
             ...session,
@@ -107,6 +116,25 @@ async function proactiveRefresh(
   } finally {
     refreshInFlight = null;
   }
+}
+
+// ── Body-size ceiling ─────────────────────────────────────────────
+// Tier-1 CBS portals cap BFF payloads at ~1 MiB. Anything larger
+// is almost certainly a misuse or an attempt to exhaust memory.
+const BODY_SIZE_CEILING_BYTES = 1024 * 1024;
+
+/**
+ * BFF target paths (relative to the Spring `/api/v1` prefix that
+ * serverEnv().backendApiBase already supplies) that are allowed to
+ * exceed the generic body ceiling. Reserved for future document
+ * upload / statement import endpoints.
+ */
+const UPLOAD_PATHS: readonly string[] = [
+  // e.g. "/documents/upload", "/imports/"
+];
+
+function isUploadPath(targetPath: string): boolean {
+  return UPLOAD_PATHS.some((prefix) => targetPath.startsWith(prefix));
 }
 
 const HOP_BY_HOP = new Set([
@@ -191,8 +219,8 @@ export async function proxyToBackend(
   // the operator never sees a 401 mid-session. The sliding session
   // window below extends the BFF session independently.
   //
-  // CBS benchmark: Finacle Connect refreshes the JWT at T-60s;
-  // T24 Browser uses a similar proactive rotation.
+  // Tier-1 CBS benchmark: proactive rotation at T-60s is the
+  // standard pattern for banking portals backed by JWT auth.
   //
   // Race mitigation: a module-level Promise lock ensures only the
   // first request within the 60s window triggers the refresh. All
@@ -279,9 +307,29 @@ export async function forward(
     headers.set("x-idempotency-key", crypto.randomUUID());
   }
 
+  // ── Body-size ceiling ──────────────────────────────────────────
+  // Reject requests whose body exceeds 1 MiB on non-upload BFF
+  // routes. The root `proxy.ts` already enforces the same ceiling
+  // using the advisory Content-Length header; this is the
+  // belt-and-suspenders check against clients that strip or
+  // under-report Content-Length (chunked transfer, custom agents).
+  // Currently the BFF has no upload endpoints — any future
+  // upload-capable route must be added to UPLOAD_PATHS below AND
+  // to proxy.ts's UPLOAD_PATH_PREFIXES.
   let body: BodyInit | undefined;
   if (method !== "GET" && method !== "HEAD") {
     const ab = await req.arrayBuffer();
+    if (!isUploadPath(targetPath) && ab.byteLength > BODY_SIZE_CEILING_BYTES) {
+      return NextResponse.json(
+        {
+          success: false,
+          errorCode: "PAYLOAD_TOO_LARGE",
+          message: `Request body exceeds ${BODY_SIZE_CEILING_BYTES} bytes`,
+          correlationId,
+        },
+        { status: 413, headers: { "x-correlation-id": correlationId } },
+      );
+    }
     if (ab.byteLength > 0) body = ab;
   }
 

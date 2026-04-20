@@ -2,7 +2,7 @@
 
 > **Version:** 3.0 · **Base URL:** `/api/v1` · **Auth:** JWT Bearer · **Envelope:** `ApiResponse<T>` with `meta` + `error` (Tier-1 CBS Grade)
 >
-> Per RBI IT Governance Direction 2023, RBI Fair Practices Code 2023, Finacle Connect / Temenos IRIS standards.
+> Per RBI IT Governance Direction 2023, RBI Fair Practices Code 2023, Tier-1 CBS API standards.
 > **100+ endpoints** across 20 controllers · **42 error codes** · **4 CBS roles** · **4 severity levels**
 >
 > **What's new in v3.0:** Tier-1 response envelope (meta.apiVersion, meta.correlationId, error.severity, error.action),
@@ -60,7 +60,7 @@
 
 ### Response Envelope (Tier-1 CBS Grade)
 
-Every response uses `ApiResponse<T>` with structured `meta` and `error` objects per Finacle API / Temenos IRIS / ISO 20022 alignment.
+Every response uses `ApiResponse<T>` with structured `meta` and `error` objects per Tier-1 CBS response envelope / ISO 20022 alignment.
 
 **Success:**
 ```json
@@ -420,7 +420,7 @@ POST /auth/token → store JWT in memory
 | # | Method | Path | Roles | Description |
 |---|--------|------|-------|-------------|
 | 20 | GET | `/accounts/{accountNumber}` | ALL | Account details (full AccountResponse) |
-| 21 | GET | `/accounts/{accountNumber}/balance` | ALL | Real-time balance inquiry (per Finacle BAL_INQ, used by UPI/IMPS) |
+| 21 | GET | `/accounts/{accountNumber}/balance` | ALL | Real-time balance inquiry (per Tier-1 CBS BAL_INQ, used by UPI/IMPS) |
 | 22 | GET | `/accounts/{accountNumber}/mini-statement?count=10` | ALL | Last N transactions (max 50) |
 | 23 | GET | `/accounts/{accountNumber}/statement?fromDate=YYYY-MM-DD&toDate=YYYY-MM-DD` | ALL | Full statement for date range |
 | 24 | GET | `/accounts/customer/{customerId}` | ALL | All accounts by customer CIF |

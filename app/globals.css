@@ -350,7 +350,7 @@ body {
 }
 
 /* CBS Login input — taller variant for the sign-in page.
- * Tier-1 CBS convention (Finacle / T24 / Flexcube): login fields are
+ * Tier-1 CBS convention (Tier-1 CBS): login fields are
  * 38–40px tall with 14px font to convey institutional trust weight.
  * The base .cbs-input (34px / 13px) is retained for data-dense
  * operational screens (account lists, transfer forms, grids). */

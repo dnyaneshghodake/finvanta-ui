@@ -137,7 +137,7 @@ export default function DashboardPage() {
       {/* ── Widget grid — 12-column, 16px gap, skeleton-first ── */}
       {/* Each widget is wrapped in WidgetErrorBoundary so a render
           crash in one widget does NOT take down the entire dashboard.
-          CBS benchmark: Finacle Connect isolates each module tile. */}
+          CBS benchmark: Tier-1 CBS portal isolates each module tile. */}
       {visibleWidgets.map((def) => (
         <div key={def.id} className={def.gridClass}>
           <WidgetErrorBoundary moduleRef={def.errorRef}>

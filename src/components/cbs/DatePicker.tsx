@@ -3,7 +3,7 @@
  * input type="date".
  * @file src/components/cbs/DatePicker.tsx
  *
- * Tier-1 CBS convention (Finacle / T24 / Flexcube):
+ * Tier-1 CBS convention (Tier-1 CBS):
  *   - Display format is always DD-MMM-YYYY (e.g. "19-APR-2026")
  *     regardless of browser locale.
  *   - Calendar grid: 7 columns (SUN–SAT), header in MMM-YYYY mono.

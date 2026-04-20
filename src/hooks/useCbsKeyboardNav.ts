@@ -4,7 +4,7 @@
  * CBS Keyboard Navigation System — Tier-1 teller productivity.
  * @file src/hooks/useCbsKeyboardNav.ts
  *
- * Finacle/T24/FLEXCUBE operators rarely touch the mouse. The entire
+ * Tier-1 CBS operators rarely touch the mouse. The entire
  * workflow is driven by function keys and keyboard shortcuts:
  *
  *   F1  = Help / Context Help
@@ -78,7 +78,7 @@ function normalizeKey(e: KeyboardEvent): string {
 /**
  * Global CBS keyboard navigation hook.
  *
- * Provides the standard Finacle/T24 function key map plus
+ * Provides the standard Tier-1 CBS/Tier-1 CBS function key map plus
  * page-specific overrides. The shortcut help overlay (Ctrl+/)
  * is built-in.
  *

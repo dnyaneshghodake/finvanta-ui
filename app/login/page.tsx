@@ -342,8 +342,11 @@ function LoginInner() {
                     setCapsLockOn(e.getModifierState('CapsLock'));
                   }
                 }}
-                onBlur={() => setCapsLockOn(false)}
                 {...register('password')}
+                onBlur={(e) => {
+                  setCapsLockOn(false);
+                  void register('password').onBlur(e);
+                }}
               />
               {capsLockOn && (
                 <div id="caps-lock-warn" className="mt-1 text-xs text-cbs-gold-700 flex items-center gap-1">

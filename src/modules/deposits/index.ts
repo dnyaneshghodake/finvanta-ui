@@ -2,7 +2,7 @@
  * Deposits (CASA) domain module — co-located exports.
  * @file src/modules/deposits/index.ts
  *
- * CBS domain-bounded module pattern (Finacle CASA / T24 AC):
+ * CBS domain-bounded module pattern (Tier-1 CBS CASA):
  * Groups all deposits-related types, services, and components
  * under a single import surface.
  *
