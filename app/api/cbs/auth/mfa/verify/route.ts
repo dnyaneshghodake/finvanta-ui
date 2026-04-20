@@ -107,6 +107,12 @@ export async function POST(req: NextRequest) {
         headers,
         body: JSON.stringify({ challengeId, otp: body.otp }),
         cache: "no-store",
+        // CRITICAL: do not follow redirects. Same rationale as the login
+        // route (app/api/cbs/auth/login/route.ts:257): Spring Security's
+        // UI chain redirects unauthenticated POSTs to an HTML login page
+        // (302→200). Without this, fetch follows the redirect and
+        // json().catch(() => ({})) silently produces an empty object.
+        redirect: "manual",
       },
     );
   } catch {
@@ -121,9 +127,30 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const json = (await upstream
-    .json()
-    .catch(() => ({}))) as SpringMfaResponse;
+  // Read raw text first, then parse — same pattern as login route.
+  // Avoids silent failures from .json().catch(() => ({})) which
+  // swallows parse errors and produces an empty object.
+  const rawText = await upstream.text().catch(() => "");
+  let json: SpringMfaResponse;
+  try {
+    json = rawText ? JSON.parse(rawText) : {};
+  } catch {
+    if (process.env.NODE_ENV !== "production") {
+      console.error(
+        `[BFF mfa/verify] upstream=${upstream.status} content-type=${upstream.headers.get("content-type")} ` +
+        `body=${rawText.slice(0, 500)}`,
+      );
+    }
+    return NextResponse.json(
+      {
+        success: false,
+        errorCode: "BACKEND_INVALID_RESPONSE",
+        message: "The banking server returned an unexpected response during MFA verification.",
+        correlationId,
+      },
+      { status: 502, headers: { "x-correlation-id": correlationId } },
+    );
+  }
 
   if (!upstream.ok) {
     return NextResponse.json(

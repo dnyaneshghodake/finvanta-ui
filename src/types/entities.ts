@@ -14,7 +14,11 @@
  */
 
 // Auth domain
-export type { User, UserRole, AuthToken } from './auth.types';
+export type {
+  User, UserRole, AuthToken,
+  AuthResponse, LoginSessionContext, TokenRefreshResponse,
+  MfaChallengeResponse, AuthErrorCode,
+} from './auth.types';
 
 // Deposits (CASA) domain
 export type { Account, AccountType, AccountStatus, FreezeType, Transaction } from './deposits.types';

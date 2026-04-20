@@ -52,8 +52,13 @@ interface MfaErr {
 /** Discriminated union — axios sees the full shape via validateStatus. */
 type MfaResponse = MfaOk | MfaErr;
 
-/** Max OTP attempts before forcing re-authentication (per contract §MFA). */
-const MAX_OTP_ATTEMPTS = 3;
+/**
+ * Max OTP attempts before forcing re-authentication.
+ * Per API_LOGIN_CONTRACT.md §5: server locks at 5 failed OTP attempts
+ * (failedLoginAttempts counter, starting from 0 after password phase
+ * reset). Client redirects to login at 5 to match server lockout.
+ */
+const MAX_OTP_ATTEMPTS = 5;
 
 export default function MfaPage() {
   const router = useRouter();
@@ -106,7 +111,15 @@ export default function MfaPage() {
           return;
         }
 
-        // Track failed OTP attempts per LOGIN_API_RESPONSE_CONTRACT §MFA.
+        // Per API_LOGIN_CONTRACT.md §5: account locks at 5 failed OTP
+        // attempts. Spring returns ACCOUNT_LOCKED when the threshold
+        // is reached during the MFA phase.
+        if (err?.errorCode === 'ACCOUNT_LOCKED') {
+          router.push('/login?reason=account_locked');
+          return;
+        }
+
+        // Track failed OTP attempts per API_LOGIN_CONTRACT.md §5.
         const attempts = otpAttempts + 1;
         setOtpAttempts(attempts);
 
