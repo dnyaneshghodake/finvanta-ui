@@ -13,13 +13,14 @@
  *   - Optional MFA enrollment
  */
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import Link from 'next/link';
 import { Breadcrumb, StatusRibbon, CbsTableSkeleton } from '@/components/cbs';
 import { AdminPageGuard } from '@/components/atoms';
 import { useUIStore } from '@/store/uiStore';
 import { operatorService } from '@/services/api/adminService';
 import { formatCbsTimestamp } from '@/utils/formatters';
+import { useCbsKeyboard } from '@/hooks/useCbsKeyboard';
 import type { Operator } from '@/types/entities';
 import { ShieldCheck, Lock, Unlock, KeyRound, Search } from 'lucide-react';
 
