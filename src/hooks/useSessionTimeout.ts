@@ -20,8 +20,12 @@ import { useEffect, useRef, useCallback, useState } from 'react';
 import { useAuthStore } from '@/store/authStore';
 import { logger } from '@/utils/logger';
 
-/** Default inactivity timeout: 15 minutes (in ms) */
-const SESSION_TIMEOUT_MS = 15 * 60 * 1000;
+/**
+ * Default inactivity timeout: 30 minutes (in ms).
+ * Must match CBS_SESSION_IDLE_SECONDS in .env.development (1800s).
+ * The backend dev env also uses 30 minutes.
+ */
+const SESSION_TIMEOUT_MS = 30 * 60 * 1000;
 
 /** Warning shown 2 minutes before logout */
 const WARNING_BEFORE_MS = 2 * 60 * 1000;

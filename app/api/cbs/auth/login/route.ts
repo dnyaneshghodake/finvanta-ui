@@ -444,15 +444,36 @@ export async function POST(req: NextRequest) {
   const expiresIn = tok?.expiresIn ?? rawData?.expiresIn;
   const expiresAtRaw = tok?.expiresAt ?? (d?.expiresAt as number | undefined) ?? rawData?.expiresAt;
 
+  // ── BFF session expiry ──────────────────────────────────────
+  // The BFF session expiry is INDEPENDENT of the JWT expiry.
+  // The JWT expiresAt (typically 15 min) controls when Spring rejects
+  // the token. The BFF session expiry controls when the BFF itself
+  // considers the session dead. These must NOT be the same:
+  //
+  //   JWT expiresAt:     15 min (Spring rejects after this)
+  //   BFF session:       CBS_SESSION_IDLE_SECONDS (default 30 min for dev)
+  //   Cookie maxAge:     CBS_SESSION_TTL_SECONDS (absolute ceiling, 8h)
+  //
+  // The BFF proactively refreshes the JWT via /auth/refresh at
+  // expiresAt - 60s. If the refresh fails, the next API call gets
+  // 401 from Spring and the user is redirected to login.
+  //
+  // We store the JWT's expiresAt separately so the refresh timer
+  // knows when to fire, but the SESSION expiry uses the idle timeout.
   const now = Date.now();
-  let expiresAt: number;
+
+  // JWT expiry — used for proactive refresh scheduling
+  let jwtExpiresAt: number;
   if (expiresIn && expiresIn > 0) {
-    expiresAt = now + expiresIn * 1000;
+    jwtExpiresAt = now + expiresIn * 1000;
   } else if (expiresAtRaw && expiresAtRaw > now / 1000) {
-    expiresAt = expiresAtRaw * 1000;
+    jwtExpiresAt = expiresAtRaw * 1000;
   } else {
-    expiresAt = now + env.sessionTtlSeconds * 1000;
+    jwtExpiresAt = now + 15 * 60 * 1000; // default 15 min
   }
+
+  // BFF session expiry — uses idle timeout, NOT JWT expiry
+  const expiresAt = now + env.sessionIdleExtensionSeconds * 1000;
 
   // ── Extract nested sub-objects ──────────────────────────────
   // v2.0 flat AuthResponse: user is at data.user with role + branchCode
