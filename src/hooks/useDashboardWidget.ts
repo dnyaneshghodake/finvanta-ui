@@ -113,8 +113,24 @@ export function useDashboardWidget<T>(
       // as a session-termination signal regardless of the endpoint.
       if (res.status === 401) {
         const errorCode = (res.data as Record<string, unknown> | undefined)?.errorCode;
-        if (errorCode === 'NO_SESSION' || errorCode === 'REFRESH_TOKEN_REUSED' || !errorCode) {
-          window.location.href = '/login?reason=session_expired';
+        // Per API_REFERENCE.md §17: all session-termination 401 codes
+        // require redirect to login. 'UNAUTHORIZED' means the JWT was
+        // rejected by Spring (expired/invalid). Without this, widgets
+        // show "UNAUTHORIZED" error states instead of redirecting.
+        if (
+          errorCode === 'NO_SESSION' ||
+          errorCode === 'REFRESH_TOKEN_REUSED' ||
+          errorCode === 'UNAUTHORIZED' ||
+          errorCode === 'INVALID_REFRESH_TOKEN' ||
+          errorCode === 'ACCOUNT_INVALID' ||
+          !errorCode
+        ) {
+          const reason = errorCode === 'REFRESH_TOKEN_REUSED'
+            ? 'session_compromised'
+            : errorCode === 'ACCOUNT_INVALID'
+              ? 'account_invalid'
+              : 'session_expired';
+          window.location.href = `/login?reason=${reason}`;
           return;
         }
       }

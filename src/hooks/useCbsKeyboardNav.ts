@@ -97,11 +97,12 @@ export function useCbsKeyboardNav(pageKeyMap: CbsKeyMap = {}) {
       handler: () => { setIsHelpOpen(true); },
       category: 'system',
     },
-    'F5': {
-      label: 'Refresh Screen',
-      handler: () => { window.location.reload(); },
-      category: 'system',
-    },
+    // NOTE: F5 is intentionally NOT in the global key map.
+    // Page-level useCbsKeyboard handlers own F5 behavior (e.g.
+    // workflow page refreshes data, branches page reloads list).
+    // The dashboard page registers its own F5: window.location.reload().
+    // A global F5 here (capture phase) would override all page-specific
+    // handlers because capture fires before bubble.
     'Escape': {
       label: 'Close Dialog / Cancel',
       handler: () => {

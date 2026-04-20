@@ -149,6 +149,12 @@ function LoginInner() {
           case 'AUTH_RATE_LIMIT_EXCEEDED':
             msg = err.message || 'Too many login attempts. Please wait and try again.';
             break;
+          case 'BACKEND_REDIRECT':
+          case 'BACKEND_INVALID_RESPONSE':
+            // Server configuration issue — not a credentials problem.
+            // The BFF error message is descriptive; surface it directly.
+            msg = err.message || 'The banking server returned an unexpected response. Contact IT support.';
+            break;
           default:
             msg = err?.message || 'Unable to sign in. Please check your credentials.';
             break;
