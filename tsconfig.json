@@ -60,6 +60,12 @@
       ],
       "@/constants/*": [
         "./src/constants/*"
+      ],
+      "@/modules/*": [
+        "./src/modules/*"
+      ],
+      "@/modules": [
+        "./src/modules"
       ]
     }
   },
