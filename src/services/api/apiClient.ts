@@ -58,36 +58,23 @@ const generateRequestId = (): string => {
 };
 
 /**
- * Browser API base URL — MUST point to the Next.js BFF, never to
- * Spring directly. The BFF owns JWT storage, CSRF, branch/tenant
- * injection, and correlation-id propagation. A direct backend URL
- * here bypasses every one of those security controls.
+ * Browser API base URL — hardcoded to the Next.js BFF route prefix.
  *
- * Correct:   /api/cbs              (relative — same origin as Next.js)
- * WRONG:     http://localhost:8080  (direct to Spring — bypasses BFF)
+ * This is NOT configurable via env vars. The browser MUST always talk
+ * to the BFF at `/api/cbs/**` on the same origin. The BFF then
+ * forwards to Spring with JWT, CSRF, branch/tenant headers injected
+ * server-side. Any direct-to-Spring URL here would bypass every
+ * security control (JWT containment, CSRF double-submit, branch
+ * injection, correlation-id propagation).
+ *
+ * The BFF route prefix `/api/cbs` is a compile-time architectural
+ * constant — it matches the Next.js App Router directory structure
+ * at `app/api/cbs/`. Changing it requires moving the route files.
  */
-const rawBaseUrl = process.env.NEXT_PUBLIC_API_URL || '/api/cbs';
-
-// Safety guard: if the env var contains an absolute URL to the backend
-// (e.g. "http://localhost:8080/api" from a stale .next cache or .env.local),
-// force it to the BFF-relative path. The browser must NEVER call Spring
-// directly — all traffic goes through the Next.js BFF at /api/cbs.
-const isBypassingBff = rawBaseUrl.includes('://') && !rawBaseUrl.startsWith('/');
-const API_BASE_URL = isBypassingBff ? '/api/cbs' : rawBaseUrl;
-
-if (typeof window !== 'undefined' && isBypassingBff) {
-  console.warn(
-    `[apiClient] NEXT_PUBLIC_API_URL="${rawBaseUrl}" is an absolute URL that bypasses the BFF. ` +
-    `Overriding to "${API_BASE_URL}". To fix permanently:\n` +
-    `  1. Stop the dev server\n` +
-    `  2. Delete the .next directory: rm -rf .next\n` +
-    `  3. Ensure .env.development has: NEXT_PUBLIC_API_URL=/api/cbs\n` +
-    `  4. Restart: npm run dev`,
-  );
-}
+const BFF_BASE_URL = '/api/cbs';
 
 const apiClient: AxiosInstance = axios.create({
-  baseURL: API_BASE_URL,
+  baseURL: BFF_BASE_URL,
   timeout: parseInt(process.env.API_TIMEOUT || '30000', 10),
   headers: {
     'Content-Type': 'application/json',
