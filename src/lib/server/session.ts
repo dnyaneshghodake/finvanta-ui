@@ -90,6 +90,13 @@ export interface CbsSession {
   refreshToken?: string;
   tokenType: string;
   expiresAt: number;
+  /**
+   * JWT expiry timestamp (epoch ms) — independent of session expiresAt.
+   * Used by the BFF proxy to schedule proactive token refresh at
+   * jwtExpiresAt - 60s. Without this, the sliding session window
+   * masks the JWT expiry and the token is never refreshed.
+   */
+  jwtExpiresAt?: number;
   user: CbsSessionUser;
   csrfToken: string;
   mfaVerifiedAt?: number;

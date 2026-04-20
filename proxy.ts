@@ -1,9 +1,10 @@
 /**
  * Root proxy — security headers, CSP nonce, correlation-id seeding.
  *
- * Next.js 16 uses `proxy.ts` with an exported `proxy` function
- * (replaces the deprecated `middleware.ts` / `middleware` convention).
- * See: https://nextjs.org/docs/messages/middleware-to-proxy
+ * Next.js uses `middleware.ts` with an exported `middleware` function.
+ * NOTE: This file is named proxy.ts but MUST be renamed to middleware.ts
+ * for Next.js to recognize it. The proxy() → middleware() rename was
+ * based on a non-existent Next.js 16 convention.
  *
  * Per RBI Master Direction on Information Technology Governance 2023 §8
  * and OWASP 2024, every HTML response from a Tier-1 banking portal must
@@ -67,7 +68,9 @@ function buildCsp(nonce: string, isDev: boolean): string {
   ].join("; ");
 }
 
-export function proxy(req: NextRequest): NextResponse {
+// TODO: Rename this file from proxy.ts → middleware.ts for Next.js to pick it up.
+// Next.js 16.2.4 still uses the middleware.ts convention.
+export function middleware(req: NextRequest): NextResponse {
   const isDev = process.env.NODE_ENV !== "production";
   const nonce = generateNonce();
 

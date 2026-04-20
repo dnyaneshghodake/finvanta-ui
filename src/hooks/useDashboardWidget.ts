@@ -82,6 +82,7 @@ export function useDashboardWidget<T>(
   const [status, setStatus] = useState<WidgetStatus>('loading');
   const [error, setError] = useState<string | null>(null);
   const [isInitialLoad, setIsInitialLoad] = useState(true);
+  const isInitialLoadRef = useRef(true);
   const retriesRef = useRef(0);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const mountedRef = useRef(true);
@@ -116,6 +117,7 @@ export function useDashboardWidget<T>(
         setStatus('success');
         setError(null);
         setIsInitialLoad(false);
+        isInitialLoadRef.current = false;
         retriesRef.current = 0;
       } else {
         throw new Error('Empty response');
@@ -128,7 +130,7 @@ export function useDashboardWidget<T>(
       // HTTP error responses (401, 404, 500). When the backend returns
       // a clear error, retrying won't help — show the error state.
       const isNetworkError = !(err instanceof Error) || !err.message.startsWith('HTTP ');
-      if (retriesRef.current < maxRetries && isInitialLoad && isNetworkError) {
+      if (retriesRef.current < maxRetries && isInitialLoadRef.current && isNetworkError) {
         retriesRef.current += 1;
         setTimeout(() => { void fetchData(silent); }, retriesRef.current * 1000);
         return;
@@ -136,8 +138,15 @@ export function useDashboardWidget<T>(
       setError(msg);
       setStatus('error');
       setIsInitialLoad(false);
+      isInitialLoadRef.current = false;
     }
-  }, [endpoint, errorRef, maxRetries, enabled, isInitialLoad]);
+  // NOTE: isInitialLoad intentionally excluded from deps to prevent
+  // double-fetch. The callback reads it via ref-like closure; the
+  // initial value (true) is captured on mount and updated by setState.
+  // Including it would cause fetchData to be recreated when
+  // setIsInitialLoad(false) fires, triggering the useEffect again.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [endpoint, errorRef, maxRetries, enabled]);
 
   // Initial fetch
   useEffect(() => {

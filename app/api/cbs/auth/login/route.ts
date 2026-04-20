@@ -641,6 +641,7 @@ export async function POST(req: NextRequest) {
     refreshToken: refreshTokenRaw,
     tokenType: tokenTypeRaw || "Bearer",
     expiresAt,
+    jwtExpiresAt,
     user: enrichedUser,
     correlationId,
     businessDate: bootstrapBusinessDate,

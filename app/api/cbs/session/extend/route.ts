@@ -54,7 +54,12 @@ export async function POST(req: NextRequest) {
   let sessionOpConfig = session.operationalConfig;
   let sessionTxnLimits = session.transactionLimits;
 
-  if (refreshToken && session.expiresAt - now < env.sessionIdleExtensionSeconds * 1000 * 0.2) {
+  // Use jwtExpiresAt (JWT lifetime) for refresh scheduling, NOT session
+  // expiresAt (idle timeout). The sliding session window continuously
+  // extends expiresAt, making the old condition always false for active
+  // users. jwtExpiresAt tracks the actual JWT expiry from Spring.
+  const jwtExpiry = session.jwtExpiresAt ?? session.expiresAt;
+  if (refreshToken && jwtExpiry - now < 60_000) {
     try {
       const upstream = await fetch(`${env.backendApiBase}/auth/refresh`, {
         method: "POST",
