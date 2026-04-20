@@ -38,6 +38,7 @@ export async function GET(req: NextRequest) {
         warning: remainingSeconds <= 120,
         expiresAt: session.expiresAt,
         businessDate,
+        businessDay: session.businessDay ?? null,
       },
       correlationId,
     },

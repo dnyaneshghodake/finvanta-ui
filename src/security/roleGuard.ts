@@ -30,22 +30,58 @@ export const hasAllRoles = (...requiredRoles: UserRole[]): boolean => {
 
 /**
  * Check if the current user has a specific permission string.
+ * Searches both the flat `permissions[]` array and the structured
+ * `permissionsByModule` map from the new Spring login response.
  */
 export const hasPermission = (permission: string): boolean => {
   const user = useAuthStore.getState().user;
-  if (!user || !user.permissions) return false;
-  return user.permissions.includes(permission);
+  if (!user) return false;
+  // Check flat permissions array first (legacy + derived)
+  if (user.permissions?.includes(permission)) return true;
+  // Check structured permissionsByModule map
+  if (user.permissionsByModule) {
+    return Object.values(user.permissionsByModule)
+      .some((perms) => perms.includes(permission));
+  }
+  return false;
+};
+
+/**
+ * Check if the current user has access to a specific CBS module.
+ * Uses `allowedModules[]` from the new Spring login response.
+ */
+export const hasModuleAccess = (module: string): boolean => {
+  const user = useAuthStore.getState().user;
+  if (!user?.allowedModules) return true; // No restriction data → allow (backend gates)
+  return user.allowedModules.includes(module);
 };
 
 /**
  * Check if user is a maker (can create/submit records).
+ * Checks both the role array and the makerCheckerRole field.
+ *
+ * Per API_REFERENCE.md §2.1, makerCheckerRole values are:
+ *   MAKER, CHECKER, BOTH, VIEWER
+ * "BOTH" means the operator can act as either maker or checker
+ * (but never on the same record — self-approval is still blocked).
  */
-export const isMaker = (): boolean => hasRole('MAKER', 'TELLER', 'OFFICER');
+export const isMaker = (): boolean => {
+  const user = useAuthStore.getState().user;
+  if (user?.makerCheckerRole === 'MAKER' || user?.makerCheckerRole === 'BOTH') return true;
+  return hasRole('MAKER', 'TELLER', 'OFFICER');
+};
 
 /**
  * Check if user is a checker (can verify/approve records).
+ * Checks both the role array and the makerCheckerRole field.
+ *
+ * Per API_REFERENCE.md §2.1, "BOTH" grants checker capability too.
  */
-export const isChecker = (): boolean => hasRole('CHECKER', 'MANAGER', 'APPROVER');
+export const isChecker = (): boolean => {
+  const user = useAuthStore.getState().user;
+  if (user?.makerCheckerRole === 'CHECKER' || user?.makerCheckerRole === 'BOTH') return true;
+  return hasRole('CHECKER', 'MANAGER', 'APPROVER');
+};
 
 /**
  * Check if user is HO admin (head office admin — can see all branches).
@@ -73,6 +109,10 @@ export const canApprove = (makerId: string): boolean => {
   // they are a different person from the maker. Hide the button and
   // let the backend reject if they attempt via an API call.
   if (!user.id) return false;
-  if (user.id === makerId) return false; // Self-approval blocked
+  // Coerce to string before comparing: Spring returns user.id as a
+  // number (Long), but makerId from workflow JSON is always a string.
+  // Strict equality (===) between number and string silently passes,
+  // defeating the self-approval gate.
+  if (String(user.id) === String(makerId)) return false; // Self-approval blocked
   return isChecker();
 };

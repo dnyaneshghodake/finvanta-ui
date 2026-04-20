@@ -4,14 +4,29 @@
  */
 
 /**
- * Standard API response wrapper
+ * BFF → Browser response envelope.
+ *
+ * This is the shape returned by the Next.js BFF routes (e.g.
+ * /api/cbs/auth/login, /api/cbs/auth/me) to the browser. It uses
+ * `success: boolean` for easy discriminated-union checks on the client.
+ *
+ * NOTE: The Spring backend uses a different envelope:
+ *   { status: "SUCCESS" | "ERROR", data, errorCode, message, timestamp }
+ * The BFF translates Spring → BFF format in each route handler.
+ * See LOGIN_API_RESPONSE_CONTRACT.md §Response Envelope Schema for
+ * the canonical Spring shape.
  */
 export interface ApiResponse<T> {
   success: boolean;
   data?: T;
   error?: ApiError;
-  timestamp: string;
-  requestId: string;
+  /** Machine-readable error code (e.g. "INVALID_CREDENTIALS", "MFA_REQUIRED"). */
+  errorCode?: string;
+  /** Human-readable error message for display. */
+  message?: string;
+  timestamp?: string;
+  requestId?: string;
+  correlationId?: string;
 }
 
 /**

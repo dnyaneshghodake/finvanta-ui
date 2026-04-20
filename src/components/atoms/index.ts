@@ -11,3 +11,4 @@ export { Spinner, type SpinnerProps } from './Spinner';
 export { Alert, type AlertProps } from './Alert';
 export { ErrorBoundary } from './ErrorBoundary';
 export { RoleGate, type RoleGateProps } from './RoleGate';
+export { AdminPageGuard, type AdminPageGuardProps } from './AdminPageGuard';

@@ -14,7 +14,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { apiClient } from '@/services/api/apiClient';
-import { AmountInr, AccountNo, CorrelationRefBadge } from '@/components/cbs';
+import { AmountInr, AccountNo, CorrelationRefBadge, Breadcrumb } from '@/components/cbs';
 import { Button } from '@/components/atoms';
 import Link from 'next/link';
 
@@ -33,8 +33,9 @@ export default function FdPrematureClosePage() {
     setError(null);
     setSuccess(null);
     try {
+      // REST_API_COMPLETE_CATALOGUE §FD premature-close expects `reason` (not `remarks`)
       const res = await apiClient.post(`/fixed-deposits/${fdNumber.trim()}/premature-close`, {
-        remarks: remarks.trim() || undefined,
+        reason: remarks.trim() || undefined,
       });
       const corr = res.headers?.['x-correlation-id'] as string | undefined;
       setCorrelationId(corr || null);
@@ -50,6 +51,12 @@ export default function FdPrematureClosePage() {
 
   return (
     <div className="space-y-4">
+      <Breadcrumb items={[
+        { label: 'Dashboard', href: '/dashboard' },
+        { label: 'Fixed Deposits', href: '/deposits' },
+        { label: 'Premature Close' },
+      ]} />
+
       <div>
         <h1 className="text-xl font-semibold text-cbs-ink">FD Premature Close</h1>
         <p className="text-xs text-cbs-steel-600 mt-0.5">

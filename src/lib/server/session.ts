@@ -15,17 +15,74 @@ import { decryptSession, encryptSession, generateCsrfToken } from "./crypto";
 import { serverEnv } from "./env";
 
 export interface CbsSessionUser {
-  id?: string;
+  /** Database user ID — Spring returns Long (number), stored as-is. */
+  id?: string | number;
   username: string;
   firstName?: string;
   lastName?: string;
   email?: string;
+  /** Primary role from `data.role.role` (e.g. "MAKER"). */
   roles: string[];
+  /** Maker-checker role from `data.role.makerCheckerRole`. */
+  makerCheckerRole?: string;
+  /**
+   * Module → permission[] map from `data.role.permissionsByModule`.
+   * E.g. { DEPOSIT: ["DEPOSIT_OPEN", ...], LOAN: ["LOAN_CREATE", ...] }
+   */
+  permissionsByModule?: Record<string, string[]>;
+  /** Flat permission list (legacy compat — derived from permissionsByModule). */
   permissions?: string[];
+  /** Modules the operator is authorised to access. */
+  allowedModules?: string[];
   branchCode?: string;
   branchName?: string;
+  branchId?: number;
+  ifscCode?: string;
+  branchType?: string;
+  zoneCode?: string;
+  regionCode?: string;
+  isHeadOffice?: boolean;
   tenantId?: string;
+  /** Computed by Spring: `data.user.displayName`. */
+  displayName?: string;
   mfaEnrolled?: boolean;
+  authenticationLevel?: string;
+  lastLoginTimestamp?: string;
+  passwordExpiryDate?: string;
+}
+
+/**
+ * Business day context from `data.businessDay`.
+ * Stored in the session so the Header and dashboard can read it
+ * without an extra API call.
+ */
+export interface CbsBusinessDay {
+  businessDate: string;
+  dayStatus: string;
+  isHoliday: boolean;
+  previousBusinessDate?: string;
+  nextBusinessDate?: string;
+}
+
+/**
+ * Operator transaction limits from `data.limits.transactionLimits[]`.
+ */
+export interface CbsTransactionLimit {
+  transactionType: string;
+  channel: string | null;
+  perTransactionLimit: number;
+  dailyAggregateLimit: number;
+}
+
+/**
+ * Operational config from `data.operationalConfig`.
+ */
+export interface CbsOperationalConfig {
+  baseCurrency: string;
+  decimalPrecision: number;
+  roundingMode: string;
+  fiscalYearStartMonth: number;
+  businessDayPolicy: string;
 }
 
 export interface CbsSession {
@@ -33,6 +90,13 @@ export interface CbsSession {
   refreshToken?: string;
   tokenType: string;
   expiresAt: number;
+  /**
+   * JWT expiry timestamp (epoch ms) — independent of session expiresAt.
+   * Used by the BFF proxy to schedule proactive token refresh at
+   * jwtExpiresAt - 60s. Without this, the sliding session window
+   * masks the JWT expiry and the token is never refreshed.
+   */
+  jwtExpiresAt?: number;
   user: CbsSessionUser;
   csrfToken: string;
   mfaVerifiedAt?: number;
@@ -40,23 +104,42 @@ export interface CbsSession {
   correlationId?: string;
   /**
    * Server-authoritative business date in ISO format (YYYY-MM-DD).
-   * Populated from Spring DayOpenService at login; falls back to
-   * server clock date when the backend does not supply it.
-   * The Header chrome bar reads this — never `new Date()` on the
-   * client — because the CBS business date can differ from the
-   * calendar date (e.g. after midnight before day-close).
+   * Populated from Spring `data.businessDay.businessDate` at login;
+   * falls back to server clock date when the backend does not supply it.
    */
   businessDate?: string;
+  /** Full business day context from `data.businessDay`. */
+  businessDay?: CbsBusinessDay;
+  /** Operator transaction limits from `data.limits`. */
+  transactionLimits?: CbsTransactionLimit[];
+  /** Operational config from `data.operationalConfig`. */
+  operationalConfig?: CbsOperationalConfig;
 }
 
 export async function readSession(): Promise<CbsSession | null> {
   const env = serverEnv();
   const jar = await cookies();
   const sid = jar.get(env.sessionCookieName)?.value;
-  if (!sid) return null;
+  if (!sid) {
+    if (process.env.NODE_ENV !== "production") {
+      console.debug("[readSession] no fv_sid cookie found");
+    }
+    return null;
+  }
   const session = decryptSession<CbsSession>(sid);
-  if (!session) return null;
-  if (session.expiresAt && session.expiresAt < Date.now()) return null;
+  if (!session) {
+    if (process.env.NODE_ENV !== "production") {
+      console.warn(`[readSession] decrypt failed — cookie length=${sid.length}`);
+    }
+    return null;
+  }
+  if (session.expiresAt && session.expiresAt < Date.now()) {
+    if (process.env.NODE_ENV !== "production") {
+      const agoMs = Date.now() - session.expiresAt;
+      console.warn(`[readSession] session expired ${agoMs}ms ago — expiresAt=${session.expiresAt} now=${Date.now()}`);
+    }
+    return null;
+  }
   return session;
 }
 

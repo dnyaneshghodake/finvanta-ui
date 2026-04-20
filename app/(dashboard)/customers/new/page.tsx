@@ -178,10 +178,50 @@ export default function NewCustomerPage() {
   const onSubmit = async (data: CifForm) => {
     setError(null);
     try {
-      const payload = { ...data };
-      if (payload.sameAsPermanent) {
-        payload.correspondenceAddress = { ...payload.permanentAddress };
-      }
+      // Map frontend form field names → Spring REST_API_COMPLETE_CATALOGUE
+      // §Customer Module field names. The form uses CKYC-centric naming;
+      // Spring uses flat CBS-centric naming.
+      const addr = data.sameAsPermanent
+        ? data.permanentAddress
+        : (data.correspondenceAddress ?? data.permanentAddress);
+      const payload = {
+        firstName: data.firstName,
+        lastName: data.lastName,
+        dateOfBirth: data.dob,
+        panNumber: data.pan,
+        aadhaarNumber: data.aadhaar,
+        mobileNumber: data.mobile,
+        email: data.email || undefined,
+        address: data.permanentAddress.line1 + (data.permanentAddress.line2 ? ', ' + data.permanentAddress.line2 : ''),
+        city: data.permanentAddress.city,
+        state: data.permanentAddress.state,
+        pinCode: data.permanentAddress.pincode,
+        customerType: data.customerType,
+        branchId: 1, // TODO: read from session user's branch
+        gender: data.gender === 'MALE' ? 'M' : data.gender === 'FEMALE' ? 'F' : 'O',
+        fatherName: data.fatherOrSpouseName,
+        motherName: data.motherName,
+        nationality: data.nationality?.toUpperCase() === 'INDIAN' ? 'INDIAN' : data.nationality,
+        maritalStatus: data.maritalStatus,
+        occupationCode: data.occupation,
+        annualIncomeBand: data.annualIncomeRange,
+        kycRiskCategory: data.riskCategory || 'LOW',
+        pep: data.pepFlag ?? false,
+        kycMode: 'ONLINE',
+        addressSameAsPermanent: data.sameAsPermanent ?? false,
+        permanentAddress: data.permanentAddress.line1 + (data.permanentAddress.line2 ? ', ' + data.permanentAddress.line2 : ''),
+        permanentCity: data.permanentAddress.city,
+        permanentState: data.permanentAddress.state,
+        permanentPinCode: data.permanentAddress.pincode,
+        permanentCountry: data.permanentAddress.country,
+        // Corporate fields (only if applicable)
+        ...(data.customerType === 'CORPORATE' ? {
+          employerName: data.companyName,
+          employmentType: 'CORPORATE',
+        } : {
+          employmentType: data.occupation === 'SALARIED' ? 'SALARIED' : data.occupation === 'SELF_EMPLOYED' ? 'SELF_EMPLOYED' : undefined,
+        }),
+      };
       const res = await apiClient.post('/customers', payload);
       const corr = res.headers?.['x-correlation-id'] as string | undefined;
       setCorrelationId(corr || null);

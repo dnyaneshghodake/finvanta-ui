@@ -21,7 +21,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { apiClient } from '@/services/api/apiClient';
-import { AmountInr, AccountNo, ValueDate } from '@/components/cbs';
+import { AmountInr, AccountNo, ValueDate, Breadcrumb } from '@/components/cbs';
 import { Button } from '@/components/atoms';
 import Link from 'next/link';
 
@@ -58,12 +58,19 @@ export default function BookFdPage() {
   const onSubmit = async (data: FdForm) => {
     setError(null);
     try {
+      // Map form fields → Spring REST_API_COMPLETE_CATALOGUE §FD Module.
+      // Spring expects `principalAmount` (not `depositAmount`),
+      // `tenureDays` (not `tenureMonths`), `autoRenewalMode` (YES/NO),
+      // and requires `branchId` + `interestRate`.
       const res = await apiClient.post('/fixed-deposits/book', {
         customerId: Number(data.customerId),
+        branchId: 1, // TODO: read from session user's branch
         linkedAccountNumber: data.linkedAccountNumber.toUpperCase(),
-        depositAmount: Number(data.depositAmount),
-        tenureMonths: Number(data.tenureMonths),
-        autoRenew: data.autoRenew,
+        principalAmount: Number(data.depositAmount),
+        interestRate: 0, // Server determines from product + tenure slab
+        tenureDays: Number(data.tenureMonths) * 30, // Approximate; server recalculates exact
+        interestPayoutMode: 'MATURITY',
+        autoRenewalMode: data.autoRenew ? 'YES' : 'NO',
         nomineeName: data.nomineeName || undefined,
       });
       const corr = res.headers?.['x-correlation-id'] as string | undefined;
@@ -78,6 +85,12 @@ export default function BookFdPage() {
 
   return (
     <div className="space-y-4">
+      <Breadcrumb items={[
+        { label: 'Dashboard', href: '/dashboard' },
+        { label: 'Fixed Deposits', href: '/deposits' },
+        { label: 'Book FD' },
+      ]} />
+
       <div>
         <h1 className="text-xl font-semibold text-cbs-ink">Book Fixed Deposit</h1>
         <p className="text-xs text-cbs-steel-600 mt-0.5">

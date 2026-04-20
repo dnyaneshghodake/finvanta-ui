@@ -31,7 +31,15 @@ type MfaForm = z.infer<typeof mfaSchema>;
 
 interface MfaOk {
   success: true;
-  data: { user: User; expiresAt: number; csrfToken: string; businessDate?: string };
+  data: {
+    user: User;
+    expiresAt: number;
+    csrfToken: string;
+    businessDate?: string;
+    businessDay?: { businessDate: string; dayStatus: string; isHoliday: boolean; previousBusinessDate?: string; nextBusinessDate?: string } | null;
+    operationalConfig?: { baseCurrency: string; decimalPrecision: number; roundingMode: string; fiscalYearStartMonth: number; businessDayPolicy: string } | null;
+    transactionLimits?: Array<{ transactionType: string; channel: string | null; perTransactionLimit: number; dailyAggregateLimit: number }> | null;
+  };
   correlationId?: string;
 }
 interface MfaErr {
@@ -44,14 +52,19 @@ interface MfaErr {
 /** Discriminated union — axios sees the full shape via validateStatus. */
 type MfaResponse = MfaOk | MfaErr;
 
+/** Max OTP attempts before forcing re-authentication (per contract §MFA). */
+const MAX_OTP_ATTEMPTS = 3;
+
 export default function MfaPage() {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [correlationId, setCorrelationId] = useState<string | null>(null);
+  const [otpAttempts, setOtpAttempts] = useState(0);
 
   const {
     register,
     handleSubmit,
+    setValue,
     formState: { errors, isSubmitting },
   } = useForm<MfaForm>({
     resolver: zodResolver(mfaSchema),
@@ -71,11 +84,44 @@ export default function MfaPage() {
 
       if (response.status !== 200 || !response.data?.success) {
         const err = response.data as MfaErr;
+
+        // Per API_REFERENCE.md §2.2 — terminal MFA error codes that
+        // require restarting the login flow from scratch.
+
+        // Challenge expired or tampered — must restart login.
         if (err?.errorCode === 'INVALID_MFA_CHALLENGE') {
           router.push('/login?reason=mfa_expired');
           return;
         }
-        setError(err?.message || 'OTP verification failed.');
+
+        // Challenge already consumed (replay detection) — restart login.
+        if (err?.errorCode === 'MFA_CHALLENGE_REUSED') {
+          router.push('/login?reason=mfa_expired');
+          return;
+        }
+
+        // Account disabled/locked between password and MFA steps.
+        if (err?.errorCode === 'ACCOUNT_INVALID') {
+          router.push('/login?reason=account_invalid');
+          return;
+        }
+
+        // Track failed OTP attempts per LOGIN_API_RESPONSE_CONTRACT §MFA.
+        const attempts = otpAttempts + 1;
+        setOtpAttempts(attempts);
+
+        if (attempts >= MAX_OTP_ATTEMPTS) {
+          setError('Too many invalid attempts. Please sign in again.');
+          // Brief delay so the operator sees the message before redirect.
+          setTimeout(() => router.push('/login'), 2000);
+          return;
+        }
+
+        const remaining = MAX_OTP_ATTEMPTS - attempts;
+        const msg = err?.message || 'Invalid OTP code.';
+        setError(`${msg} ${remaining} attempt${remaining === 1 ? '' : 's'} remaining.`);
+        // Clear the OTP input and re-focus for retry.
+        setValue('otp', '');
         return;
       }
 
@@ -84,6 +130,8 @@ export default function MfaPage() {
         csrfToken: response.data.data.csrfToken,
         expiresAt: response.data.data.expiresAt,
         businessDate: response.data.data.businessDate ?? null,
+        businessDay: response.data.data.businessDay ?? null,
+        operationalConfig: response.data.data.operationalConfig ?? null,
         isAuthenticated: true,
         isHydrated: true,
         isLoading: false,

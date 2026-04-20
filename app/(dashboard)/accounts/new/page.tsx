@@ -62,10 +62,14 @@ export default function AccountOpeningPage() {
   const onSubmit = async (data: AccountForm) => {
     setError(null);
     try {
+      // Map form fields → Spring REST_API_COMPLETE_CATALOGUE §CASA.
+      // Spring requires `branchId` (positive Long) and uses
+      // `productCode` (optional, defaults to accountType).
       const res = await apiClient.post('/accounts/open', {
         customerId: Number(data.customerId),
+        branchId: 1, // TODO: read from session user's branch
         accountType: data.accountType,
-        currencyCode: data.currencyCode,
+        productCode: data.accountType, // Default product code to account type
         nomineeName: data.nomineeName || undefined,
         initialDeposit: data.initialDeposit ? Number(data.initialDeposit) : undefined,
       });

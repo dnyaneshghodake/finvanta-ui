@@ -1,7 +1,7 @@
 /**
  * Per-request correlation id helper.
  *
- * The root middleware (middleware.ts) seeds x-correlation-id on every
+ * The root proxy (proxy.ts) seeds x-correlation-id on every
  * inbound request. Route handlers should read it via this helper so
  * the same id propagates to Spring via the BFF proxy and out to the
  * browser via the response header — producing an end-to-end trace

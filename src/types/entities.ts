@@ -20,7 +20,8 @@
  * - permissions: field-level permission enforcement
  */
 export interface User {
-  id?: string;
+  /** Database user ID — Spring returns Long (number). */
+  id?: string | number;
   username: string;
   email?: string;
   firstName?: string;
@@ -38,10 +39,28 @@ export interface User {
   // CBS-specific fields
   branchCode?: string;
   branchName?: string;
+  branchId?: number;
+  ifscCode?: string;
+  branchType?: string;
+  zoneCode?: string;
+  regionCode?: string;
+  isHeadOffice?: boolean;
   tenantId?: string;
   roles: UserRole[];
+  /** Maker-checker role (e.g. "MAKER", "CHECKER"). */
+  makerCheckerRole?: string;
+  /** Module → permission[] map from Spring `data.role.permissionsByModule`. */
+  permissionsByModule?: Record<string, string[]>;
+  /** Flat permission list (derived from permissionsByModule). */
   permissions?: string[];
+  /** Modules the operator is authorised to access. */
+  allowedModules?: string[];
+  /** Computed by Spring: `data.user.displayName`. */
+  displayName?: string;
   mfaEnrolled?: boolean;
+  authenticationLevel?: string;
+  lastLoginTimestamp?: string;
+  passwordExpiryDate?: string;
 }
 
 /**
@@ -58,29 +77,61 @@ export type UserRole =
   | 'MAKER'
   | 'CHECKER'
   | 'APPROVER'
-  | 'VIEWER';
+  | 'VIEWER'
+  | 'RECONCILER'
+  | 'ADMIN';
 
 /**
- * Bank account entity
+ * Bank account entity.
+ *
+ * Carries all CBS-mandatory fields per RBI Master Direction on KYC
+ * 2016 (as amended) and IT Governance Direction 2023 §8. Fields
+ * marked optional may be absent for older accounts or when the
+ * Spring DepositAccountController omits them from the response.
  */
 export interface Account {
   id: string;
   accountNumber: string;
   customerId: string;
   accountType: 'SAVINGS' | 'CURRENT' | 'SALARY';
+  /** Product code from the CBS product master (e.g. "SB_REGULAR"). */
+  productCode?: string;
   currency: string;
   balance: number;
   availableBalance: number;
+  /** Lien / hold amount — frozen by court order, FD lien, etc. */
+  holdAmount: number;
+  /** Overdraft limit sanctioned on this account. */
+  odLimit: number;
+  /** Current applicable interest rate (% p.a.). */
+  interestRate: number;
+  /** Accrued but uncredited interest since last capitalisation. */
+  accruedInterest: number;
   status: 'ACTIVE' | 'INACTIVE' | 'FROZEN' | 'CLOSED';
+  /** SOL code of the account-holding branch. */
+  branchCode?: string;
+  /** IFSC of the account-holding branch. */
+  ifscCode?: string;
+  /** Nominee registered under Nomination Act 2023. */
+  nomineeName?: string;
+  /** Whether a cheque book has been issued. */
+  chequeBookEnabled: boolean;
+  /** Whether a debit card is linked. */
+  debitCardEnabled: boolean;
   openedDate: Date;
   closedDate: Date | null;
+  /** Date of last financial transaction on this account. */
+  lastTransactionDate?: Date;
   linkedAccounts: string[];
   createdAt: Date;
   updatedAt: Date;
 }
 
 /**
- * Transaction entity
+ * Transaction entity.
+ *
+ * CBS mini-statement / passbook fields per RBI circular on
+ * transparency in bank charges and account statements.
  */
 export interface Transaction {
   id: string;
@@ -97,6 +148,16 @@ export interface Transaction {
   postingDate: Date;
   referenceNumber: string;
   beneficiaryName?: string;
+  /** Running balance after this entry — mandatory for CBS passbook. */
+  balanceAfter?: number;
+  /** Counterparty account number (masked on display per PII rules). */
+  counterpartyAccount?: string;
+  /** Origination channel: BRANCH, ATM, MOBILE, NET, UPI, NEFT, RTGS. */
+  channel?: string;
+  /** Voucher / slip number for branch transactions. */
+  voucherNumber?: string;
+  /** Branch code where the transaction was posted. */
+  branchCode?: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -140,13 +201,23 @@ export interface Beneficiary {
 }
 
 /**
- * Authentication token entity
+ * Authentication token entity.
+ *
+ * Per LOGIN_API_RESPONSE_CONTRACT §EnhancedTokenResponse, the Spring
+ * auth endpoints return tokens + user profile + businessDate in a
+ * single payload. The BFF holds the tokens server-side; the browser
+ * only sees the user/businessDate subset via /api/cbs/auth/me.
  */
 export interface AuthToken {
   accessToken: string;
   refreshToken: string;
-  expiresIn: number;
   tokenType: 'Bearer';
+  /** Seconds until accessToken expires (e.g. 900 = 15 min). */
+  expiresIn: number;
+  /** CBS operational date (YYYY-MM-DD) from DayOpenService. */
+  businessDate?: string;
+  /** User profile included in the token response. */
+  user?: User;
 }
 
 /**
@@ -170,4 +241,106 @@ export interface Alert {
   isRead: boolean;
   createdAt: Date;
   expiresAt?: Date;
+}
+
+// ── Admin domain entities ──────────────────────────────────────────
+
+/**
+ * CBS operator account — provisioned by admins under maker-checker.
+ * There is no self-registration per RBI IT Governance Direction 2023.
+ */
+export type OperatorStatus = 'ACTIVE' | 'LOCKED' | 'DISABLED' | 'PENDING_ACTIVATION';
+
+export interface Operator {
+  id: number;
+  username: string;
+  firstName?: string;
+  lastName?: string;
+  displayName?: string;
+  email?: string;
+  roles: UserRole[];
+  branchCode: string;
+  branchName?: string;
+  tenantId?: string;
+  status: OperatorStatus;
+  mfaEnrolled: boolean;
+  lastLoginAt?: string;
+  lastLoginIp?: string;
+  failedAttempts: number;
+  passwordChangedAt?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/**
+ * CBS branch (SOL — Service Outlet).
+ */
+export type BranchStatus = 'ACTIVE' | 'INACTIVE' | 'CLOSED';
+export type BranchType = 'HEAD_OFFICE' | 'REGIONAL_OFFICE' | 'BRANCH' | 'EXTENSION_COUNTER';
+
+export interface Branch {
+  id: number;
+  branchCode: string;
+  branchName: string;
+  ifscCode: string;
+  city: string;
+  state: string;
+  pincode?: string;
+  address?: string;
+  type: BranchType;
+  status: BranchStatus;
+  tenantId?: string;
+  managerName?: string;
+  phone?: string;
+  email?: string;
+  openedDate?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/**
+ * CBS holiday calendar entry.
+ */
+export type HolidayType = 'NATIONAL' | 'STATE' | 'RBI' | 'CUSTOM';
+export type HolidayScope = 'ALL_BRANCHES' | 'STATE' | 'BRANCH';
+
+export interface Holiday {
+  id: number;
+  date: string;
+  name: string;
+  type: HolidayType;
+  scope: HolidayScope;
+  /** Applicable state code when scope = STATE (e.g. "MH", "KA"). */
+  stateCode?: string;
+  /** Applicable branch code when scope = BRANCH. */
+  branchCode?: string;
+  description?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/**
+ * CBS tenant — top-level multi-tenant isolation boundary.
+ */
+export type TenantStatus = 'ACTIVE' | 'SUSPENDED' | 'SETUP';
+
+export interface Tenant {
+  id: number;
+  tenantId: string;
+  tenantName: string;
+  country: string;
+  baseCurrency: string;
+  regulatoryBody: string;
+  licenseType: string;
+  status: TenantStatus;
+  financialYearStart: string;
+  weekOffPattern: string;
+  interestCalculation: string;
+  decimalPrecision: number;
+  amountRounding: string;
+  piiEncryption: string;
+  branchCount?: number;
+  userCount?: number;
+  createdAt: string;
+  updatedAt: string;
 }

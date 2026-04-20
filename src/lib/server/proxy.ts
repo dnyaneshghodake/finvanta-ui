@@ -17,7 +17,7 @@
 import "server-only";
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
-import { readSession, type CbsSession } from "./session";
+import { readSession, writeSession, type CbsSession } from "./session";
 import { assertCsrf } from "./csrf";
 import { readCorrelationId } from "./correlation";
 import { serverEnv } from "./env";
@@ -98,6 +98,38 @@ export async function proxyToBackend(
     }
   }
 
+  // ── Sliding session window ──────────────────────────────────────
+  // Every successful auth + CSRF check proves the operator is actively
+  // using the system. Slide `expiresAt` forward by the idle-extension
+  // window (default 15 min) so the session does not forcefully expire
+  // after the JWT's short lifetime (~15 min) while the user is active.
+  // The extension is capped at the absolute TTL ceiling anchored to
+  // `issuedAt` so sessions cannot be extended indefinitely.
+  //
+  // Race mitigation: parallel requests (e.g. 4 dashboard widgets)
+  // could race on writeSession(). The 30-second threshold below
+  // ensures at most one cookie rewrite per 30s window, so concurrent
+  // requests within that window all read the same session blob and
+  // only the first one triggers a rewrite. The explicit "Stay Logged
+  // In" button (POST /api/cbs/session/extend) still works as before
+  // for the countdown-warning path.
+  if (session) {
+    const env2 = serverEnv();
+    const now = Date.now();
+    const absoluteCeiling = session.issuedAt + env2.sessionTtlSeconds * 1000;
+    const idleExtension = now + env2.sessionIdleExtensionSeconds * 1000;
+    const newExpiresAt = Math.min(idleExtension, absoluteCeiling);
+    // Only rewrite the cookie if the extension is meaningful (> 30s)
+    // to avoid unnecessary crypto + cookie writes on rapid-fire requests.
+    if (newExpiresAt - session.expiresAt > 30_000) {
+      await writeSession({
+        ...session,
+        expiresAt: newExpiresAt,
+        issuedAt: session.issuedAt,
+      });
+    }
+  }
+
   return forward(req, session, correlationId, targetPath, search);
 }
 
@@ -109,8 +141,7 @@ export async function forward(
   search: string,
 ): Promise<NextResponse> {
   const env = serverEnv();
-  const base = env.backendBaseUrl.replace(/\/$/, "");
-  const upstreamUrl = `${base}${targetPath}${search}`;
+  const upstreamUrl = `${env.backendApiBase}${targetPath}${search}`;
 
   const headers = new Headers();
   req.headers.forEach((value, key) => {
@@ -143,13 +174,39 @@ export async function forward(
     if (ab.byteLength > 0) body = ab;
   }
 
-  const upstream = await fetch(upstreamUrl, {
-    method,
-    headers,
-    body,
-    redirect: "manual",
-    cache: "no-store",
-  });
+  let upstream: Response;
+  try {
+    upstream = await fetch(upstreamUrl, {
+      method,
+      headers,
+      body,
+      redirect: "manual",
+      cache: "no-store",
+    });
+  } catch (err) {
+    // ── Backend unreachable (ECONNREFUSED / DNS failure / timeout) ──
+    // Per REST_API_COMPLETE_CATALOGUE §Actuator, the backend exposes
+    // /actuator/health for liveness. When the fetch itself throws,
+    // Spring is down or the network path is broken. Return a
+    // structured 503 so the client interceptor can show the
+    // maintenance banner instead of a cryptic error.
+    const isTimeout = err instanceof Error && (
+      err.name === "AbortError" ||
+      (err as NodeJS.ErrnoException).code === "ECONNABORTED" ||
+      (err as NodeJS.ErrnoException).code === "UND_ERR_CONNECT_TIMEOUT"
+    );
+    return NextResponse.json(
+      {
+        success: false,
+        errorCode: isTimeout ? "BACKEND_TIMEOUT" : "BACKEND_UNREACHABLE",
+        message: isTimeout
+          ? "The banking server did not respond in time. Please retry."
+          : "The banking server is currently unavailable. Please try again shortly or contact IT support.",
+        correlationId,
+      },
+      { status: 503, headers: { "x-correlation-id": correlationId } },
+    );
+  }
 
   const resHeaders = new Headers();
   upstream.headers.forEach((value, key) => {

@@ -7,6 +7,7 @@ export {
   hasRole,
   hasAllRoles,
   hasPermission,
+  hasModuleAccess,
   isMaker,
   isChecker,
   isHOAdmin,

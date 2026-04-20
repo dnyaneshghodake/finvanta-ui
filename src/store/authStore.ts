@@ -11,12 +11,34 @@ import { authService } from "@/services/api/authService";
 import type { User } from "@/types/entities";
 import { logger } from "@/utils/logger";
 
+/** Business day context from Spring `data.businessDay`. */
+interface BusinessDay {
+  businessDate: string;
+  dayStatus: string;
+  isHoliday: boolean;
+  previousBusinessDate?: string;
+  nextBusinessDate?: string;
+}
+
+/** Operational config from Spring `data.operationalConfig`. */
+interface OperationalConfig {
+  baseCurrency: string;
+  decimalPrecision: number;
+  roundingMode: string;
+  fiscalYearStartMonth: number;
+  businessDayPolicy: string;
+}
+
 interface AuthState {
   user: User | null;
   csrfToken: string | null;
   expiresAt: number | null;
   /** Server-authoritative business date (YYYY-MM-DD). Header reads this. */
   businessDate: string | null;
+  /** Full business day context (day status, holiday flag, prev/next dates). */
+  businessDay: BusinessDay | null;
+  /** Operational config (currency, precision, rounding, fiscal year). */
+  operationalConfig: OperationalConfig | null;
   isAuthenticated: boolean;
   isLoading: boolean;
   isHydrated: boolean;
@@ -34,6 +56,8 @@ export const useAuthStore = create<AuthState>((set) => ({
   csrfToken: null,
   expiresAt: null,
   businessDate: null,
+  businessDay: null,
+  operationalConfig: null,
   isAuthenticated: false,
   isLoading: false,
   isHydrated: false,
@@ -49,7 +73,8 @@ export const useAuthStore = create<AuthState>((set) => ({
         password,
       });
       if (!response.success || !response.data) {
-        const message = response.error?.message || "Login failed";
+        const message =
+          response.message || response.error?.message || "Login failed";
         set({ isLoading: false, error: message, isAuthenticated: false });
         throw new Error(message);
       }
@@ -58,6 +83,8 @@ export const useAuthStore = create<AuthState>((set) => ({
         csrfToken: response.data.csrfToken,
         expiresAt: response.data.expiresAt,
         businessDate: response.data.businessDate ?? null,
+        businessDay: response.data.businessDay ?? null,
+        operationalConfig: response.data.operationalConfig ?? null,
         isAuthenticated: true,
         isHydrated: true,
         isLoading: false,
@@ -81,6 +108,8 @@ export const useAuthStore = create<AuthState>((set) => ({
         csrfToken: null,
         expiresAt: null,
         businessDate: null,
+        businessDay: null,
+        operationalConfig: null,
         isAuthenticated: false,
         isHydrated: false,
         isLoading: false,
@@ -98,6 +127,8 @@ export const useAuthStore = create<AuthState>((set) => ({
           csrfToken: response.data.csrfToken,
           expiresAt: response.data.expiresAt,
           businessDate: response.data.businessDate ?? null,
+          businessDay: response.data.businessDay ?? null,
+          operationalConfig: response.data.operationalConfig ?? null,
           isAuthenticated: true,
           isHydrated: true,
         });
@@ -111,6 +142,8 @@ export const useAuthStore = create<AuthState>((set) => ({
       csrfToken: null,
       expiresAt: null,
       businessDate: null,
+      businessDay: null,
+      operationalConfig: null,
       isAuthenticated: false,
       isHydrated: true,
     });
@@ -122,6 +155,8 @@ export const useAuthStore = create<AuthState>((set) => ({
       csrfToken: null,
       expiresAt: null,
       businessDate: null,
+      businessDay: null,
+      operationalConfig: null,
       isAuthenticated: false,
     }),
 }));

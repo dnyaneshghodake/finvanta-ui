@@ -14,14 +14,23 @@ import { errorHandler, AppError } from '@/utils/errorHandler';
 import { useAuthStore } from '@/store/authStore';
 
 /**
+ * CSRF cookie name. Must match the server-side CBS_CSRF_COOKIE env var
+ * (see src/lib/server/env.ts:66). We expose it via NEXT_PUBLIC_CBS_CSRF_COOKIE
+ * so the client-side reader stays in sync with the server-side writer.
+ * Default: 'fv_csrf'.
+ */
+const CSRF_COOKIE_NAME = process.env.NEXT_PUBLIC_CBS_CSRF_COOKIE || 'fv_csrf';
+
+/**
  * Read the double-submit CSRF token that the BFF set as a readable
- * cookie (fv_csrf) at login time. This value is echoed in the
- * X-CSRF-Token header on every mutating request so the BFF can
- * compare it against the copy inside the encrypted session blob.
+ * cookie at login time. This value is echoed in the X-CSRF-Token
+ * header on every mutating request so the BFF can compare it against
+ * the copy inside the encrypted session blob.
  */
 const readCsrfFromCookie = (): string | null => {
   if (typeof document === 'undefined') return null;
-  const match = document.cookie.match(/(?:^|;\s*)fv_csrf=([^;]+)/);
+  const escaped = CSRF_COOKIE_NAME.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const match = document.cookie.match(new RegExp(`(?:^|;\\s*)${escaped}=([^;]+)`));
   return match ? decodeURIComponent(match[1]) : null;
 };
 
@@ -49,10 +58,23 @@ const generateRequestId = (): string => {
 };
 
 /**
- * Create Axios instance
+ * Browser API base URL — hardcoded to the Next.js BFF route prefix.
+ *
+ * This is NOT configurable via env vars. The browser MUST always talk
+ * to the BFF at `/api/cbs/**` on the same origin. The BFF then
+ * forwards to Spring with JWT, CSRF, branch/tenant headers injected
+ * server-side. Any direct-to-Spring URL here would bypass every
+ * security control (JWT containment, CSRF double-submit, branch
+ * injection, correlation-id propagation).
+ *
+ * The BFF route prefix `/api/cbs` is a compile-time architectural
+ * constant — it matches the Next.js App Router directory structure
+ * at `app/api/cbs/`. Changing it requires moving the route files.
  */
+const BFF_BASE_URL = '/api/cbs';
+
 const apiClient: AxiosInstance = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_URL || '/api/cbs',
+  baseURL: BFF_BASE_URL,
   timeout: parseInt(process.env.API_TIMEOUT || '30000', 10),
   headers: {
     'Content-Type': 'application/json',
@@ -72,7 +94,7 @@ apiClient.interceptors.request.use(
     // its HttpOnly fv_sid cookie automatically via withCredentials.
 
     // Per-request id for UI-side logging; the BFF generates its own
-    // X-Correlation-Id (seeded by middleware.ts) that survives retries.
+    // X-Correlation-Id (seeded by proxy.ts) that survives retries.
     config.headers['X-Request-ID'] = generateRequestId();
     config.headers['X-Client-Version'] = process.env.NEXT_PUBLIC_APP_VERSION || '1.0.0';
 
@@ -139,15 +161,33 @@ apiClient.interceptors.response.use(
     // 401 from the BFF means the session cookie is gone or expired.
     // We do not attempt a client-side refresh (JWTs are held server
     // side); we just clear local state and send the user to /login.
-    // Early return prevents callers from showing a flash of error UI
-    // (toast, inline message) in the brief window before the browser
-    // navigates away.
+    // Per LOGIN_API_RESPONSE_CONTRACT, specific errorCodes get
+    // targeted redirect reasons so the login page shows the right
+    // message.
     if (error.response?.status === 401) {
       useAuthStore.getState().clearAuth();
       if (typeof window !== 'undefined' && !window.location.pathname.startsWith('/login')) {
-        window.location.href = '/login?reason=session_expired';
+        const errorCode = (error.response?.data as Record<string, unknown>)?.errorCode;
+        let reason = 'session_expired';
+        if (errorCode === 'REFRESH_TOKEN_REUSED') reason = 'session_compromised';
+        else if (errorCode === 'ACCOUNT_INVALID') reason = 'account_invalid';
+        window.location.href = `/login?reason=${reason}`;
       }
       return Promise.reject(appError);
+    }
+
+    // 503 from the BFF means the Spring backend is down or unreachable.
+    // The BFF proxy returns structured { errorCode: "BACKEND_UNREACHABLE" }
+    // per REST_API_COMPLETE_CATALOGUE §Actuator. We surface this clearly
+    // so operators know it's a backend issue, not their session.
+    if (error.response?.status === 503) {
+      const errorCode = (error.response?.data as Record<string, unknown>)?.errorCode;
+      const msg = (error.response?.data as Record<string, unknown>)?.message;
+      return Promise.reject(new AppError(
+        typeof errorCode === 'string' ? errorCode : 'BACKEND_UNAVAILABLE',
+        typeof msg === 'string' ? msg : 'The banking server is temporarily unavailable. Please try again shortly.',
+        503,
+      ));
     }
 
     // Handle 429 Too Many Requests - Exponential backoff with max retries
