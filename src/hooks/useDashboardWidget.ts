@@ -124,9 +124,12 @@ export function useDashboardWidget<T>(
       if (!mountedRef.current) return;
       const msg = err instanceof Error ? err.message : 'Failed to load';
       logger.warn(`Widget ${errorRef} fetch failed: ${msg}`);
-      if (retriesRef.current < maxRetries && isInitialLoad) {
+      // Only retry on network errors (timeout, ECONNREFUSED), not on
+      // HTTP error responses (401, 404, 500). When the backend returns
+      // a clear error, retrying won't help — show the error state.
+      const isNetworkError = !(err instanceof Error) || !err.message.startsWith('HTTP ');
+      if (retriesRef.current < maxRetries && isInitialLoad && isNetworkError) {
         retriesRef.current += 1;
-        // Exponential backoff: 1s, 2s
         setTimeout(() => { void fetchData(silent); }, retriesRef.current * 1000);
         return;
       }
@@ -148,9 +151,13 @@ export function useDashboardWidget<T>(
     return () => { mountedRef.current = false; };
   }, [enabled, fetchData]);
 
-  // Auto-refresh interval (silent — no loading flash)
+  // Auto-refresh interval (silent — no loading flash).
+  // Only refresh when the widget has data (status === 'success').
+  // If the widget is in error state (e.g. endpoint doesn't exist yet),
+  // don't spam the backend with repeated 401/404 requests every N seconds.
+  // The user can manually retry via the Retry button on the error state.
   useEffect(() => {
-    if (refreshInterval > 0 && enabled && status !== 'loading') {
+    if (refreshInterval > 0 && enabled && status === 'success') {
       intervalRef.current = setInterval(() => {
         void fetchData(true);
       }, refreshInterval);
