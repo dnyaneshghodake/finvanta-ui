@@ -147,8 +147,11 @@ export async function forward(
 
   const method = req.method.toUpperCase();
   if (process.env.NODE_ENV !== "production") {
+    const tokenLen = session?.accessToken?.length ?? 0;
+    const tokenType = session?.tokenType ?? "?";
+    const authHeader = headers.get("authorization");
     console.log(
-      `[BFF proxy] ${method} ${upstreamUrl} session=${!!session} token=${!!session?.accessToken}`,
+      `[BFF proxy] ${method} ${upstreamUrl} session=${!!session} tokenLen=${tokenLen} tokenType=${tokenType} authHeader=${authHeader ? authHeader.slice(0, 30) + "..." : "NONE"}`,
     );
   }
   if (method !== "GET" && method !== "HEAD" && !headers.has("x-idempotency-key")) {
