@@ -111,13 +111,20 @@ export function TransactionConfirmDialog({
   if (!isOpen) return null;
 
   const handleConfirm = async () => {
-    if (isSubmitting) return; // Prevent double-click
+    // Synchronous ref guard — prevents two clicks in the same event
+    // loop tick from both passing before React re-renders. The state
+    // guard alone (isSubmitting) is async and can be bypassed.
+    // Per RBI IT Governance 2023 §8.2: financial operations must
+    // never double-post due to UI race conditions.
+    if (submittingRef.current) return;
+    submittingRef.current = true;
     setIsSubmitting(true);
     try {
       await onConfirm();
     } catch {
       // Error handling is done by the caller
     } finally {
+      submittingRef.current = false;
       setIsSubmitting(false);
     }
   };

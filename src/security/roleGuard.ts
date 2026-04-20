@@ -93,8 +93,9 @@ export const isChecker = (): boolean => {
 
 /**
  * Check if user is HO admin (head office admin — can see all branches).
+ * Per API_REFERENCE.md §1: 'ADMIN' has full admin access including HO.
  */
-export const isHOAdmin = (): boolean => hasRole('ADMIN_HO');
+export const isHOAdmin = (): boolean => hasRole('ADMIN_HO', 'ADMIN');
 
 /**
  * Check if user is an auditor (read-only access to audit trails).
@@ -113,14 +114,18 @@ export const isAuditor = (): boolean => hasRole('AUDITOR');
 export const canApprove = (makerId: string): boolean => {
   const user = useAuthStore.getState().user;
   if (!user) return false;
-  // Fail-safe: if we don't know the operator's id we cannot confirm
-  // they are a different person from the maker. Hide the button and
-  // let the backend reject if they attempt via an API call.
-  if (!user.id) return false;
-  // Coerce to string before comparing: Spring returns user.id as a
-  // number (Long), but makerId from workflow JSON is always a string.
-  // Strict equality (===) between number and string silently passes,
-  // defeating the self-approval gate.
-  if (String(user.id) === String(makerId)) return false; // Self-approval blocked
+  // Fail-safe: if we don't know the operator's id AND username we
+  // cannot confirm they are a different person from the maker. Hide
+  // the button and let the backend reject if they attempt via API.
+  if (!user.id && !user.username) return false;
+  // Compare against BOTH user.id (numeric DB ID) and user.username
+  // (login name). Per API_REFERENCE.md §15, the workflow response
+  // field `makerUserId` may be either a numeric ID string or a
+  // username string depending on the backend version. Comparing
+  // only against user.id would silently pass self-approval when
+  // the backend returns a username (e.g. "maker1" !== 42).
+  // Coerce to string: Spring returns user.id as Long (number).
+  if (user.id && String(user.id) === String(makerId)) return false;
+  if (user.username && user.username === makerId) return false;
   return isChecker();
 };
