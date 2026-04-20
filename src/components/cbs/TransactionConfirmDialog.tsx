@@ -78,7 +78,12 @@ export function TransactionConfirmDialog({
   // first setIsSubmitting(true) re-render. A ref is synchronous.
   const submittingRef = useRef(false);
 
-  // Reset state when dialog opens/closes
+  // Reset state when dialog opens/closes. React Compiler flags the
+  // reset-state-in-effect pattern here; the fix-forward is a
+  // `key`-based remount when `isOpen` toggles, but that would
+  // unmount the focus trap on every close and break the keyboard-
+  // only operator flow that banks rely on (F10 = confirm, Esc = cancel).
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (isOpen) {
       setIsSubmitting(false);
@@ -86,6 +91,7 @@ export function TransactionConfirmDialog({
       submittingRef.current = false;
     }
   }, [isOpen]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   // Close on Escape
   useEffect(() => {

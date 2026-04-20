@@ -42,14 +42,10 @@ jobs:
   lint:
     name: Lint (ESLint)
     runs-on: ubuntu-latest
-    # FIXME(ratchet): 20 pre-existing ESLint errors exist on
-    # `enhancements` (setState-in-effect, missing deps, etc.). The
-    # CI job is advisory (continue-on-error) until those are fixed
-    # in a dedicated cleanup PR; this keeps the bootstrap green
-    # without silently dropping the lint gate. Switch back to a
-    # hard gate (`continue-on-error: false`) once `npm run lint`
-    # exits 0 on enhancements.
-    continue-on-error: true
+    # Hard gate: `npm run lint` must exit 0. The React-Compiler
+    # `set-state-in-effect` / refs-during-render violations that
+    # existed on `enhancements` were either refactored or
+    # explicitly scoped with `eslint-disable` + rationale.
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -167,12 +163,11 @@ jobs:
   image-trivy:
     name: Container image scan (Trivy)
     runs-on: ubuntu-latest
-    # FIXME(ratchet): the Trivy action upstream dropped its pinned
-    # release tags; we pin to `@master` below which keeps the scan
-    # running but means the job can in theory break on an upstream
-    # API change. The job is advisory until a real Dockerfile + a
-    # pinned trivy-action version land in a follow-up.
-    continue-on-error: true
+    # Hard gate: image must be free of CRITICAL/HIGH vulns that
+    # have an available fix. Pinned to a release tag (immutable
+    # release) to protect against upstream supply-chain drift on
+    # the `master` branch. Ratchet upward as new Trivy releases
+    # ship — see https://github.com/aquasecurity/trivy-action/releases
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -202,11 +197,10 @@ jobs:
             docker build -f Dockerfile.ci -t finvanta-ui:ci .
           fi
       - name: Trivy scan
-        # `master` is Aqua's recommended pinning strategy for the
-        # Trivy action; the immutable release tags (0.24.0 etc.)
-        # were renamed to `0.20.0 / 0.28.0 / ...` upstream and
-        # older aliases are not resolvable from GitHub Actions.
-        uses: aquasecurity/trivy-action@master
+        # Pinned to a concrete release tag (immutable) rather than
+        # `@master` so a push to the action's default branch
+        # cannot silently change scan semantics on a release day.
+        uses: aquasecurity/trivy-action@v0.35.0
         with:
           image-ref: finvanta-ui:ci
           format: sarif

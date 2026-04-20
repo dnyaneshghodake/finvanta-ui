@@ -126,6 +126,11 @@ export default function CustomerDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Fetch-on-mount: the explicit `setLoading(true)` / `setError(null)`
+  // reset is needed so client-side route changes (/customers/A →
+  // /customers/B) refresh the view. React Compiler flags set-state-
+  // in-effect here; the fix-forward is a `key`-based remount.
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
@@ -150,6 +155,7 @@ export default function CustomerDetailPage() {
 
     return () => { cancelled = true; };
   }, [customerId]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   if (loading) {
     return (

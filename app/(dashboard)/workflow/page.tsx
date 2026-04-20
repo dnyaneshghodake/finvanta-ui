@@ -50,6 +50,8 @@ export default function WorkflowPage() {
     finally { setIsLoading(false); }
   }, [filter]);
 
+  // Standard fetch-on-mount: `load()` calls `setIsLoading(true)`.
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { void load(); }, [load]);
 
   const list = useMemo(() => {

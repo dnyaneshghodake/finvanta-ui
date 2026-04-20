@@ -15,7 +15,7 @@
  * CBS keyboard shortcuts:  F2 = Transfer   F5 = Refresh (page reload)
  */
 
-import { useMemo, useRef } from 'react';
+import { useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/authStore';
 import { Breadcrumb } from '@/components/cbs';
@@ -84,8 +84,10 @@ export default function DashboardPage() {
   }), [router]);
   useCbsKeyboard(shortcuts);
 
-  // Snapshot timestamp — captured once on mount, not on every re-render
-  const snapshotTime = useRef(new Date());
+  // Captured once on mount so the footer timestamp is stable across
+  // background widget refreshes. useMemo (not useRef) keeps React
+  // Compiler's refs-during-render rule happy.
+  const snapshotTime = useMemo(() => new Date(), []);
 
   const displayName = user?.firstName || user?.username || 'Operator';
   const dayStatus = businessDay?.dayStatus || null;
@@ -160,7 +162,7 @@ export default function DashboardPage() {
           </button>
         </div>
         <div className="text-[10px] text-cbs-steel-400 text-right cbs-tabular">
-          Dashboard snapshot: {formatCbsTimestamp(snapshotTime.current)}
+          Dashboard snapshot: {formatCbsTimestamp(snapshotTime)}
         </div>
       </div>
     </div>

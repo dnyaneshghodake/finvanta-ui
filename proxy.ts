@@ -52,30 +52,65 @@ const UPLOAD_PATH_PREFIXES: readonly string[] = [
 
 /**
  * Host header allow-list. Populated from CBS_ALLOWED_HOSTS
- * (comma-separated). In development we allow the typical localhost
- * variants so `next dev` and Playwright still work. In production
- * the env var MUST be set — otherwise we fall back to a permissive
- * same-origin heuristic that only logs, matching Next.js' default
- * behaviour of trusting the incoming `Host`.
+ * (comma-separated). Behaviour by `NODE_ENV`:
+ *
+ *   - `production`: the env var MUST be set and non-empty. If it is
+ *     not, we throw at module load so the deploy fails fast rather
+ *     than silently hard-blocking every real-hostname request or —
+ *     worse — accepting arbitrary Host headers. This matches the
+ *     RBI "fail-closed on misconfiguration" posture required for
+ *     a Tier-1 CBS surface.
+ *
+ *   - non-production (`development`, `test`): we fall back to the
+ *     well-known localhost variants so `next dev` and Playwright
+ *     still work without the operator having to set the env var.
+ *     A warning is logged so the condition is visible during local
+ *     runs but never silently carried into production.
+ *
+ * The result is cached — this function is called on every request.
  */
-function getAllowedHosts(): Set<string> {
-  const raw = process.env.CBS_ALLOWED_HOSTS;
-  const entries = (raw ?? "")
-    .split(",")
-    .map((h) => h.trim().toLowerCase())
-    .filter((h) => h.length > 0);
-  if (entries.length === 0) {
-    // Dev fallback — these are the Hosts Playwright and next dev use.
-    return new Set([
-      "localhost",
-      "localhost:3000",
-      "127.0.0.1",
-      "127.0.0.1:3000",
-      "0.0.0.0",
-      "0.0.0.0:3000",
-    ]);
+const LOCAL_DEV_HOSTS: ReadonlySet<string> = new Set([
+  "localhost",
+  "localhost:3000",
+  "127.0.0.1",
+  "127.0.0.1:3000",
+  "0.0.0.0",
+  "0.0.0.0:3000",
+]);
+
+let cachedAllowedHosts: ReadonlySet<string> | null = null;
+
+function parseAllowedHostsEnv(raw: string | undefined): Set<string> {
+  return new Set(
+    (raw ?? "")
+      .split(",")
+      .map((h) => h.trim().toLowerCase())
+      .filter((h) => h.length > 0),
+  );
+}
+
+function getAllowedHosts(): ReadonlySet<string> {
+  if (cachedAllowedHosts) return cachedAllowedHosts;
+  const parsed = parseAllowedHostsEnv(process.env.CBS_ALLOWED_HOSTS);
+  if (parsed.size === 0) {
+    if (process.env.NODE_ENV === "production") {
+      // Fail-closed: refuse to serve traffic with no allow-list.
+      throw new Error(
+        "CBS_ALLOWED_HOSTS is not set. In production this must be an " +
+          "explicit comma-separated list of fully-qualified Host headers " +
+          "(e.g. 'app.example.com,app.example.com:443'). Refusing to " +
+          "start with an empty host allow-list.",
+      );
+    }
+    console.warn(
+      "[proxy] CBS_ALLOWED_HOSTS unset — using localhost-only dev fallback. " +
+        "This MUST be set before deploying to any non-local environment.",
+    );
+    cachedAllowedHosts = LOCAL_DEV_HOSTS;
+    return cachedAllowedHosts;
   }
-  return new Set(entries);
+  cachedAllowedHosts = parsed;
+  return cachedAllowedHosts;
 }
 
 function isUploadPath(pathname: string): boolean {

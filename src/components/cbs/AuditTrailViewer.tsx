@@ -125,9 +125,12 @@ export function AuditTrailViewer({
     }
   }, [entityType, entityId, maxEntries]);
 
+  // Standard fetch-on-mount: `loadAuditTrail` calls `setIsLoading(true)`.
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     void loadAuditTrail();
   }, [loadAuditTrail]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   // Loading state
   if (isLoading) {

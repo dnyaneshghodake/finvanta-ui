@@ -119,12 +119,18 @@ const Sidebar: React.FC<SidebarProps> = ({ className }) => {
     [pathname],
   );
 
-  // Auto-expand module owning the current route.
+  // Auto-expand module owning the current route. React Compiler
+  // flags the synchronous `setExpanded` inside the effect; the pure-
+  // render alternative is `useMemo` but then the operator cannot
+  // manually collapse the expanded module (the memo would snap back
+  // on every render).
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     for (const m of MODULES) {
       if (m.children?.some((c) => isActive(c.href))) { setExpanded(m.id); return; }
     }
   }, [pathname, isActive]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   // Close sidebar on mobile after navigation.
   useEffect(() => {

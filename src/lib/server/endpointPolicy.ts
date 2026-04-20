@@ -47,50 +47,60 @@ export interface EndpointRule {
  * routed through the catch-all. They do not appear here.
  */
 export const ENDPOINT_ALLOWLIST: ReadonlyArray<EndpointRule> = [
-  // ── Accounts ────────────────────────────────────────────────
+  // ── Accounts (deposit / CASA) ──────────────────────────────
+  // Paths below match the actual calls in `src/services/api/
+  // accountService.ts` and the account-related pages under
+  // `app/(dashboard)/accounts/`.
   { method: "GET", pathPattern: "/accounts" },
   { method: "GET", pathPattern: "/accounts/:acct" },
   { method: "GET", pathPattern: "/accounts/:acct/balance" },
   { method: "GET", pathPattern: "/accounts/:acct/mini-statement" },
   { method: "GET", pathPattern: "/accounts/:acct/statement" },
   { method: "GET", pathPattern: "/accounts/:acct/transactions" },
-  { method: "POST", pathPattern: "/accounts" },
+  { method: "GET", pathPattern: "/accounts/customer/:id" },
+  { method: "POST", pathPattern: "/accounts/open" },
+  { method: "POST", pathPattern: "/accounts/transfer" },
   { method: "PATCH", pathPattern: "/accounts/:acct" },
   { method: "POST", pathPattern: "/accounts/:acct/freeze" },
   { method: "POST", pathPattern: "/accounts/:acct/unfreeze" },
   { method: "POST", pathPattern: "/accounts/:acct/close" },
 
-  // ── Customers ──────────────────────────────────────────────
+  // ── Customers (CIF) ────────────────────────────────────────
   { method: "GET", pathPattern: "/customers" },
   { method: "GET", pathPattern: "/customers/:id" },
   { method: "GET", pathPattern: "/customers/:id/accounts" },
   { method: "GET", pathPattern: "/customers/:id/kyc" },
   { method: "POST", pathPattern: "/customers" },
   { method: "PATCH", pathPattern: "/customers/:id" },
-  { method: "POST", pathPattern: "/customers/:id/kyc" },
+  { method: "POST", pathPattern: "/customers/:id/verify-kyc" },
   { method: "POST", pathPattern: "/customers/search" },
-
-  // ── Transfers / Payments ───────────────────────────────────
-  { method: "POST", pathPattern: "/transfers/intra" },
-  { method: "POST", pathPattern: "/transfers/neft" },
-  { method: "POST", pathPattern: "/transfers/rtgs" },
-  { method: "POST", pathPattern: "/transfers/imps" },
-  { method: "POST", pathPattern: "/transfers/upi" },
-  { method: "POST", pathPattern: "/transfers/:ref/confirm" },
-  { method: "POST", pathPattern: "/transfers/:ref/cancel" },
-  { method: "GET", pathPattern: "/transfers/:ref" },
-  { method: "GET", pathPattern: "/transfers/:ref/status" },
 
   // ── Loans ───────────────────────────────────────────────────
   { method: "GET", pathPattern: "/loans" },
+  { method: "GET", pathPattern: "/loans/active" },
   { method: "GET", pathPattern: "/loans/:id" },
   { method: "GET", pathPattern: "/loans/:id/schedule" },
   { method: "GET", pathPattern: "/loans/:id/transactions" },
   { method: "POST", pathPattern: "/loans" },
   { method: "POST", pathPattern: "/loans/:id/disburse" },
   { method: "POST", pathPattern: "/loans/:id/repay" },
+  // Loan origination flow (loan-applications entity is distinct
+  // from disbursed loans — applications are pre-sanction).
+  { method: "POST", pathPattern: "/loan-applications" },
 
-  // ── Deposits (FD/RD) ───────────────────────────────────────
+  // ── Fixed Deposits (FD) ────────────────────────────────────
+  // The UI currently calls these endpoints directly (see the
+  // `/deposits` pages). Historic `/deposits/*` patterns are kept
+  // below for the RD/TD flows that route through the same
+  // surface on Spring.
+  { method: "GET", pathPattern: "/fixed-deposits" },
+  { method: "GET", pathPattern: "/fixed-deposits/active" },
+  { method: "GET", pathPattern: "/fixed-deposits/:id" },
+  { method: "POST", pathPattern: "/fixed-deposits/book" },
+  { method: "POST", pathPattern: "/fixed-deposits/:id/premature-close" },
+  { method: "POST", pathPattern: "/fixed-deposits/:id/lien/:action" },
+
+  // ── Deposits (generic FD/RD/TD — legacy path) ──────────────
   { method: "GET", pathPattern: "/deposits" },
   { method: "GET", pathPattern: "/deposits/:id" },
   { method: "POST", pathPattern: "/deposits" },
@@ -98,10 +108,40 @@ export const ENDPOINT_ALLOWLIST: ReadonlyArray<EndpointRule> = [
   { method: "POST", pathPattern: "/deposits/:id/renew" },
 
   // ── Workflow (maker-checker) ───────────────────────────────
-  { method: "GET", pathPattern: "/workflow/queue" },
-  { method: "GET", pathPattern: "/workflow/:taskId" },
-  { method: "POST", pathPattern: "/workflow/:taskId/approve" },
-  { method: "POST", pathPattern: "/workflow/:taskId/reject" },
+  // Actual endpoints exposed by `workflowService.ts`. Path
+  // parameter is named `:id` (numeric workflow-item id); keep
+  // the naming aligned with the service so review is easier.
+  { method: "GET", pathPattern: "/workflow/pending" },
+  { method: "GET", pathPattern: "/workflow/mine" },
+  { method: "GET", pathPattern: "/workflow/sla-breached" },
+  { method: "GET", pathPattern: "/workflow/:id" },
+  { method: "GET", pathPattern: "/workflow/history/:entityType/:entityId" },
+  { method: "POST", pathPattern: "/workflow/escalate" },
+  { method: "POST", pathPattern: "/workflow/:id/approve" },
+  { method: "POST", pathPattern: "/workflow/:id/reject" },
+  { method: "POST", pathPattern: "/workflow/:id/recall" },
+
+  // ── Admin surface (RBAC-gated server-side) ─────────────────
+  { method: "GET", pathPattern: "/admin/users" },
+  { method: "GET", pathPattern: "/admin/users/:id" },
+  { method: "POST", pathPattern: "/admin/users" },
+  { method: "PUT", pathPattern: "/admin/users/:id" },
+  { method: "POST", pathPattern: "/admin/users/:id/reset-password" },
+  { method: "POST", pathPattern: "/admin/users/:id/lock" },
+  { method: "POST", pathPattern: "/admin/users/:id/unlock" },
+  { method: "GET", pathPattern: "/admin/branches" },
+  { method: "GET", pathPattern: "/admin/branches/:id" },
+  { method: "POST", pathPattern: "/admin/branches" },
+  { method: "PUT", pathPattern: "/admin/branches/:id" },
+  { method: "GET", pathPattern: "/admin/calendar/holidays" },
+  { method: "POST", pathPattern: "/admin/calendar/holidays" },
+  { method: "DELETE", pathPattern: "/admin/calendar/holidays/:id" },
+  { method: "GET", pathPattern: "/admin/tenant" },
+  { method: "PUT", pathPattern: "/admin/tenant" },
+
+  // ── General Ledger (read-only UI surfaces) ─────────────────
+  { method: "GET", pathPattern: "/gl/chart-of-accounts" },
+  { method: "GET", pathPattern: "/gl/trial-balance" },
 
   // ── Reference data ─────────────────────────────────────────
   { method: "GET", pathPattern: "/branches" },
