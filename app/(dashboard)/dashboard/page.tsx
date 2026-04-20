@@ -15,13 +15,15 @@
  * CBS keyboard shortcuts:  F2 = Transfer   F5 = Refresh (page reload)
  */
 
-import { useMemo } from 'react';
+import { useMemo, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/authStore';
 import { Breadcrumb } from '@/components/cbs';
+import { WidgetErrorBoundary } from '@/components/cbs/CbsErrorBoundary';
 import { formatCbsDate, formatCbsTimestamp } from '@/utils/formatters';
 import { useCbsKeyboard } from '@/hooks/useCbsKeyboard';
-import { ShieldCheck } from 'lucide-react';
+import { ShieldCheck, Printer, Download } from 'lucide-react';
+import { printScreen } from '@/utils/cbsPrint';
 import {
   getVisibleWidgets,
   PortfolioWidget,
@@ -74,12 +76,16 @@ export default function DashboardPage() {
     [user?.roles],
   );
 
-  // CBS keyboard shortcuts
+  // CBS keyboard shortcuts (F2=Transfer, F5=Refresh, F9=Print)
   const shortcuts = useMemo(() => ({
     F2: () => router.push('/transfers'),
     F5: () => { window.location.reload(); },
+    F9: () => { printScreen(); },
   }), [router]);
   useCbsKeyboard(shortcuts);
+
+  // Snapshot timestamp — captured once on mount, not on every re-render
+  const snapshotTime = useRef(new Date());
 
   const displayName = user?.firstName || user?.username || 'Operator';
   const dayStatus = businessDay?.dayStatus || null;
@@ -129,15 +135,33 @@ export default function DashboardPage() {
       )}
 
       {/* ── Widget grid — 12-column, 16px gap, skeleton-first ── */}
+      {/* Each widget is wrapped in WidgetErrorBoundary so a render
+          crash in one widget does NOT take down the entire dashboard.
+          CBS benchmark: Finacle Connect isolates each module tile. */}
       {visibleWidgets.map((def) => (
         <div key={def.id} className={def.gridClass}>
-          {renderWidget(def)}
+          <WidgetErrorBoundary moduleRef={def.errorRef}>
+            {renderWidget(def)}
+          </WidgetErrorBoundary>
         </div>
       ))}
 
-      {/* ── Snapshot Timestamp (RBI Audit Requirement) ── */}
-      <div className="text-[10px] text-cbs-steel-400 text-right cbs-tabular pt-2 border-t border-cbs-steel-100">
-        Dashboard snapshot: {formatCbsTimestamp(new Date())}
+      {/* ── Footer: Print + Snapshot (RBI Audit Requirement) ── */}
+      <div className="flex items-center justify-between pt-2 border-t border-cbs-steel-100">
+        <div className="flex items-center gap-2 cbs-no-print">
+          <button
+            type="button"
+            onClick={() => printScreen()}
+            className="flex items-center gap-1 text-[10px] text-cbs-steel-500 hover:text-cbs-navy-700 transition-colors"
+            title="Print dashboard (F9)"
+          >
+            <Printer size={11} />
+            Print
+          </button>
+        </div>
+        <div className="text-[10px] text-cbs-steel-400 text-right cbs-tabular">
+          Dashboard snapshot: {formatCbsTimestamp(snapshotTime.current)}
+        </div>
       </div>
     </div>
   );
