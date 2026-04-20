@@ -67,18 +67,23 @@ const generateRequestId = (): string => {
  * WRONG:     http://localhost:8080  (direct to Spring — bypasses BFF)
  */
 const rawBaseUrl = process.env.NEXT_PUBLIC_API_URL || '/api/cbs';
-const API_BASE_URL = rawBaseUrl.includes('localhost:8080') || rawBaseUrl.includes('://') && !rawBaseUrl.includes('localhost:3000')
-  ? '/api/cbs'  // Safety: reject direct-backend URLs, force BFF route
-  : rawBaseUrl;
 
-if (typeof window !== 'undefined' && process.env.NODE_ENV !== 'production') {
-  if (rawBaseUrl !== API_BASE_URL) {
-    console.warn(
-      `[apiClient] NEXT_PUBLIC_API_URL="${rawBaseUrl}" points directly to the backend. ` +
-      `Overriding to "${API_BASE_URL}" to enforce BFF routing. ` +
-      `Fix your .env.local or .env file.`,
-    );
-  }
+// Safety guard: if the env var contains an absolute URL to the backend
+// (e.g. "http://localhost:8080/api" from a stale .next cache or .env.local),
+// force it to the BFF-relative path. The browser must NEVER call Spring
+// directly — all traffic goes through the Next.js BFF at /api/cbs.
+const isBypassingBff = rawBaseUrl.includes('://') && !rawBaseUrl.startsWith('/');
+const API_BASE_URL = isBypassingBff ? '/api/cbs' : rawBaseUrl;
+
+if (typeof window !== 'undefined' && isBypassingBff) {
+  console.warn(
+    `[apiClient] NEXT_PUBLIC_API_URL="${rawBaseUrl}" is an absolute URL that bypasses the BFF. ` +
+    `Overriding to "${API_BASE_URL}". To fix permanently:\n` +
+    `  1. Stop the dev server\n` +
+    `  2. Delete the .next directory: rm -rf .next\n` +
+    `  3. Ensure .env.development has: NEXT_PUBLIC_API_URL=/api/cbs\n` +
+    `  4. Restart: npm run dev`,
+  );
 }
 
 const apiClient: AxiosInstance = axios.create({
