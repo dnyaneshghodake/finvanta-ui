@@ -49,10 +49,18 @@ export const hasPermission = (permission: string): boolean => {
 /**
  * Check if the current user has access to a specific CBS module.
  * Uses `allowedModules[]` from the new Spring login response.
+ *
+ * FAIL-CLOSED: when `allowedModules` is absent (bootstrap failed,
+ * legacy login response), we return false. This is the Zero Trust
+ * default — the backend gates independently, but the UI should not
+ * show modules the operator may not be authorized for.
+ *
+ * CBS benchmark: Finacle's USRPRF and T24's EB.USER.CONTEXT both
+ * fail-closed when the context service is unreachable.
  */
 export const hasModuleAccess = (module: string): boolean => {
   const user = useAuthStore.getState().user;
-  if (!user?.allowedModules) return true; // No restriction data → allow (backend gates)
+  if (!user?.allowedModules || user.allowedModules.length === 0) return false;
   return user.allowedModules.includes(module);
 };
 

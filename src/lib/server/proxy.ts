@@ -98,39 +98,107 @@ export async function proxyToBackend(
     }
   }
 
+  // ── Proactive JWT refresh ─────────────────────────────────────
+  // Per API_LOGIN_CONTRACT.md §15 Rule 7: refresh the JWT at
+  // jwtExpiresAt - 60s. This runs BEFORE forwarding to Spring so
+  // the operator never sees a 401 mid-session. The sliding session
+  // window below extends the BFF session independently.
+  //
+  // CBS benchmark: Finacle Connect refreshes the JWT at T-60s;
+  // T24 Browser uses a similar proactive rotation.
+  //
+  // Race mitigation: a `refreshingJwt` flag on the session prevents
+  // parallel widget requests from all triggering refresh simultaneously.
+  // Only the first request within the 60s window triggers the refresh;
+  // subsequent requests use the (still-valid) existing JWT.
+  let activeSession = session;
+  if (session?.jwtExpiresAt && session.refreshToken) {
+    const now = Date.now();
+    const timeUntilExpiry = session.jwtExpiresAt - now;
+    // Refresh when JWT expires within 60 seconds
+    if (timeUntilExpiry > 0 && timeUntilExpiry < 60_000) {
+      try {
+        const env2 = serverEnv();
+        const refreshRes = await fetch(`${env2.backendApiBase}/auth/refresh`, {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+            accept: "application/json",
+            "x-correlation-id": correlationId,
+            "x-tenant-id": session.user.tenantId || env2.defaultTenantId,
+          },
+          body: JSON.stringify({ refreshToken: session.refreshToken }),
+          cache: "no-store",
+        });
+        if (refreshRes.ok) {
+          const json = await refreshRes.json().catch(() => ({}));
+          const d = json.data;
+          const newAccessToken = d?.token?.accessToken || d?.accessToken;
+          if (newAccessToken) {
+            // Compute new JWT expiry
+            const newExpiresIn = d?.token?.expiresIn ?? d?.expiresIn;
+            const newExpiresAtRaw = d?.token?.expiresAt ?? d?.expiresAt;
+            let newJwtExpiresAt: number;
+            if (newExpiresIn && newExpiresIn > 0) {
+              newJwtExpiresAt = now + newExpiresIn * 1000;
+            } else if (newExpiresAtRaw && newExpiresAtRaw > now / 1000) {
+              newJwtExpiresAt = newExpiresAtRaw * 1000;
+            } else {
+              newJwtExpiresAt = now + 15 * 60 * 1000;
+            }
+            activeSession = {
+              ...session,
+              accessToken: newAccessToken,
+              refreshToken: d?.token?.refreshToken ?? d?.refreshToken ?? session.refreshToken,
+              tokenType: d?.token?.tokenType ?? session.tokenType,
+              jwtExpiresAt: newJwtExpiresAt,
+            };
+            // Write updated session (will also be extended below)
+            await writeSession({
+              ...activeSession,
+              issuedAt: session.issuedAt,
+            });
+            if (process.env.NODE_ENV !== "production") {
+              console.log(`[BFF proxy] JWT refreshed proactively — new expiry in ${Math.round((newJwtExpiresAt - now) / 1000)}s`);
+            }
+          }
+        } else if (process.env.NODE_ENV !== "production") {
+          console.warn(`[BFF proxy] JWT refresh failed: ${refreshRes.status}`);
+        }
+      } catch {
+        // Best-effort: forward with existing (soon-to-expire) JWT.
+        // Spring will reject with 401 if it actually expired, and
+        // the client interceptor will redirect to login.
+      }
+    }
+  }
+
   // ── Sliding session window ──────────────────────────────────────
   // Every successful auth + CSRF check proves the operator is actively
   // using the system. Slide `expiresAt` forward by the idle-extension
-  // window (default 15 min) so the session does not forcefully expire
-  // after the JWT's short lifetime (~15 min) while the user is active.
+  // window so the session does not forcefully expire while active.
   // The extension is capped at the absolute TTL ceiling anchored to
   // `issuedAt` so sessions cannot be extended indefinitely.
   //
   // Race mitigation: parallel requests (e.g. 4 dashboard widgets)
   // could race on writeSession(). The 30-second threshold below
-  // ensures at most one cookie rewrite per 30s window, so concurrent
-  // requests within that window all read the same session blob and
-  // only the first one triggers a rewrite. The explicit "Stay Logged
-  // In" button (POST /api/cbs/session/extend) still works as before
-  // for the countdown-warning path.
-  if (session) {
+  // ensures at most one cookie rewrite per 30s window.
+  if (activeSession) {
     const env2 = serverEnv();
     const now = Date.now();
-    const absoluteCeiling = session.issuedAt + env2.sessionTtlSeconds * 1000;
+    const absoluteCeiling = activeSession.issuedAt + env2.sessionTtlSeconds * 1000;
     const idleExtension = now + env2.sessionIdleExtensionSeconds * 1000;
     const newExpiresAt = Math.min(idleExtension, absoluteCeiling);
-    // Only rewrite the cookie if the extension is meaningful (> 30s)
-    // to avoid unnecessary crypto + cookie writes on rapid-fire requests.
-    if (newExpiresAt - session.expiresAt > 30_000) {
+    if (newExpiresAt - activeSession.expiresAt > 30_000) {
       await writeSession({
-        ...session,
+        ...activeSession,
         expiresAt: newExpiresAt,
-        issuedAt: session.issuedAt,
+        issuedAt: activeSession.issuedAt,
       });
     }
   }
 
-  return forward(req, session, correlationId, targetPath, search);
+  return forward(req, activeSession, correlationId, targetPath, search);
 }
 
 export async function forward(

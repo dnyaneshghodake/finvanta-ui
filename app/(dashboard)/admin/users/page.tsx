@@ -13,13 +13,14 @@
  *   - Optional MFA enrollment
  */
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import Link from 'next/link';
 import { Breadcrumb, StatusRibbon, CbsTableSkeleton } from '@/components/cbs';
 import { AdminPageGuard } from '@/components/atoms';
 import { useUIStore } from '@/store/uiStore';
 import { operatorService } from '@/services/api/adminService';
 import { formatCbsTimestamp } from '@/utils/formatters';
+import { useCbsKeyboard } from '@/hooks/useCbsKeyboard';
 import type { Operator } from '@/types/entities';
 import { ShieldCheck, Lock, Unlock, KeyRound, Search } from 'lucide-react';
 
@@ -40,6 +41,7 @@ export default function UserManagementPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
+  const searchRef = useRef<HTMLInputElement>(null);
 
   const loadOperators = useCallback(async () => {
     setIsLoading(true);
@@ -84,6 +86,13 @@ export default function UserManagementPage() {
     }
   };
 
+  // CBS keyboard shortcuts: F3 = Focus search, F5 = Refresh list
+  const shortcuts = useMemo(() => ({
+    F3: () => { searchRef.current?.focus(); },
+    F5: () => { void loadOperators(); },
+  }), [loadOperators]);
+  useCbsKeyboard(shortcuts);
+
   const filtered = search
     ? operators.filter((o) =>
         o.username.toLowerCase().includes(search.toLowerCase()) ||
@@ -117,7 +126,7 @@ export default function UserManagementPage() {
         <div className="flex flex-wrap items-center gap-3">
           <div className="relative flex-1 min-w-[200px] max-w-xs">
             <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-cbs-steel-400" />
-            <input type="text" placeholder="Search user ID, name, or branch…" value={search}
+            <input ref={searchRef} type="text" placeholder="Search user ID, name, or branch… (F3)" value={search}
               onChange={(e) => setSearch(e.target.value)} className="cbs-input pl-8 w-full" />
           </div>
           <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="cbs-input w-auto">

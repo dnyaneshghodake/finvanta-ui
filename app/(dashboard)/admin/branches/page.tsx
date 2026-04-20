@@ -12,13 +12,14 @@
  * branches via the session/switch-branch endpoint.
  */
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import Link from 'next/link';
 import { useAuthStore } from '@/store/authStore';
 import { Breadcrumb, StatusRibbon, CbsTableSkeleton } from '@/components/cbs';
 import { AdminPageGuard } from '@/components/atoms';
 import { useUIStore } from '@/store/uiStore';
 import { branchService } from '@/services/api/adminService';
+import { useCbsKeyboard } from '@/hooks/useCbsKeyboard';
 import type { Branch } from '@/types/entities';
 import { Search } from 'lucide-react';
 
@@ -30,6 +31,7 @@ export default function BranchManagementPage() {
   const [total, setTotal] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const searchRef = useRef<HTMLInputElement>(null);
 
   const loadBranches = useCallback(async () => {
     setIsLoading(true);
@@ -46,6 +48,13 @@ export default function BranchManagementPage() {
   }, [addToast]);
 
   useEffect(() => { void loadBranches(); }, [loadBranches]);
+
+  // CBS keyboard shortcuts: F3 = Focus search, F5 = Refresh list
+  const shortcuts = useMemo(() => ({
+    F3: () => { searchRef.current?.focus(); },
+    F5: () => { void loadBranches(); },
+  }), [loadBranches]);
+  useCbsKeyboard(shortcuts);
 
   const filtered = search
     ? branches.filter((b) =>
@@ -85,7 +94,7 @@ export default function BranchManagementPage() {
         <div className="flex flex-wrap items-center gap-3">
           <div className="relative flex-1 min-w-[200px] max-w-xs">
             <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-cbs-steel-400" />
-            <input type="text" placeholder="Search branch code, name, or city…" value={search}
+            <input ref={searchRef} type="text" placeholder="Search branch code, name, or city… (F3)" value={search}
               onChange={(e) => setSearch(e.target.value)} className="cbs-input pl-8 w-full" />
           </div>
         </div>

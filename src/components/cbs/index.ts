@@ -38,3 +38,8 @@ export {
   type CbsDataGridProps,
 } from './DataGrid';
 export { CbsDatePicker, type CbsDatePickerProps } from './DatePicker';
+export {
+  TransactionConfirmDialog,
+  type TransactionConfirmDialogProps,
+  type ConfirmField,
+} from './TransactionConfirmDialog';

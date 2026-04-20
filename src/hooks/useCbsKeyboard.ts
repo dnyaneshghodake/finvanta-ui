@@ -5,16 +5,20 @@
  * Tier-1 CBS convention: tellers process 200+ transactions/day and
  * rarely touch the mouse. Standard shortcuts:
  *   F2  = New transaction / transfer
+ *   F3  = Search / Focus search field
  *   F5  = Refresh current view
  *   F7  = Toggle inquiry mode
  *   F8  = Execute / Post / Submit
+ *   F10 = Submit form (alternative to F8)
  *   Esc = Cancel / Close modal
  *
  * Usage:
  *   useCbsKeyboard({
  *     'F2':  () => router.push('/transfers'),
+ *     'F3':  () => searchRef.current?.focus(),
  *     'F5':  () => refetch(),
  *     'F8':  () => handleSubmit(),
+ *     'F10': () => formRef.current?.requestSubmit(),
  *   });
  */
 import { useEffect, useCallback } from 'react';
@@ -56,7 +60,7 @@ export function useCbsKeyboard(shortcuts: CbsShortcutMap, enabled = true): void 
  */
 export function kbdLabel(key: string): string {
   const map: Record<string, string> = {
-    F2: 'F2', F5: 'F5', F7: 'F7', F8: 'F8',
+    F2: 'F2', F3: 'F3', F5: 'F5', F7: 'F7', F8: 'F8', F10: 'F10',
     Escape: 'Esc', Enter: '↵', Tab: '⇥',
     ArrowUp: '↑', ArrowDown: '↓', ArrowLeft: '←', ArrowRight: '→',
   };

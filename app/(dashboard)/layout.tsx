@@ -1,17 +1,52 @@
 'use client';
 
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, createContext, useContext } from 'react';
 import { useRouter } from 'next/navigation';
 import { Header, Sidebar } from '@/components/layout';
 import { useAuthStore } from '@/store/authStore';
 import { Spinner } from '@/components/atoms';
 import { useSessionTimeout } from '@/hooks/useSessionTimeout';
 import { useBackendHealth } from '@/hooks/useBackendHealth';
+import { useCbsKeyboardNav } from '@/hooks/useCbsKeyboardNav';
 import { SessionTimeoutWarning } from '@/components/molecules/SessionTimeoutWarning';
 import { CbsToastContainer } from '@/components/cbs/ToastContainer';
+import { PageErrorBoundary } from '@/components/cbs/CbsErrorBoundary';
+import { KeyboardHelpOverlay } from '@/components/cbs/KeyboardHelpOverlay';
 import { authService } from '@/services/api/authService';
 import { logger } from '@/utils/logger';
 import { formatCbsDate } from '@/utils/formatters';
+
+/* ── Day-Status Context ─────────────────────────────────────────
+ * Per API_LOGIN_CONTRACT.md §14 Rule 8: dayStatus controls the
+ * entire UI. Transaction buttons must be disabled when day is not
+ * open. This context propagates the posting-allowed flag to all
+ * child components without prop drilling.
+ *
+ * CBS benchmark: Finacle's DAYOPR module disables all posting
+ * menus when dayStatus != DAY_OPEN. T24 greys out transaction menus.
+ */
+interface DayStatusContextValue {
+  /** Whether financial postings are allowed. */
+  isPostingAllowed: boolean;
+  /** Current day status string for display. */
+  dayStatus: string | null;
+  /** Reason postings are blocked (for tooltip/message). */
+  blockReason: string | null;
+}
+
+const DayStatusContext = createContext<DayStatusContextValue>({
+  isPostingAllowed: true,
+  dayStatus: null,
+  blockReason: null,
+});
+
+/**
+ * Hook to check if financial postings are allowed.
+ * Use in transaction buttons: `const { isPostingAllowed } = useDayStatus();`
+ */
+export function useDayStatus(): DayStatusContextValue {
+  return useContext(DayStatusContext);
+}
 
 /* ── Day-Status Operational Banner ──────────────────────────────
  * Per API_LOGIN_CONTRACT.md §14 Rule 6:
@@ -127,6 +162,28 @@ export default function DashboardLayout({
   // so operators know the issue is server-side, not their session.
   const { backendStatus } = useBackendHealth(isAuthenticated);
 
+  // CBS keyboard navigation (F1=Help, Alt+D=Dashboard, etc.)
+  const { isHelpOpen, toggleHelp, activeKeyMap } = useCbsKeyboardNav();
+
+  // Day-status context — controls posting-allowed flag for all children
+  const businessDay = useAuthStore((s) => s.businessDay);
+  const dayStatusValue = useMemo((): DayStatusContextValue => {
+    const ds = businessDay?.dayStatus || null;
+    if (!ds || ds === 'DAY_OPEN') {
+      return { isPostingAllowed: true, dayStatus: ds, blockReason: null };
+    }
+    const reasons: Record<string, string> = {
+      EOD_RUNNING: 'End-of-day processing is in progress',
+      DAY_CLOSED: 'Business day is closed',
+      NOT_OPENED: 'Business day has not been opened',
+    };
+    return {
+      isPostingAllowed: false,
+      dayStatus: ds,
+      blockReason: reasons[ds] || 'Day status does not permit postings',
+    };
+  }, [businessDay?.dayStatus]);
+
   useEffect(() => {
     // Hydrate auth state from the server-side BFF session, then mark ready.
     void loadSession().finally(() => setIsInitialized(true));
@@ -180,55 +237,72 @@ export default function DashboardLayout({
   }
 
   return (
-    <div className="flex flex-col h-screen bg-cbs-mist">
-      <Header />
-
-      {/* ── Backend-down banner ── */}
-      {backendStatus === 'DOWN' && (
-        <div
-          role="alert"
-          className="bg-cbs-crimson-50 border-b border-cbs-crimson-600 px-4 py-2 flex items-center gap-3 text-sm text-cbs-crimson-700 cbs-no-print"
+    <DayStatusContext.Provider value={dayStatusValue}>
+      <div className="flex flex-col h-screen bg-cbs-mist">
+        {/* WCAG 2.4.1 — Skip to main content link. Visible on focus only.
+            Tellers using keyboard navigation can bypass the header and
+            sidebar to reach the main content area immediately. */}
+        <a
+          href="#cbs-main"
+          className="sr-only focus:not-sr-only focus:absolute focus:z-[100] focus:top-2 focus:left-2 focus:px-4 focus:py-2 focus:bg-cbs-navy-800 focus:text-white focus:text-sm focus:font-semibold focus:rounded focus:outline-none focus:ring-2 focus:ring-cbs-navy-400"
         >
-          <span className="font-bold text-xs uppercase tracking-wider shrink-0">
-            ⚠ System Unavailable
-          </span>
-          <span>
-            The banking server is not responding. Transactions cannot be
-            processed until the connection is restored. If this persists,
-            contact IT support.
-          </span>
+          Skip to main content
+        </a>
+        <Header />
+
+        {/* ── Backend-down banner ── */}
+        {backendStatus === 'DOWN' && (
+          <div
+            role="alert"
+            className="bg-cbs-crimson-50 border-b border-cbs-crimson-600 px-4 py-2 flex items-center gap-3 text-sm text-cbs-crimson-700 cbs-no-print"
+          >
+            <span className="font-bold text-xs uppercase tracking-wider shrink-0">
+              ⚠ System Unavailable
+            </span>
+            <span>
+              The banking server is not responding. Transactions cannot be
+              processed until the connection is restored. If this persists,
+              contact IT support.
+            </span>
+          </div>
+        )}
+
+        {/* ── Day-status operational banner (API_LOGIN_CONTRACT.md §14 Rule 6) ── */}
+        <DayStatusBanner />
+
+        {/* ── Password expiry warning (API_LOGIN_CONTRACT.md §14 Rule 10) ── */}
+        <PasswordExpiryBanner />
+
+        <div className="flex flex-1 min-h-0">
+          <Sidebar />
+          <main id="cbs-main" className="flex-1 overflow-y-auto" tabIndex={-1}>
+            <div className="p-3 sm:p-4 lg:p-6">
+              <PageErrorBoundary moduleRef="MAIN">
+                {children}
+              </PageErrorBoundary>
+            </div>
+          </main>
         </div>
-      )}
 
-      {/* ── Day-status operational banner (API_LOGIN_CONTRACT.md §14 Rule 6) ── */}
-      {/* dayStatus controls the entire UI. NOT_OPENED and EOD_RUNNING
-          disable transaction buttons. DAY_CLOSED is read-only mode.
-          The server enforces this too — the banner is a UX convenience. */}
-      <DayStatusBanner />
+        {/* Toast notifications — positioned top-right below header */}
+        <CbsToastContainer />
 
-      {/* ── Password expiry warning (API_LOGIN_CONTRACT.md §14 Rule 10) ── */}
-      {/* Per RBI IT Governance: if within 7 days of expiry, show
-          non-blocking banner so the operator contacts their admin. */}
-      <PasswordExpiryBanner />
-
-      <div className="flex flex-1 min-h-0">
-        <Sidebar />
-        <main id="cbs-main" className="flex-1 overflow-y-auto" tabIndex={-1}>
-          <div className="p-3 sm:p-4 lg:p-6">{children}</div>
-        </main>
-      </div>
-
-      {/* Toast notifications — positioned top-right below header */}
-      <CbsToastContainer />
-
-      {/* Session timeout warning overlay */}
-      {isWarningActive && secondsRemaining !== null && (
-        <SessionTimeoutWarning
-          secondsRemaining={secondsRemaining}
-          onStayLoggedIn={handleStayLoggedIn}
-          onLogout={handleLogoutNow}
+        {/* CBS Keyboard shortcut help overlay (F1 / Ctrl+/) */}
+        <KeyboardHelpOverlay
+          isOpen={isHelpOpen}
+          onClose={toggleHelp}
+          keyMap={activeKeyMap}
         />
-      )}
-    </div>
+
+        {/* Session timeout warning overlay */}
+        {isWarningActive && secondsRemaining !== null && (
+          <SessionTimeoutWarning
+            secondsRemaining={secondsRemaining}
+            onStayLoggedIn={handleStayLoggedIn}
+            onLogout={handleLogoutNow}
+          />
+        )}
+      </div>
+    </DayStatusContext.Provider>
   );
 }

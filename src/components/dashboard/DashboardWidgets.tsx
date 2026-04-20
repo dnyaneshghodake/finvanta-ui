@@ -113,15 +113,15 @@ function StatCard({ label, value, sub, valueClass }: {
   label: string; value: string; sub?: string; valueClass?: string;
 }) {
   return (
-    <div className="cbs-surface p-4 h-[128px] rounded-lg flex flex-col justify-between">
-      <div className="text-[13px] font-medium text-cbs-steel-600">{label}</div>
-      <div className={`text-2xl font-semibold cbs-tabular text-right text-cbs-ink ${valueClass || ''}`}>
+    <dl className="cbs-surface p-4 h-[128px] rounded-lg flex flex-col justify-between">
+      <dt className="text-[13px] font-medium text-cbs-steel-600">{label}</dt>
+      <dd className={`text-2xl font-semibold cbs-tabular text-right text-cbs-ink ${valueClass || ''}`}>
         {value}
-      </div>
+      </dd>
       {sub && (
-        <div className="text-xs text-cbs-steel-500 text-right cbs-tabular">{sub}</div>
+        <dd className="text-xs text-cbs-steel-500 text-right cbs-tabular">{sub}</dd>
       )}
-    </div>
+    </dl>
   );
 }
 
@@ -140,15 +140,15 @@ function RiskCard({ label, value, breached }: {
   label: string; value: number; breached: boolean;
 }) {
   return (
-    <div className={`cbs-surface p-4 h-[140px] rounded-lg flex flex-col justify-between ${breached ? 'border-2 border-cbs-crimson-600' : ''}`}>
-      <div className="text-[13px] font-medium text-cbs-steel-600">{label}</div>
-      <div className={`text-2xl font-semibold cbs-tabular text-right ${breached ? 'cbs-amount-debit' : 'text-cbs-ink'}`}>
+    <dl className={`cbs-surface p-4 h-[140px] rounded-lg flex flex-col justify-between ${breached ? 'border-2 border-cbs-crimson-600' : ''}`} role={breached ? 'alert' : undefined}>
+      <dt className="text-[13px] font-medium text-cbs-steel-600">{label}</dt>
+      <dd className={`text-2xl font-semibold cbs-tabular text-right ${breached ? 'cbs-amount-debit' : 'text-cbs-ink'}`}>
         {value}
-      </div>
+      </dd>
       {breached && (
-        <div className="text-[10px] text-cbs-crimson-700 text-right font-semibold uppercase">Threshold Breached</div>
+        <dd className="text-[10px] text-cbs-crimson-700 text-right font-semibold uppercase">Threshold Breached</dd>
       )}
-    </div>
+    </dl>
   );
 }
 
@@ -301,12 +301,12 @@ export function ApprovalQueueWidget({ def }: { def: WidgetDef }) {
           <table className="cbs-grid-table">
             <thead>
               <tr>
-                <th style={{width:120}}>Ref No</th>
-                <th style={{width:100}}>Type</th>
-                <th style={{width:120}}>Maker</th>
-                <th className="text-right" style={{width:80}}>Age</th>
-                <th className="text-center" style={{width:100}}>SLA</th>
-                <th style={{width:100}}>Status</th>
+                <th scope="col" style={{width:120}}>Ref No</th>
+                <th scope="col" style={{width:100}}>Type</th>
+                <th scope="col" style={{width:120}}>Maker</th>
+                <th scope="col" className="text-right" style={{width:80}}>Age</th>
+                <th scope="col" className="text-center" style={{width:100}}>SLA</th>
+                <th scope="col" style={{width:100}}>Status</th>
               </tr>
             </thead>
             <tbody>

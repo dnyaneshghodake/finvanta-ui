@@ -149,6 +149,8 @@ export function WidgetShell({
       />
     );
   }
-  // Success, or background refresh with stale data: show children
-  return <>{children}</>;
+  // Success, or background refresh with stale data: show children.
+  // aria-live="polite" announces content changes to screen readers
+  // when widget data refreshes silently (WCAG 2.1 §4.1.3).
+  return <div aria-live="polite" aria-atomic="false">{children}</div>;
 }

@@ -9,6 +9,7 @@ import { StatisticCard, TransactionRow } from '@/components/molecules';
 import { Button, Spinner } from '@/components/atoms';
 import { StatusRibbon, KeyValue } from '@/components/cbs/feedback';
 import { Breadcrumb, CbsTabs, CbsTabPanel, CbsFormSkeleton } from '@/components/cbs';
+import { AuditTrailViewer } from '@/components/cbs/AuditTrailViewer';
 import { formatCurrency, formatAccountNumber, formatDate, formatAccountType, formatCbsDate } from '@/utils/formatters';
 import type { Account } from '@/types/entities';
 
@@ -117,6 +118,7 @@ export default function AccountDetailsPage() {
     { id: 'overview', label: 'Overview' },
     { id: 'transactions', label: 'Transactions', count: transactions.length },
     { id: 'details', label: 'Account Details' },
+    { id: 'audit', label: 'Audit Trail' },
   ];
 
   return (
@@ -330,6 +332,23 @@ export default function AccountDetailsPage() {
             <KeyValue label="Nominee">
               <span>{account.nomineeName || 'Not registered'}</span>
             </KeyValue>
+          </div>
+        </section>
+      </CbsTabPanel>
+
+      {/* ── Audit Trail tab (RBI IT Governance 2023 §8.5) ── */}
+      <CbsTabPanel id="audit" activeTab={activeTab}>
+        <section className="cbs-surface">
+          <div className="cbs-surface-header">
+            <span className="text-sm font-semibold uppercase tracking-wider text-cbs-steel-700">
+              Audit Trail — {formatAccountNumber(account.accountNumber)}
+            </span>
+          </div>
+          <div className="cbs-surface-body">
+            <AuditTrailViewer
+              entityType="ACCOUNT"
+              entityId={account.accountNumber}
+            />
           </div>
         </section>
       </CbsTabPanel>
