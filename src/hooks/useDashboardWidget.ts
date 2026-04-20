@@ -14,8 +14,25 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { apiClient } from '@/services/api/apiClient';
+import axios from 'axios';
 import { logger } from '@/utils/logger';
+
+/**
+ * Dedicated axios instance for dashboard widgets.
+ *
+ * This does NOT use the shared `apiClient` because apiClient's 401
+ * interceptor clears the auth store and redirects to /login. Dashboard
+ * widget endpoints may not exist on the backend yet (returning 401/404),
+ * and those failures must NOT trigger a logout — they should show the
+ * widget error state instead. A failed widget must never break the
+ * entire dashboard session.
+ */
+const widgetClient = axios.create({
+  baseURL: '/api/cbs',
+  timeout: 10_000,
+  headers: { 'Content-Type': 'application/json' },
+  withCredentials: true,
+});
 
 export type WidgetStatus = 'loading' | 'success' | 'error';
 
@@ -73,12 +90,26 @@ export function useDashboardWidget<T>(
     if (!enabled) return;
     if (!silent) setStatus('loading');
     try {
-      const res = await apiClient.get<{
+      const res = await widgetClient.get<{
         success?: boolean;
         status?: string;
         data?: T;
-      }>(endpoint);
+      }>(endpoint, {
+        // Accept all HTTP statuses — we handle errors ourselves.
+        // This prevents axios from throwing on 401/404/500 which
+        // would otherwise be caught by apiClient's 401 interceptor
+        // and trigger a session clear + logout.
+        validateStatus: () => true,
+      });
       if (!mountedRef.current) return;
+
+      // Non-2xx means the widget endpoint failed (may not exist yet).
+      // Show the widget error state — do NOT trigger a logout.
+      if (res.status < 200 || res.status >= 300) {
+        const errMsg = res.data?.message || res.data?.errorCode || `HTTP ${res.status}`;
+        throw new Error(String(errMsg));
+      }
+
       const payload = res.data?.data ?? (res.data as unknown as T);
       if (payload != null) {
         setData(payload);
