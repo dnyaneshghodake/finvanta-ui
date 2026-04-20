@@ -1,9 +1,13 @@
 # Finvanta CBS — REST API Reference
 
-> **Version:** 1.0 · **Base URL:** `/api/v1` · **Auth:** JWT Bearer · **Envelope:** `ApiResponse<T>`
+> **Version:** 3.0 · **Base URL:** `/api/v1` · **Auth:** JWT Bearer · **Envelope:** `ApiResponse<T>` with `meta` + `error` (Tier-1 CBS Grade)
 >
-> Per RBI IT Governance Direction 2023 and Finacle Connect / Temenos IRIS standards.
-> **78 endpoints** across 11 controllers · **42 error codes** · **4 CBS roles**
+> Per RBI IT Governance Direction 2023, RBI Fair Practices Code 2023, Finacle Connect / Temenos IRIS standards.
+> **100+ endpoints** across 20 controllers · **42 error codes** · **4 CBS roles** · **4 severity levels**
+>
+> **What's new in v3.0:** Tier-1 response envelope (meta.apiVersion, meta.correlationId, error.severity, error.action),
+> Prometheus metrics (/actuator/prometheus), OpenAPI 3.0 docs (/swagger-ui.html — dev only),
+> JSON structured logging (prod), all controllers unified under `/api/v1/`.
 
 ---
 
@@ -12,7 +16,7 @@
 | # | Section | Endpoints |
 |---|---------|-----------|
 | 1 | [Global Conventions](#1-global-conventions) | — |
-| 2 | [Authentication](#2-authentication) | 3 |
+| 2 | [Authentication and Context](#2-authentication) | 4 |
 | 3 | [Customer Onboarding](#3-customer-onboarding) | 6 |
 | 4 | [CASA Account Lifecycle](#4-casa-account-lifecycle) | 6 |
 | 5 | [CASA Financial Operations](#5-casa-financial-operations) | 4 |
@@ -27,8 +31,17 @@
 | 14 | [GL Inquiry and Reporting](#14-gl-inquiry-and-reporting) | 4 |
 | 15 | [Maker-Checker Workflow](#15-maker-checker-workflow) | 6 |
 | 16 | [Notifications](#16-notifications) | 5 |
-| 17 | [Error Code Reference](#17-error-code-reference) | 42 codes |
-| 18 | [Infrastructure](#18-infrastructure) | — |
+| 17 | [Dashboard Widgets](#17-dashboard-widgets-4-widget-endpoints--1-legacy) | 4+1 |
+| 18 | [Teller Dashboard Widgets](#18-teller-dashboard-widgets) | 2 |
+| 19 | [Manager Dashboard Widgets](#19-manager-dashboard-widgets) | 2 |
+| 20 | [Users](#20-users) | 6 |
+| 21 | [Products](#21-products) | 6 |
+| 22 | [Audit Trail](#22-audit-trail) | 3 |
+| 23 | [Reports](#23-reports) | 3 |
+| 24 | [Password Management](#24-password-management) | 1 |
+| 25 | [Charge Reversal](#25-charge-reversal) | 1 |
+| 26 | [Error Code Reference](#26-error-code-reference) | 42 codes |
+| 27 | [Infrastructure](#27-infrastructure) | — |
 
 ---
 
@@ -45,42 +58,86 @@
 | `X-Branch-Code` | Optional | Branch context override (HO users only) |
 | `Content-Type` | Yes (POST/PUT) | `application/json` |
 
-### Response Envelope
+### Response Envelope (Tier-1 CBS Grade)
 
-Every response uses `ApiResponse<T>`:
+Every response uses `ApiResponse<T>` with structured `meta` and `error` objects per Finacle API / Temenos IRIS / ISO 20022 alignment.
 
 **Success:**
 ```json
 {
   "status": "SUCCESS",
-  "data": { ... },
-  "errorCode": null,
-  "message": "Account opened in PENDING_ACTIVATION",
-  "timestamp": "2026-04-20T10:30:00"
+  "data": { "accountNumber": "SB-BR001-000001", "status": "ACTIVE" },
+  "message": "Account activated",
+  "timestamp": "2026-04-20T10:30:00",
+  "meta": {
+    "apiVersion": "v1",
+    "correlationId": "550e8400-e29b-41d4-a716-446655440000",
+    "timestamp": "2026-04-20T10:30:00"
+  }
 }
 ```
 
-**Error:**
+**Error (with severity and remediation action):**
 ```json
 {
   "status": "ERROR",
-  "data": null,
-  "errorCode": "ACCOUNT_NOT_FOUND",
-  "message": "Account not found",
-  "timestamp": "2026-04-20T10:30:00"
+  "errorCode": "INSUFFICIENT_BALANCE",
+  "message": "Insufficient account balance",
+  "timestamp": "2026-04-20T10:30:00",
+  "error": {
+    "code": "INSUFFICIENT_BALANCE",
+    "message": "Insufficient account balance",
+    "severity": "HIGH",
+    "action": "Verify available balance or arrange funds before retrying"
+  },
+  "meta": {
+    "apiVersion": "v1",
+    "correlationId": "550e8400-e29b-41d4-a716-446655440000",
+    "timestamp": "2026-04-20T10:30:00"
+  }
 }
 ```
 
-**Error with data (428 MFA):**
+**Error with data (428 MFA step-up):**
 ```json
 {
   "status": "ERROR",
-  "data": { "challengeId": "eyJ...", "channel": "TOTP" },
   "errorCode": "MFA_REQUIRED",
   "message": "MFA step-up required to complete sign-in",
-  "timestamp": "2026-04-20T10:30:00"
+  "data": { "challengeId": "eyJ...", "channel": "TOTP" },
+  "error": {
+    "code": "MFA_REQUIRED",
+    "message": "MFA step-up required to complete sign-in"
+  },
+  "meta": {
+    "apiVersion": "v1",
+    "correlationId": "550e8400-e29b-41d4-a716-446655440000",
+    "timestamp": "2026-04-20T10:30:00"
+  }
 }
 ```
+
+> **Backward compatibility:** Legacy flat fields (`errorCode`, `message`, `timestamp`) are retained alongside the new structured `error` and `meta` objects. Existing BFF clients that read `response.errorCode` continue to work; new clients should prefer `response.error.code`, `response.error.severity`, and `response.meta.correlationId`.
+
+**Error Severity Levels (per RBI Fair Practices Code 2023):**
+
+| Severity | BFF UI Treatment | Examples |
+|----------|-----------------|----------|
+| `LOW` | Toast notification, auto-dismiss | ACCOUNT_NOT_FOUND, VALIDATION_FAILED, INVALID_REQUEST |
+| `MEDIUM` | Warning modal, user acknowledges | DUPLICATE_TRANSACTION, VERSION_CONFLICT, ACCOUNT_DORMANT |
+| `HIGH` | Blocking error, corrective action required | INSUFFICIENT_BALANCE, ACCOUNT_FROZEN, LIEN_BLOCKED, ACCESS_DENIED |
+| `CRITICAL` | Contact support with correlation ID | INTERNAL_ERROR |
+
+**Error `action` Field:** Per RBI Fair Practices Code 2023 §7.1 — every error to the customer includes actionable remediation guidance. Examples:
+
+| Error Code | Action |
+|------------|--------|
+| `INSUFFICIENT_BALANCE` | "Verify available balance or arrange funds before retrying" |
+| `ACCOUNT_FROZEN` | "Contact branch to request account unfreeze" |
+| `ACCOUNT_DORMANT` | "Visit the branch with ID proof to reactivate the account" |
+| `KYC_NOT_VERIFIED` | "Complete KYC verification before proceeding" |
+| `WORKFLOW_SELF_APPROVAL` | "A different user must approve this operation" |
+| `DUPLICATE_TRANSACTION` | "This transaction was already processed. Check your statement" |
 
 ### Role Matrix
 
@@ -93,13 +150,16 @@ Every response uses `ApiResponse<T>`:
 
 ---
 
-## 2. Authentication
+## 2. Authentication and Context
 
-**Base:** `/api/v1/auth` · **Auth:** `permitAll` · **Rate limit:** 20 req/IP burst, 1 token/6s refill
+**Auth Base:** `/api/v1/auth` · **Auth:** `permitAll` · **Rate limit:** 20 req/IP burst, 1 token/6s refill
+**Context Base:** `/api/v1/context` · **Auth:** JWT required
 
 ### 2.1 `POST /auth/token` — Login
 
-Authenticates user and issues JWT tokens. If MFA is enabled, returns 428 with a challenge token.
+Authenticates user and issues JWT tokens. Returns **ONLY identity + tokens** (no operational context). If MFA is enabled, returns 428 with a challenge token.
+
+**Tier-1 CBS Principle:** Login must be ultra-fast (<300ms). Operational context (branch status, business day, permissions, limits) is fetched via `GET /api/v1/context/bootstrap` AFTER login.
 
 **Request:**
 
@@ -108,17 +168,25 @@ Authenticates user and issues JWT tokens. If MFA is enabled, returns 428 with a 
 | `username` | string | **Yes** | `@NotBlank` |
 | `password` | string | **Yes** | `@NotBlank` |
 
-**Response (200) — MFA disabled — `LoginSessionContext`:**
+**Response (200) — MFA disabled — `AuthResponse`:**
 
-| Section | Fields |
-|---------|--------|
-| `token` | `accessToken`, `refreshToken`, `tokenType` ("Bearer"), `expiresAt` (epoch seconds) |
-| `user` | `userId`, `username`, `displayName`, `authenticationLevel` (PASSWORD or MFA), `loginTimestamp`, `lastLoginTimestamp`, `passwordExpiryDate`, `mfaEnabled` |
-| `branch` | `branchId`, `branchCode`, `branchName`, `ifscCode`, `branchType`, `zoneCode`, `regionCode`, `headOffice` |
-| `businessDay` | `businessDate`, `dayStatus` (DAY_OPEN / EOD_RUNNING / DAY_CLOSED / NOT_OPENED), `isHoliday`, `previousBusinessDate`, `nextBusinessDate` |
-| `role` | `role`, `makerCheckerRole` (MAKER / CHECKER / BOTH / VIEWER), `permissionsByModule` (map of module to permission list), `allowedModules` (list) |
-| `limits` | `transactionLimits[]` each with `transactionType`, `channel`, `perTransactionLimit`, `dailyAggregateLimit` |
-| `operationalConfig` | `baseCurrency` (INR), `decimalPrecision` (2), `roundingMode` (HALF_UP), `fiscalYearStartMonth` (4), `businessDayPolicy` |
+```json
+{
+  "accessToken": "eyJhbG...",
+  "refreshToken": "eyJhbG...",
+  "tokenType": "Bearer",
+  "expiresAt": 1713600000,
+  "user": {
+    "userId": 1,
+    "username": "maker01",
+    "displayName": "Rajesh Kumar",
+    "role": "MAKER",
+    "branchCode": "HQ001",
+    "authenticationLevel": "PASSWORD",
+    "mfaEnabled": false
+  }
+}
+```
 
 **Response (428) — MFA enabled:**
 
@@ -152,7 +220,7 @@ Exchanges the 428 challenge token plus a valid TOTP code for JWT tokens. Challen
 | `challengeId` | string | **Yes** | Challenge JWT from the 428 response |
 | `otp` | string | **Yes** | 6-digit TOTP code from authenticator app |
 
-**Response (200):** Same `LoginSessionContext` structure as `/auth/token` with `authenticationLevel: "MFA"`.
+**Response (200):** Same `AuthResponse` structure as `/auth/token` with `authenticationLevel: "MFA"`.
 
 **Error Codes:**
 
@@ -196,6 +264,33 @@ Rotates refresh token per RFC 6749 section 10.4. Old token is denylisted; replay
 | `REFRESH_TOKEN_REUSED` | 401 | Stolen token replay detected (SOC alert) |
 | `LEGACY_REFRESH_TOKEN` | 401 | Pre-rotation token, must re-authenticate |
 | `ACCOUNT_INVALID` | 401 | Account disabled/locked since token issuance |
+
+### 2.4 `GET /context/bootstrap` — Operational Context (Post-Login) `#83`
+
+**Base:** `/api/v1/context` · **Auth:** JWT required · **When:** Immediately after login, after branch switch, after token refresh
+
+Loads the full Controlled Operational Context (COC) for the authenticated user. This is the "session activation" step — the BFF calls it once after login and caches the result in its server-side session.
+
+**Response (200) — `LoginSessionContext`:**
+
+| Section | Fields |
+|---------|--------|
+| `token` | `null` (BFF already has tokens from login) |
+| `user` | `userId`, `username`, `displayName`, `authenticationLevel`, `loginTimestamp`, `lastLoginTimestamp`, `passwordExpiryDate`, `mfaEnabled` |
+| `branch` | `branchId`, `branchCode`, `branchName`, `ifscCode`, `branchType`, `zoneCode`, `regionCode`, `headOffice` |
+| `businessDay` | `businessDate`, `dayStatus` (DAY_OPEN / EOD_RUNNING / DAY_CLOSED / NOT_OPENED), `isHoliday`, `previousBusinessDate`, `nextBusinessDate` |
+| `role` | `role`, `makerCheckerRole` (MAKER / CHECKER / BOTH / VIEWER), `permissionsByModule` {module→[perms]}, `allowedModules` |
+| `limits` | `transactionLimits[]` → `transactionType`, `channel`, `perTransactionLimit`, `dailyAggregateLimit` |
+| `operationalConfig` | `baseCurrency`, `decimalPrecision`, `roundingMode`, `fiscalYearStartMonth`, `businessDayPolicy` |
+
+**BFF refresh triggers:** initial login, branch switch, token refresh, day status change event
+
+**Tier-1 BFF Flow:**
+```
+POST /auth/token → store JWT in memory
+  → GET /context/bootstrap → hydrate server-side session
+  → GET /dashboard/widgets/* → render dashboard
+```
 
 ---
 
@@ -653,7 +748,180 @@ Rotates refresh token per RFC 6749 section 10.4. Old token is denylisted; replay
 
 ---
 
-## 17. Error Code Reference
+## 17. Dashboard Widgets (4 widget endpoints + 1 legacy)
+
+**Base:** `/api/v1/dashboard` · **Pattern:** Tier-1 Progressive Secure Hydration
+
+Each widget is an independent endpoint fetched in parallel by the Next.js BFF. Layout renders immediately with role-based skeleton placeholders; data replaces skeletons as it arrives. A failed widget does NOT break the entire dashboard.
+
+**Widget Registry (BFF uses `LoginSessionContext.role` to select):**
+
+| Role | Widgets |
+|------|---------|
+| MAKER | portfolio, pending-approvals |
+| CHECKER | portfolio, npa, pending-approvals |
+| ADMIN | ALL widgets |
+| AUDITOR | portfolio, npa, casa |
+
+| # | Method | Path | Roles | Refresh | Skeleton |
+|---|--------|------|-------|---------|----------|
+| 79 | GET | `/dashboard/widgets/portfolio` | ALL | 60s | 6 metric cards |
+| 80 | GET | `/dashboard/widgets/npa` | CHECKER, ADMIN, AUDITOR | 60s | 3 amounts + 2 ratios |
+| 81 | GET | `/dashboard/widgets/casa` | CHECKER, ADMIN, AUDITOR | 60s | 3 metric values |
+| 82 | GET | `/dashboard/widgets/pending-approvals` | MAKER, CHECKER, ADMIN | 15s | Badge counter |
+| — | GET | `/dashboard/summary` | MAKER, CHECKER, ADMIN | — | Legacy monolithic (deprecated) |
+
+**`PortfolioWidget`:** `totalCustomers`, `casaAccounts`, `activeLoans`, `smaAccounts`, `npaAccounts`, `pendingApplications`
+
+**`NpaWidget`:** `totalOutstanding`, `npaOutstanding`, `totalProvisioning`, `grossNpaRatio`, `provisionCoverage`
+
+**`CasaWidget`:** `totalDeposits`, `casaAccountCount`, `casaRatio`
+
+**`ApprovalsWidget`:** `pendingCount`
+
+---
+
+## 18. Teller Dashboard Widgets
+
+**Base:** `/api/v1/dashboard/widgets/teller` · **Pattern:** Independent widget endpoints
+
+| # | Method | Path | Roles | Refresh | Description |
+|---|--------|------|-------|---------|-------------|
+| 83 | GET | `/dashboard/widgets/teller/txn-summary` | MAKER, ADMIN | 30s | Today's transaction metrics (count, credits, debits, net) |
+| 84 | GET | `/dashboard/widgets/teller/approval-queue` | CHECKER, ADMIN | 15s | Pending approval queue with aging and SLA breach flags |
+
+**`TellerTxnSummary`:** `businessDate`, `totalTransactions`, `totalCredits`, `totalDebits`, `netAmount`
+
+**`ApprovalQueueWidget`:** `items[]` (id, reference, actionType, makerUserId, age, ageMinutes, slaBreached, status), `totalPending`, `overdueCount`
+
+---
+
+## 19. Manager Dashboard Widgets
+
+**Base:** `/api/v1/dashboard/widgets/manager` · **Pattern:** Independent widget endpoints
+
+| # | Method | Path | Roles | Refresh | Description |
+|---|--------|------|-------|---------|-------------|
+| 85 | GET | `/dashboard/widgets/manager/clearing-status` | CHECKER, ADMIN | 60s | Clearing & settlement status (initiated, sent, settled, failed) |
+| 86 | GET | `/dashboard/widgets/manager/risk-metrics` | CHECKER, ADMIN | 60s | Risk metrics with threshold breach flags |
+
+**`ClearingStatusWidget`:** `businessDate`, `initiated`, `sentToNetwork`, `settled`, `failed`
+
+**`RiskMetricsWidget`:** `overdueApprovals`, `suspensePending`, `highValueTxnsToday`, `overdueBreached`, `suspenseBreached`, `highValueBreached`
+
+---
+
+## 20. Users
+
+**Base:** `/api/v1/users` · **Controller:** `UserApiController` · **All endpoints: ADMIN only**
+
+| # | Method | Path | Description |
+|---|--------|------|-------------|
+| 87 | GET | `/users` | List all users (ordered by role, username) |
+| 88 | GET | `/users/search?q={query}` | Search by username, name, email, role, branch |
+| 89 | POST | `/users` | Create user (password complexity enforced) |
+| 90 | POST | `/users/{id}/toggle-active` | Activate/deactivate user |
+| 91 | POST | `/users/{id}/unlock` | Unlock locked account |
+| 92 | POST | `/users/{id}/reset-password` | Admin password reset |
+
+**Create User Request:** `username*`, `password*`, `fullName*`, `email`, `role*` (MAKER/CHECKER/ADMIN/AUDITOR), `branchId*`
+
+**Reset Password Request:** `newPassword*` (complexity: upper+lower+digit+special, min 8, not in last 3 history)
+
+**Response — `UserResponse` (16 fields):** `id`, `username`, `fullName`, `email`, `role`, `branchCode`, `branchName`, `active`, `locked`, `mfaEnabled`, `passwordExpired`, `failedLoginAttempts`, `lastLoginAt`, `lastPasswordChange`, `passwordExpiryDate`, `createdAt`
+
+> **CBS SECURITY:** User responses NEVER expose passwordHash, mfaSecret, or passwordHistory.
+
+---
+
+## 21. Products
+
+**Base:** `/api/v1/products` · **Controller:** `ProductApiController` · **All endpoints: ADMIN only**
+
+| # | Method | Path | Description |
+|---|--------|------|-------------|
+| 93 | GET | `/products` | List all products |
+| 94 | GET | `/products/{id}` | Product detail with active account count and GL codes |
+| 95 | GET | `/products/search?q={query}` | Search by code, name, category, status |
+| 96 | PUT | `/products/{id}` | Update product (code/category immutable; GL change triggers maker-checker) |
+| 97 | POST | `/products/{id}/status` | Change lifecycle status (DRAFT→ACTIVE→SUSPENDED→RETIRED) |
+| 98 | POST | `/products/{id}/clone` | Clone product with new code |
+
+**Status Change Request:** `newStatus*` (ACTIVE, SUSPENDED, RETIRED)
+
+**Clone Request:** `newProductCode*`, `newProductName*`
+
+**Response — `ProductResponse`:** `id`, `productCode`, `productName`, `productCategory`, `productStatus`, `currencyCode`, `interestType`, `minInterestRate`, `maxInterestRate`, `minLoanAmount`, `maxLoanAmount`, `minTenureMonths`, `maxTenureMonths`, `configVersion`, `createdAt`
+
+---
+
+## 22. Audit Trail
+
+**Base:** `/api/v1/audit` · **Controller:** `AuditApiController` · **Roles: AUDITOR, ADMIN**
+
+| # | Method | Path | Description |
+|---|--------|------|-------------|
+| 99 | GET | `/audit/logs?page=0&size=100` | Recent audit logs (paginated, max 500) |
+| 100 | GET | `/audit/search?q={query}&fromDate=&toDate=` | Search by entity, user, action, module, date range |
+| 101 | GET | `/audit/integrity` | Verify SHA-256 hash chain integrity |
+
+**Response — `AuditLogResponse`:** `id`, `entityType`, `entityId`, `action`, `performedBy`, `module`, `description`, `branchCode`, `eventTimestamp`, `ipAddress`, `chainValid`
+
+**`IntegrityResponse`:** `intact` (boolean), `message` ("Audit chain intact" or "INTEGRITY VIOLATION DETECTED")
+
+> **CBS SECURITY:** Audit logs are physically immutable — database triggers prevent UPDATE and DELETE. Hash chain (SHA-256) provides cryptographic tamper detection.
+
+---
+
+## 23. Reports
+
+**Base:** `/api/v1/reports` · **Controller:** `ReportApiController` · **Roles: CHECKER, ADMIN, AUDITOR**
+
+| # | Method | Path | Description |
+|---|--------|------|-------------|
+| 102 | GET | `/reports/dpd` | DPD Distribution Report (RBI Early Warning + IRAC) |
+| 103 | GET | `/reports/irac` | IRAC Asset Classification Report (Standard/SMA/NPA) |
+| 104 | GET | `/reports/provision` | Provisioning Adequacy Report (actual vs required) |
+
+All reports are branch-scoped for CHECKER, tenant-wide for ADMIN/AUDITOR.
+
+**`DpdReport`:** `buckets[]` (label, count, outstanding, provisioning), `totalAccounts`, `businessDate`
+
+**`IracReport`:** `categories[]` (Standard, SMA-0/1/2, NPA Sub-Standard/Doubtful/Loss, Restructured), `totalAccounts`, `totalOutstanding`, `businessDate`
+
+**`ProvisionReport`:** `totalAccounts`, `totalOutstanding`, `totalProvisioning`, `npaCount`, `npaOutstanding`, `npaProvisioning`, `businessDate`
+
+---
+
+## 24. Password Management
+
+**Base:** `/api/v1/auth/password` · **Controller:** `PasswordApiController` · **Auth:** `isAuthenticated()` (JWT required)
+
+| # | Method | Path | Description |
+|---|--------|------|-------------|
+| 105 | POST | `/auth/password/change` | Self-service password change |
+
+**Request:** `currentPassword*`, `newPassword*`, `confirmPassword*`
+
+Per RBI IT Governance Direction 2023 §8.2: complexity (upper+lower+digit+special, min 8), last 3 history check, current password verification. On success, BFF must clear session and redirect to login.
+
+---
+
+## 25. Charge Reversal
+
+**Base:** `/api/v1/charges` · **Controller:** `ChargeController`
+
+| # | Method | Path | Roles | Description |
+|---|--------|------|-------|-------------|
+| 106 | POST | `/charges/reverse` | CHECKER, ADMIN | Reverse a previously levied charge (symmetric contra journal) |
+
+**Reversal Request:** `chargeTransactionId*`, `reason*`
+
+**`ReversalResponse`:** `chargeTransactionId`, `eventType`, `totalReversed`, `reversedBy`, `reason`, `reversalVoucherNumber`
+
+---
+
+## 26. Error Code Reference
 
 ### Authentication Errors (401)
 
@@ -747,7 +1015,7 @@ Rotates refresh token per RFC 6749 section 10.4. Old token is denylisted; replay
 
 ---
 
-## 18. Infrastructure
+## 27. Infrastructure
 
 ### Servlet Filter Chain
 
@@ -779,6 +1047,39 @@ Rotates refresh token per RFC 6749 section 10.4. Old token is denylisted; replay
 | `ACCESS` | 15 min | username, tenant, role, branch | API authorization via `@PreAuthorize` |
 | `REFRESH` | 8 hours | username, tenant, jti | Token rotation (no role — cannot authorize operations) |
 | `MFA_CHALLENGE` | 5 min | username, tenant, jti | Single-use MFA step-up challenge |
+
+### Observability & Documentation Endpoints
+
+| Endpoint | Auth | Profile | Description |
+|----------|------|---------|-------------|
+| `GET /actuator/health` | None | All | K8s liveness/readiness probe |
+| `GET /actuator/info` | None | All | Build version and metadata |
+| `GET /actuator/prometheus` | None | All | Micrometer metrics for Prometheus scraping |
+| `GET /swagger-ui.html` | None | **Dev only** | OpenAPI 3.0 Swagger UI (disabled in prod) |
+| `GET /v3/api-docs` | None | **Dev only** | OpenAPI 3.0 JSON spec (disabled in prod) |
+
+> **CBS SECURITY:** Swagger UI and OpenAPI spec are disabled in production via `springdoc.api-docs.enabled=false` per RBI IT Governance §8.5 (API schema exposure risk). Prometheus metrics are permitted without authentication for infrastructure scraping.
+
+### JSON Structured Logging (Production)
+
+Production logs use `LogstashEncoder` (JSON format) for SIEM ingestion. All MDC keys are emitted as discrete JSON fields:
+
+```json
+{
+  "@timestamp": "2026-04-20T10:30:00.123Z",
+  "level": "INFO",
+  "logger_name": "com.finvanta.transaction.TransactionEngine",
+  "message": "Transaction engine completed: ref=TXN-20260420-010601",
+  "tenantId": "BANK_A",
+  "branchCode": "HQ001",
+  "username": "maker01",
+  "correlationId": "550e8400-e29b-41d4-a716-446655440000",
+  "txnRef": "TXN-20260420-010601",
+  "application": "finvanta-cbs"
+}
+```
+
+Dev/test profiles use plain text format for developer readability.
 
 ### Account Status Lifecycle
 
