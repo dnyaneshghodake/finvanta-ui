@@ -56,8 +56,13 @@ function normalizeKey(e: KeyboardEvent): string {
   if (e.altKey) parts.push('Alt');
   if (e.shiftKey) parts.push('Shift');
 
-  // Normalize key name
+  // Guard: e.key can be undefined for dead keys, IME composition
+  // events, or browser-specific quirks. Bail out with an empty
+  // string so the caller's Map lookup silently misses.
   let key = e.key;
+  if (key == null) return parts.join('+') || '';
+
+  // Normalize key name
   if (key === ' ') key = 'Space';
   if (key === 'Enter') key = 'Enter';
   if (key.length === 1) key = key.toUpperCase();
