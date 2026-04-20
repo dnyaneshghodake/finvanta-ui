@@ -239,6 +239,15 @@ export default function DashboardLayout({
   return (
     <DayStatusContext.Provider value={dayStatusValue}>
       <div className="flex flex-col h-screen bg-cbs-mist">
+        {/* WCAG 2.4.1 — Skip to main content link. Visible on focus only.
+            Tellers using keyboard navigation can bypass the header and
+            sidebar to reach the main content area immediately. */}
+        <a
+          href="#cbs-main"
+          className="sr-only focus:not-sr-only focus:absolute focus:z-[100] focus:top-2 focus:left-2 focus:px-4 focus:py-2 focus:bg-cbs-navy-800 focus:text-white focus:text-sm focus:font-semibold focus:rounded focus:outline-none focus:ring-2 focus:ring-cbs-navy-400"
+        >
+          Skip to main content
+        </a>
         <Header />
 
         {/* ── Backend-down banner ── */}
