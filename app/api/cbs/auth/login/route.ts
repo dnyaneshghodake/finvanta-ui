@@ -207,7 +207,7 @@ export async function POST(req: NextRequest) {
 
   let upstream: Response;
   try {
-    upstream = await fetch(`${env.backendBaseUrl}/api/v1/auth/token`, {
+    upstream = await fetch(`${env.backendApiBase}/auth/token`, {
       method: "POST",
       headers: {
         "content-type": "application/json",

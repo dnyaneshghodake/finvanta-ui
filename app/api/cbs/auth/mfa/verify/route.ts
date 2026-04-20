@@ -101,7 +101,7 @@ export async function POST(req: NextRequest) {
   let upstream: Response;
   try {
     upstream = await fetch(
-      `${env.backendBaseUrl}/api/v1/auth/mfa/verify`,
+      `${env.backendApiBase}/auth/mfa/verify`,
       {
         method: "POST",
         headers,
