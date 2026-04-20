@@ -58,10 +58,31 @@ const generateRequestId = (): string => {
 };
 
 /**
- * Create Axios instance
+ * Browser API base URL — MUST point to the Next.js BFF, never to
+ * Spring directly. The BFF owns JWT storage, CSRF, branch/tenant
+ * injection, and correlation-id propagation. A direct backend URL
+ * here bypasses every one of those security controls.
+ *
+ * Correct:   /api/cbs              (relative — same origin as Next.js)
+ * WRONG:     http://localhost:8080  (direct to Spring — bypasses BFF)
  */
+const rawBaseUrl = process.env.NEXT_PUBLIC_API_URL || '/api/cbs';
+const API_BASE_URL = rawBaseUrl.includes('localhost:8080') || rawBaseUrl.includes('://') && !rawBaseUrl.includes('localhost:3000')
+  ? '/api/cbs'  // Safety: reject direct-backend URLs, force BFF route
+  : rawBaseUrl;
+
+if (typeof window !== 'undefined' && process.env.NODE_ENV !== 'production') {
+  if (rawBaseUrl !== API_BASE_URL) {
+    console.warn(
+      `[apiClient] NEXT_PUBLIC_API_URL="${rawBaseUrl}" points directly to the backend. ` +
+      `Overriding to "${API_BASE_URL}" to enforce BFF routing. ` +
+      `Fix your .env.local or .env file.`,
+    );
+  }
+}
+
 const apiClient: AxiosInstance = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_URL || '/api/cbs',
+  baseURL: API_BASE_URL,
   timeout: parseInt(process.env.API_TIMEOUT || '30000', 10),
   headers: {
     'Content-Type': 'application/json',
