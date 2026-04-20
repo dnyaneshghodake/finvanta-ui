@@ -19,8 +19,9 @@ import { useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/authStore';
 import { Breadcrumb } from '@/components/cbs';
-import { formatCbsDate } from '@/utils/formatters';
+import { formatCbsDate, formatCbsTimestamp } from '@/utils/formatters';
 import { useCbsKeyboard } from '@/hooks/useCbsKeyboard';
+import { ShieldCheck } from 'lucide-react';
 import {
   getVisibleWidgets,
   PortfolioWidget,
@@ -78,8 +79,10 @@ export default function DashboardPage() {
   // ── Step 2: Render layout + role-based skeleton grid immediately ──
   // Navigation, header, and day-status render from session state (no API).
   // Widget grid renders skeletons that match real content dimensions.
+  const lastLogin = user?.lastLoginTimestamp;
+
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 max-w-[1320px] mx-auto">
       <Breadcrumb items={[{ label: 'Dashboard' }]} />
 
       {/* ── Page Header with Day Status (from session, no API) ── */}
@@ -106,15 +109,28 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* ── Step 3: Widget grid — each widget fetches independently ── */}
-      {/* Widgets render in parallel. Each shows its own skeleton on
-          initial load and its own error state on failure. Failed
-          widgets do NOT block or break other widgets. */}
+      {/* ── Last Login Security Notice (RBI IT Governance §8) ── */}
+      {lastLogin && (
+        <div className="flex items-center gap-2 text-xs text-cbs-steel-600 bg-cbs-mist border border-cbs-steel-100 px-4 py-2 rounded-lg">
+          <ShieldCheck size={13} strokeWidth={1.75} className="text-cbs-navy-600 shrink-0" aria-hidden="true" />
+          Last sign-in:
+          <span className="cbs-tabular font-medium text-cbs-ink">
+            {formatCbsTimestamp(lastLogin)}
+          </span>
+        </div>
+      )}
+
+      {/* ── Widget grid — 12-column, 16px gap, skeleton-first ── */}
       {visibleWidgets.map((def) => (
         <div key={def.id} className={def.gridClass}>
           {renderWidget(def)}
         </div>
       ))}
+
+      {/* ── Snapshot Timestamp (RBI Audit Requirement) ── */}
+      <div className="text-[10px] text-cbs-steel-400 text-right cbs-tabular pt-2 border-t border-cbs-steel-100">
+        Dashboard snapshot: {formatCbsTimestamp(new Date())}
+      </div>
     </div>
   );
 }

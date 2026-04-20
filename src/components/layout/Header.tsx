@@ -104,7 +104,7 @@ const Header: FC<HeaderProps> = ({ className }) => {
     <header
       className={`bg-cbs-navy-800 text-white sticky top-0 z-50 cbs-no-print ${className || ''}`}
     >
-      <div className="flex items-center justify-between h-12 px-3">
+      <div className="flex items-center justify-between h-16 px-4">
         {/* Left: hamburger + brand */}
         <div className="flex items-center gap-3">
           <button

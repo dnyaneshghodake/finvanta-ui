@@ -56,15 +56,27 @@ interface ApprovalsData {
 
 /* ── Sub-components ───────────────────────────────────────────── */
 
-function StatCard({ label, value, valueClass }: {
-  label: string; value: string; valueClass?: string;
+/**
+ * CBS Metric Card — Tier-1 spec:
+ *   Height: 128px fixed (zero CLS)
+ *   Label: 13px medium, secondary color
+ *   Value: 24px semi-bold, right-aligned, monospace
+ *   Subtext: 12px regular (optional)
+ *   Padding: 16px
+ *   Border-radius: 8px
+ */
+function StatCard({ label, value, sub, valueClass }: {
+  label: string; value: string; sub?: string; valueClass?: string;
 }) {
   return (
-    <div className="cbs-surface p-3 h-[80px]">
-      <div className="cbs-field-label">{label}</div>
-      <div className={`text-lg font-bold cbs-tabular text-cbs-ink mt-1 ${valueClass || ''}`}>
+    <div className="cbs-surface p-4 h-[128px] rounded-lg flex flex-col justify-between">
+      <div className="text-[13px] font-medium text-cbs-steel-600">{label}</div>
+      <div className={`text-2xl font-semibold cbs-tabular text-right text-cbs-ink ${valueClass || ''}`}>
         {value}
       </div>
+      {sub && (
+        <div className="text-xs text-cbs-steel-500 text-right cbs-tabular">{sub}</div>
+      )}
     </div>
   );
 }
@@ -87,8 +99,8 @@ export function PortfolioWidget({ def }: { def: WidgetDef }) {
   return (
     <WidgetShell status={w.status} error={w.error} errorRef={w.errorRef}
       isInitialLoad={w.isInitialLoad} onRetry={w.refetch}
-      skeleton={<div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">{Array.from({length:6},(_,i)=><KpiSkeleton key={i}/>)}</div>}>
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+      skeleton={<div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">{Array.from({length:6},(_,i)=><div key={i} className="cbs-skeleton rounded-lg h-[128px]" />)}</div>}>
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
         <StatCard label="Total Customers" value={String(w.data?.totalCustomers ?? 0)} />
         <StatCard label="CASA Accounts" value={String(w.data?.casaAccounts ?? 0)} />
         <StatCard label="Active Loans" value={String(w.data?.activeLoans ?? 0)} valueClass="text-cbs-olive-700" />
@@ -111,8 +123,8 @@ export function NpaWidget({ def }: { def: WidgetDef }) {
   return (
     <WidgetShell status={w.status} error={w.error} errorRef={w.errorRef}
       isInitialLoad={w.isInitialLoad} onRetry={w.refetch}
-      skeleton={<div className="grid grid-cols-2 md:grid-cols-5 gap-3">{Array.from({length:5},(_,i)=><KpiSkeleton key={i}/>)}</div>}>
-      <section className="cbs-surface">
+      skeleton={<div className="grid grid-cols-2 md:grid-cols-5 gap-4">{Array.from({length:5},(_,i)=><div key={i} className="cbs-skeleton rounded-lg h-[128px]" />)}</div>}>
+      <section className="cbs-surface rounded-lg">
         <div className="cbs-surface-header">
           <span className="text-sm font-semibold uppercase tracking-wider text-cbs-steel-700">NPA Overview</span>
         </div>
