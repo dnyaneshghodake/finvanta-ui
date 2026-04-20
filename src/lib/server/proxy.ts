@@ -17,7 +17,7 @@
 import "server-only";
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
-import { readSession, writeSession, type CbsSession } from "./session";
+import { readSession, type CbsSession } from "./session";
 import { assertCsrf } from "./csrf";
 import { readCorrelationId } from "./correlation";
 import { serverEnv } from "./env";
@@ -98,39 +98,19 @@ export async function proxyToBackend(
     }
   }
 
-  // ── Sliding-window session extension ────────────────────────────
-  // Every authenticated API call through the BFF resets the idle
-  // clock on the server-side session. Without this, the session blob's
-  // `expiresAt` (set from the JWT's `expiresIn` at login, typically
-  // 900s) would expire even while the operator is actively using the
-  // system — the client-side `useSessionTimeout` tracks inactivity
-  // for the warning UX, but the server cookie must independently
-  // stay alive for the same window.
+  // NOTE: Session extension is handled ONLY by the explicit
+  // POST /api/cbs/session/extend endpoint (called by the "Stay Logged In"
+  // button in the session timeout warning). We do NOT extend the session
+  // on every proxied request because parallel requests (e.g. 4 dashboard
+  // widgets firing simultaneously) race on writeSession() — each one
+  // re-encrypts and re-sets the fv_sid cookie, and only the last
+  // Set-Cookie header survives. The intermediate cookies are lost,
+  // causing subsequent requests to fail with 401 (decrypt failure).
   //
-  // The new `expiresAt` is capped at the absolute TTL ceiling
-  // (issuedAt + sessionTtlSeconds) so an active user cannot extend
-  // indefinitely. This mirrors the logic in the explicit
-  // `/api/cbs/session/extend` route but runs transparently on every
-  // proxied call.
-  if (session) {
-    const env2 = serverEnv();
-    const now = Date.now();
-    const absoluteCeiling = session.issuedAt + env2.sessionTtlSeconds * 1000;
-    const idleExtension = now + env2.sessionIdleExtensionSeconds * 1000;
-    const newExpiresAt = Math.min(idleExtension, absoluteCeiling);
-
-    // Only write if the extension is meaningful (>30s gain) to avoid
-    // re-encrypting + re-setting cookies on every single request when
-    // the operator is clicking rapidly.
-    if (newExpiresAt - session.expiresAt > 30_000) {
-      await writeSession({
-        ...session,
-        expiresAt: newExpiresAt,
-        issuedAt: session.issuedAt,
-        csrfToken: session.csrfToken,
-      });
-    }
-  }
+  // The session's expiresAt is set at login time to
+  // now + sessionIdleExtensionSeconds (15 min), which matches the
+  // client-side useSessionTimeout. The explicit extend endpoint
+  // pushes it forward when the user clicks "Stay Logged In".
 
   return forward(req, session, correlationId, targetPath, search);
 }
