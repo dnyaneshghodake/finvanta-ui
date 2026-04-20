@@ -113,10 +113,26 @@ export async function readSession(): Promise<CbsSession | null> {
   const env = serverEnv();
   const jar = await cookies();
   const sid = jar.get(env.sessionCookieName)?.value;
-  if (!sid) return null;
+  if (!sid) {
+    if (process.env.NODE_ENV !== "production") {
+      console.debug("[readSession] no fv_sid cookie found");
+    }
+    return null;
+  }
   const session = decryptSession<CbsSession>(sid);
-  if (!session) return null;
-  if (session.expiresAt && session.expiresAt < Date.now()) return null;
+  if (!session) {
+    if (process.env.NODE_ENV !== "production") {
+      console.warn(`[readSession] decrypt failed — cookie length=${sid.length}`);
+    }
+    return null;
+  }
+  if (session.expiresAt && session.expiresAt < Date.now()) {
+    if (process.env.NODE_ENV !== "production") {
+      const agoMs = Date.now() - session.expiresAt;
+      console.warn(`[readSession] session expired ${agoMs}ms ago — expiresAt=${session.expiresAt} now=${Date.now()}`);
+    }
+    return null;
+  }
   return session;
 }
 
