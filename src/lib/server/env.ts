@@ -81,8 +81,12 @@ export function serverEnv(): CbsServerEnv {
     sessionTtlSeconds: Number(
       process.env.CBS_SESSION_TTL_SECONDS || 60 * 60 * 8,
     ),
+    // Default: 30 min (1800s). MUST match the client-side
+    // SESSION_TIMEOUT_MS in useSessionTimeout.ts (30 * 60 * 1000).
+    // A mismatch causes the server to expire the session before
+    // the client shows the timeout warning, producing silent 401s.
     sessionIdleExtensionSeconds: Number(
-      process.env.CBS_SESSION_IDLE_SECONDS || 15 * 60,
+      process.env.CBS_SESSION_IDLE_SECONDS || 30 * 60,
     ),
     mfaChallengeTtlSeconds: Number(
       process.env.CBS_MFA_TTL_SECONDS || 5 * 60,
