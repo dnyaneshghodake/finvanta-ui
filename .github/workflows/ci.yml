@@ -220,6 +220,13 @@ jobs:
           exit-code: '1'
           ignore-unfixed: 'true'
           vuln-type: 'os'
+          # Pin the Trivy CLI binary itself. The default the action
+          # downloads (currently `v0.69.3`) has been retracted from
+          # the `aquasecurity/trivy` releases page, which made the
+          # setup step fail with
+          # `aquasecurity/trivy crit unable to find 'v0.69.3'`.
+          # `v0.70.0` is the current published release (2026-04-17).
+          version: 'v0.70.0'
       - name: Upload Trivy SARIF
         if: always()
         uses: github/codeql-action/upload-sarif@v3
