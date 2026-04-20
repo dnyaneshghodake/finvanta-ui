@@ -187,10 +187,10 @@ export default function DashboardShell({
   const handleStayLoggedIn = async () => {
     try {
       await authService.extendSession();
+      resetTimer();
     } catch (err) {
       logger.warn('Session extend failed — server session may have expired', err);
     }
-    resetTimer();
   };
 
   const handleLogoutNow = async () => {
