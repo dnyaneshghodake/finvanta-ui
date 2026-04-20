@@ -73,12 +73,18 @@ export function TransactionConfirmDialog({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [confirmed, setConfirmed] = useState(false);
   const dialogRef = useRef<HTMLDivElement>(null);
+  // Ref-based guard for double-click prevention (CWE-837).
+  // React state updates are async — two clicks in the same event loop
+  // tick can both pass the `if (isSubmitting)` state check before the
+  // first setIsSubmitting(true) re-render. A ref is synchronous.
+  const submittingRef = useRef(false);
 
   // Reset state when dialog opens/closes
   useEffect(() => {
     if (isOpen) {
       setIsSubmitting(false);
       setConfirmed(false);
+      submittingRef.current = false;
     }
   }, [isOpen]);
 
