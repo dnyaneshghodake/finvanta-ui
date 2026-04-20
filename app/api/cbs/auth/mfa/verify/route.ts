@@ -32,19 +32,30 @@ interface VerifyBody {
   otp?: string;
 }
 
-interface SpringTokenResponse {
+/**
+ * Spring MFA verify response — may return the new nested shape
+ * (data.token, data.user, data.branch, data.businessDay, data.role)
+ * or the legacy flat shape (data.accessToken, data.user). We detect
+ * both, consistent with the login route handler.
+ */
+interface SpringMfaResponse {
   status?: string;
   data?: {
+    // New nested shape
+    token?: { accessToken?: string; refreshToken?: string; tokenType?: string; expiresIn?: number; expiresAt?: number };
+    user?: { userId?: number; id?: number; username?: string; firstName?: string; lastName?: string; email?: string; displayName?: string; roles?: string[]; branchCode?: string; branchName?: string; tenantId?: string; mfaEnabled?: boolean; mfaEnrolled?: boolean; authenticationLevel?: string; lastLoginTimestamp?: string; passwordExpiryDate?: string };
+    branch?: { branchId?: number; branchCode?: string; branchName?: string; ifscCode?: string; branchType?: string; zoneCode?: string; regionCode?: string; headOffice?: boolean };
+    businessDay?: { businessDate?: string; dayStatus?: string; isHoliday?: boolean; previousBusinessDate?: string; nextBusinessDate?: string };
+    role?: { role?: string; makerCheckerRole?: string; permissionsByModule?: Record<string, string[]>; allowedModules?: string[] };
+    limits?: { transactionLimits?: Array<{ transactionType: string; channel: string | null; perTransactionLimit: number; dailyAggregateLimit: number }> };
+    operationalConfig?: { baseCurrency?: string; decimalPrecision?: number; roundingMode?: string; fiscalYearStartMonth?: number; businessDayPolicy?: string };
+    // Legacy flat shape
     accessToken?: string;
     refreshToken?: string;
     tokenType?: string;
-    /** Seconds until expiry (e.g. 900) — per LOGIN_API_RESPONSE_CONTRACT. */
     expiresIn?: number;
-    /** Epoch seconds — alternative format some deployments may use. */
     expiresAt?: number;
-    /** Server-authoritative business date (YYYY-MM-DD) from DayOpenService. */
     businessDate?: string;
-    user?: CbsSessionUser;
   };
   errorCode?: string;
   message?: string;
@@ -90,12 +101,18 @@ export async function POST(req: NextRequest) {
   let upstream: Response;
   try {
     upstream = await fetch(
-      `${env.backendBaseUrl}/api/v1/auth/mfa/verify`,
+      `${env.backendApiBase}/auth/mfa/verify`,
       {
         method: "POST",
         headers,
         body: JSON.stringify({ challengeId, otp: body.otp }),
         cache: "no-store",
+        // CRITICAL: do not follow redirects. Same rationale as the login
+        // route (app/api/cbs/auth/login/route.ts:257): Spring Security's
+        // UI chain redirects unauthenticated POSTs to an HTML login page
+        // (302→200). Without this, fetch follows the redirect and
+        // json().catch(() => ({})) silently produces an empty object.
+        redirect: "manual",
       },
     );
   } catch {
@@ -110,9 +127,30 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const json = (await upstream
-    .json()
-    .catch(() => ({}))) as SpringTokenResponse;
+  // Read raw text first, then parse — same pattern as login route.
+  // Avoids silent failures from .json().catch(() => ({})) which
+  // swallows parse errors and produces an empty object.
+  const rawText = await upstream.text().catch(() => "");
+  let json: SpringMfaResponse;
+  try {
+    json = rawText ? JSON.parse(rawText) : {};
+  } catch {
+    if (process.env.NODE_ENV !== "production") {
+      console.error(
+        `[BFF mfa/verify] upstream=${upstream.status} content-type=${upstream.headers.get("content-type")} ` +
+        `body=${rawText.slice(0, 500)}`,
+      );
+    }
+    return NextResponse.json(
+      {
+        success: false,
+        errorCode: "BACKEND_INVALID_RESPONSE",
+        message: "The banking server returned an unexpected response during MFA verification.",
+        correlationId,
+      },
+      { status: 502, headers: { "x-correlation-id": correlationId } },
+    );
+  }
 
   if (!upstream.ok) {
     return NextResponse.json(
@@ -132,9 +170,12 @@ export async function POST(req: NextRequest) {
 
   const now = Date.now();
 
+  // Detect access token from nested or flat shape
+  const accessToken = json.data?.token?.accessToken || json.data?.accessToken;
+
   // Step-up during a pre-existing authenticated session: keep the
   // session user/branch context but bump mfaVerifiedAt.
-  if (existing && !json.data?.accessToken) {
+  if (existing && !accessToken) {
     await writeSession({
       ...existing,
       mfaVerifiedAt: now,
@@ -151,7 +192,7 @@ export async function POST(req: NextRequest) {
   }
 
   // Completion of the login MFA challenge: Spring returned fresh tokens.
-  if (!json.data?.accessToken) {
+  if (!accessToken) {
     return NextResponse.json(
       {
         success: false,
@@ -163,38 +204,97 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  // Handle both expiresIn (seconds) and expiresAt (epoch seconds).
-  let expiresAt: number;
-  if (json.data.expiresIn && json.data.expiresIn > 0) {
-    expiresAt = now + json.data.expiresIn * 1000;
-  } else if (json.data.expiresAt && json.data.expiresAt > now / 1000) {
-    expiresAt = json.data.expiresAt * 1000;
+  // ── Extract fields from nested or flat shape ────────────────
+  const d = json.data!;
+  const tok = d.token;
+  const sUser = d.user;
+  const sBranch = d.branch;
+  const sBizDay = d.businessDay;
+  const sRole = d.role;
+  const sLimits = d.limits;
+  const sOpConfig = d.operationalConfig;
+
+  const expiresIn = tok?.expiresIn ?? d.expiresIn;
+  const expiresAtRaw = tok?.expiresAt ?? d.expiresAt;
+
+  // JWT expiry — used for proactive refresh scheduling (same as login route)
+  let jwtExpiresAt: number;
+  if (expiresIn && expiresIn > 0) {
+    jwtExpiresAt = now + expiresIn * 1000;
+  } else if (expiresAtRaw && expiresAtRaw > now / 1000) {
+    jwtExpiresAt = expiresAtRaw * 1000;
   } else {
-    expiresAt = now + env.sessionTtlSeconds * 1000;
+    jwtExpiresAt = now + 15 * 60 * 1000; // default 15 min
   }
 
-  // Business date: prefer the Spring response (MFA verify returns the
-  // same EnhancedTokenResponse as login, including businessDate per
-  // LOGIN_API_RESPONSE_CONTRACT §1.2). Fall back to existing session,
-  // then BFF server clock. Without this the Header shows '--' for
-  // every MFA-authenticated operator until the first heartbeat fires.
+  // BFF session expiry — uses idle timeout, NOT JWT expiry
+  // (consistent with login route at app/api/cbs/auth/login/route.ts:476)
+  const expiresAt = now + env.sessionIdleExtensionSeconds * 1000;
+
   const businessDate =
-    json.data.businessDate ||
-    existing?.businessDate ||
-    new Date().toISOString().slice(0, 10);
+    sBizDay?.businessDate || d.businessDate || existing?.businessDate || new Date().toISOString().slice(0, 10);
+
+  // Build user from nested shape, fall back to existing session user
+  const flatPermissions = sRole?.permissionsByModule
+    ? Object.values(sRole.permissionsByModule).flat()
+    : [];
+
+  const sessionUser: CbsSessionUser = sUser ? {
+    id: sUser.userId ?? sUser.id,
+    username: sUser.username || existing?.user?.username || "unknown",
+    firstName: sUser.firstName || existing?.user?.firstName,
+    lastName: sUser.lastName || existing?.user?.lastName,
+    email: sUser.email || existing?.user?.email,
+    displayName: sUser.displayName
+      || (sUser.firstName && sUser.lastName ? `${sUser.firstName} ${sUser.lastName}` : undefined)
+      || existing?.user?.displayName,
+    roles: sRole?.role
+      ? [sRole.role]
+      : (sUser.roles?.length ? sUser.roles : existing?.user?.roles || []),
+    makerCheckerRole: sRole?.makerCheckerRole || existing?.user?.makerCheckerRole,
+    permissionsByModule: sRole?.permissionsByModule || existing?.user?.permissionsByModule,
+    permissions: flatPermissions.length > 0 ? flatPermissions : existing?.user?.permissions,
+    allowedModules: sRole?.allowedModules || existing?.user?.allowedModules,
+    branchCode: sBranch?.branchCode || sUser.branchCode || existing?.user?.branchCode,
+    branchName: sBranch?.branchName || sUser.branchName || existing?.user?.branchName,
+    branchId: sBranch?.branchId || existing?.user?.branchId,
+    ifscCode: sBranch?.ifscCode || existing?.user?.ifscCode,
+    branchType: sBranch?.branchType || existing?.user?.branchType,
+    zoneCode: sBranch?.zoneCode || existing?.user?.zoneCode,
+    regionCode: sBranch?.regionCode || existing?.user?.regionCode,
+    isHeadOffice: sBranch?.headOffice ?? existing?.user?.isHeadOffice,
+    tenantId: sUser.tenantId || existing?.user?.tenantId || env.defaultTenantId,
+    mfaEnrolled: sUser.mfaEnabled ?? sUser.mfaEnrolled ?? existing?.user?.mfaEnrolled,
+    authenticationLevel: sUser.authenticationLevel || existing?.user?.authenticationLevel,
+    lastLoginTimestamp: sUser.lastLoginTimestamp || existing?.user?.lastLoginTimestamp,
+    passwordExpiryDate: sUser.passwordExpiryDate || existing?.user?.passwordExpiryDate,
+  } : (existing?.user || { username: "unknown", roles: [], tenantId: env.defaultTenantId });
 
   const session = await writeSession({
-    accessToken: json.data.accessToken,
-    refreshToken: json.data.refreshToken,
-    tokenType: json.data.tokenType || "Bearer",
+    accessToken,
+    refreshToken: tok?.refreshToken ?? d.refreshToken,
+    tokenType: tok?.tokenType || "Bearer",
     expiresAt,
-    user:
-      json.data.user ||
-      existing?.user ||
-      { username: "unknown", roles: [], tenantId: env.defaultTenantId },
+    jwtExpiresAt,
+    user: sessionUser,
     mfaVerifiedAt: now,
     correlationId,
     businessDate,
+    businessDay: sBizDay ? {
+      businessDate: sBizDay.businessDate || businessDate,
+      dayStatus: sBizDay.dayStatus || "UNKNOWN",
+      isHoliday: sBizDay.isHoliday ?? false,
+      previousBusinessDate: sBizDay.previousBusinessDate,
+      nextBusinessDate: sBizDay.nextBusinessDate,
+    } : existing?.businessDay,
+    transactionLimits: sLimits?.transactionLimits || existing?.transactionLimits,
+    operationalConfig: sOpConfig ? {
+      baseCurrency: sOpConfig.baseCurrency || "INR",
+      decimalPrecision: sOpConfig.decimalPrecision ?? 2,
+      roundingMode: sOpConfig.roundingMode || "HALF_UP",
+      fiscalYearStartMonth: sOpConfig.fiscalYearStartMonth ?? 4,
+      businessDayPolicy: sOpConfig.businessDayPolicy || "MON_TO_SAT",
+    } : existing?.operationalConfig,
   });
 
   jar.delete(env.mfaChallengeCookieName);
@@ -207,6 +307,9 @@ export async function POST(req: NextRequest) {
         expiresAt: session.expiresAt,
         csrfToken: session.csrfToken,
         businessDate: session.businessDate,
+        businessDay: session.businessDay ?? null,
+        operationalConfig: session.operationalConfig ?? null,
+        transactionLimits: session.transactionLimits ?? null,
       },
       correlationId,
     },

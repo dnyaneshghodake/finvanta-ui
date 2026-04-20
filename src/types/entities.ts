@@ -1,191 +1,35 @@
 /**
- * Core entity types for CBS Banking Application
+ * Core entity types for CBS Banking Application.
  * @file src/types/entities.ts
- */
-
-/**
- * Authenticated operator profile as returned by the BFF session.
  *
- * This is NOT a full CIF customer record — it is the subset of the
- * Spring `UserDetails` / `CbsSessionUser` that the BFF materialises
- * into the encrypted fv_sid cookie and returns via /api/cbs/auth/me.
- * Most fields are optional because the Spring auth response may only
- * include {username, roles} for service accounts or freshly-seeded
- * dev users.
+ * BACKWARD COMPATIBILITY barrel — re-exports all types from their
+ * domain-bounded modules so existing `import { X } from '@/types/entities'`
+ * statements continue to work without modification.
  *
- * CBS-critical fields:
- * - branchCode: assigned at login, injected into every API request
- * - tenantId: multi-tenant isolation key
- * - roles: used for role-based UI rendering and route guards
- * - permissions: field-level permission enforcement
+ * New code should import from the domain-specific files directly:
+ *   import type { User, UserRole } from '@/types/auth.types';
+ *   import type { Account, Transaction } from '@/types/deposits.types';
+ *   import type { Operator, Branch } from '@/types/admin.types';
+ *   import type { Address, Alert } from '@/types/common.types';
  */
-export interface User {
-  /** Database user ID — Spring returns Long (number). */
-  id?: string | number;
-  username: string;
-  email?: string;
-  firstName?: string;
-  lastName?: string;
-  phoneNumber?: string;
-  dateOfBirth?: Date;
-  gender?: 'MALE' | 'FEMALE' | 'OTHER';
-  address?: Address;
-  kycStatus?: KYCStatus;
-  amlStatus?: AMLStatus;
-  createdAt?: Date;
-  updatedAt?: Date;
-  lastLogin?: Date | null;
 
-  // CBS-specific fields
-  branchCode?: string;
-  branchName?: string;
-  tenantId?: string;
-  roles: UserRole[];
-  permissions?: string[];
-  /**
-   * Computed by Spring as `firstName + " " + lastName`.
-   * Per LOGIN_API_RESPONSE_CONTRACT §UserInfoDto.
-   */
-  displayName?: string;
-  mfaEnrolled?: boolean;
-}
+// Auth domain
+export type {
+  User, UserRole, AuthToken,
+  AuthResponse, LoginSessionContext, TokenRefreshResponse,
+  MfaChallengeResponse, AuthErrorCode,
+} from './auth.types';
 
-/**
- * User role — determines UI visibility and action authorization.
- * The backend is the source of truth; UI only renders based on these.
- */
-export type UserRole =
-  | 'TELLER'
-  | 'OFFICER'
-  | 'MANAGER'
-  | 'BRANCH_ADMIN'
-  | 'ADMIN_HO'
-  | 'AUDITOR'
-  | 'MAKER'
-  | 'CHECKER'
-  | 'APPROVER'
-  | 'VIEWER'
-  | 'RECONCILER'
-  | 'ADMIN';
+// Deposits (CASA) domain
+export type { Account, AccountType, AccountStatus, FreezeType, Transaction } from './deposits.types';
 
-/**
- * Bank account entity
- */
-export interface Account {
-  id: string;
-  accountNumber: string;
-  customerId: string;
-  accountType: 'SAVINGS' | 'CURRENT' | 'SALARY';
-  currency: string;
-  balance: number;
-  availableBalance: number;
-  status: 'ACTIVE' | 'INACTIVE' | 'FROZEN' | 'CLOSED';
-  openedDate: Date;
-  closedDate: Date | null;
-  linkedAccounts: string[];
-  createdAt: Date;
-  updatedAt: Date;
-}
+// Common / shared types
+export type { Address, KYCStatus, AMLStatus, Alert, DashboardSummary, Beneficiary } from './common.types';
 
-/**
- * Transaction entity
- */
-export interface Transaction {
-  id: string;
-  transactionId: string;
-  accountId: string;
-  fromAccount?: string;
-  toAccount?: string;
-  amount: number;
-  currency: string;
-  transactionType: 'DEBIT' | 'CREDIT' | 'TRANSFER';
-  status: 'PENDING' | 'COMPLETED' | 'FAILED' | 'REVERSED';
-  description: string;
-  valueDate: Date;
-  postingDate: Date;
-  referenceNumber: string;
-  beneficiaryName?: string;
-  createdAt: Date;
-  updatedAt: Date;
-}
-
-/**
- * Address entity
- */
-export interface Address {
-  street: string;
-  city: string;
-  state: string;
-  country: string;
-  postalCode: string;
-  type: 'RESIDENTIAL' | 'OFFICE' | 'MAILING';
-}
-
-/**
- * KYC status enumeration
- */
-export type KYCStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'EXPIRED';
-
-/**
- * AML status enumeration
- */
-export type AMLStatus = 'PENDING' | 'APPROVED' | 'FLAGGED' | 'REJECTED';
-
-/**
- * Beneficiary entity for fund transfers
- */
-export interface Beneficiary {
-  id: string;
-  customerId: string;
-  name: string;
-  accountNumber: string;
-  ifscCode: string;
-  bankName: string;
-  isInternal: boolean;
-  status: 'ACTIVE' | 'INACTIVE';
-  createdAt: Date;
-  updatedAt: Date;
-}
-
-/**
- * Authentication token entity.
- *
- * Per LOGIN_API_RESPONSE_CONTRACT §EnhancedTokenResponse, the Spring
- * auth endpoints return tokens + user profile + businessDate in a
- * single payload. The BFF holds the tokens server-side; the browser
- * only sees the user/businessDate subset via /api/cbs/auth/me.
- */
-export interface AuthToken {
-  accessToken: string;
-  refreshToken: string;
-  tokenType: 'Bearer';
-  /** Seconds until accessToken expires (e.g. 900 = 15 min). */
-  expiresIn: number;
-  /** CBS operational date (YYYY-MM-DD) from DayOpenService. */
-  businessDate?: string;
-  /** User profile included in the token response. */
-  user?: User;
-}
-
-/**
- * Dashboard summary data
- */
-export interface DashboardSummary {
-  totalBalance: number;
-  accountsCount: number;
-  recentTransactions: Transaction[];
-  alerts: Alert[];
-}
-
-/**
- * Alert entity for notifications
- */
-export interface Alert {
-  id: string;
-  type: 'INFO' | 'WARNING' | 'ERROR' | 'SUCCESS';
-  title: string;
-  message: string;
-  isRead: boolean;
-  createdAt: Date;
-  expiresAt?: Date;
-}
+// Admin domain
+export type {
+  Operator, OperatorStatus,
+  Branch, BranchStatus, BranchType,
+  Holiday, HolidayType, HolidayScope,
+  Tenant, TenantStatus,
+} from './admin.types';

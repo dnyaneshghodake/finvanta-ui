@@ -60,6 +60,12 @@
       ],
       "@/constants/*": [
         "./src/constants/*"
+      ],
+      "@/modules/*": [
+        "./src/modules/*"
+      ],
+      "@/modules": [
+        "./src/modules"
       ]
     }
   },
@@ -72,6 +78,11 @@
     "**/*.mts"
   ],
   "exclude": [
-    "node_modules"
+    "node_modules",
+    "**/*.test.ts",
+    "**/*.test.tsx",
+    "**/*.spec.ts",
+    "e2e/**",
+    "src/test/**"
   ]
 }

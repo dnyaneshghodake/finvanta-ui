@@ -12,6 +12,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { apiClient } from '@/services/api/apiClient';
+import { Breadcrumb } from '@/components/cbs';
 import { Spinner } from '@/components/atoms';
 
 /**
@@ -93,6 +94,12 @@ export default function TrialBalancePage() {
 
   return (
     <div className="space-y-4">
+      <Breadcrumb items={[
+        { label: 'Dashboard', href: '/dashboard' },
+        { label: 'Reports', href: '/reports/gl' },
+        { label: 'Trial Balance' },
+      ]} />
+
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-semibold text-cbs-ink">Trial Balance</h1>

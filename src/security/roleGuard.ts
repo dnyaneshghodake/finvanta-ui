@@ -30,27 +30,72 @@ export const hasAllRoles = (...requiredRoles: UserRole[]): boolean => {
 
 /**
  * Check if the current user has a specific permission string.
+ * Searches both the flat `permissions[]` array and the structured
+ * `permissionsByModule` map from the new Spring login response.
  */
 export const hasPermission = (permission: string): boolean => {
   const user = useAuthStore.getState().user;
-  if (!user || !user.permissions) return false;
-  return user.permissions.includes(permission);
+  if (!user) return false;
+  // Check flat permissions array first (legacy + derived)
+  if (user.permissions?.includes(permission)) return true;
+  // Check structured permissionsByModule map
+  if (user.permissionsByModule) {
+    return Object.values(user.permissionsByModule)
+      .some((perms) => perms.includes(permission));
+  }
+  return false;
+};
+
+/**
+ * Check if the current user has access to a specific CBS module.
+ * Uses `allowedModules[]` from the new Spring login response.
+ *
+ * FAIL-CLOSED: when `allowedModules` is absent (bootstrap failed,
+ * legacy login response), we return false. This is the Zero Trust
+ * default — the backend gates independently, but the UI should not
+ * show modules the operator may not be authorized for.
+ *
+ * CBS benchmark: Finacle's USRPRF and T24's EB.USER.CONTEXT both
+ * fail-closed when the context service is unreachable.
+ */
+export const hasModuleAccess = (module: string): boolean => {
+  const user = useAuthStore.getState().user;
+  if (!user?.allowedModules || user.allowedModules.length === 0) return false;
+  return user.allowedModules.includes(module);
 };
 
 /**
  * Check if user is a maker (can create/submit records).
+ * Checks both the role array and the makerCheckerRole field.
+ *
+ * Per API_REFERENCE.md §2.1, makerCheckerRole values are:
+ *   MAKER, CHECKER, BOTH, VIEWER
+ * "BOTH" means the operator can act as either maker or checker
+ * (but never on the same record — self-approval is still blocked).
  */
-export const isMaker = (): boolean => hasRole('MAKER', 'TELLER', 'OFFICER');
+export const isMaker = (): boolean => {
+  const user = useAuthStore.getState().user;
+  if (user?.makerCheckerRole === 'MAKER' || user?.makerCheckerRole === 'BOTH') return true;
+  return hasRole('MAKER', 'TELLER', 'OFFICER');
+};
 
 /**
  * Check if user is a checker (can verify/approve records).
+ * Checks both the role array and the makerCheckerRole field.
+ *
+ * Per API_REFERENCE.md §2.1, "BOTH" grants checker capability too.
  */
-export const isChecker = (): boolean => hasRole('CHECKER', 'MANAGER', 'APPROVER');
+export const isChecker = (): boolean => {
+  const user = useAuthStore.getState().user;
+  if (user?.makerCheckerRole === 'CHECKER' || user?.makerCheckerRole === 'BOTH') return true;
+  return hasRole('CHECKER', 'MANAGER', 'APPROVER');
+};
 
 /**
  * Check if user is HO admin (head office admin — can see all branches).
+ * Per API_REFERENCE.md §1: 'ADMIN' has full admin access including HO.
  */
-export const isHOAdmin = (): boolean => hasRole('ADMIN_HO');
+export const isHOAdmin = (): boolean => hasRole('ADMIN_HO', 'ADMIN');
 
 /**
  * Check if user is an auditor (read-only access to audit trails).
@@ -69,14 +114,18 @@ export const isAuditor = (): boolean => hasRole('AUDITOR');
 export const canApprove = (makerId: string): boolean => {
   const user = useAuthStore.getState().user;
   if (!user) return false;
-  // Fail-safe: if we don't know the operator's id we cannot confirm
-  // they are a different person from the maker. Hide the button and
-  // let the backend reject if they attempt via an API call.
-  if (!user.id) return false;
-  // Coerce to string before comparing: Spring returns user.id as a
-  // number (Long), but makerId from workflow JSON is always a string.
-  // Strict equality (===) between number and string silently passes,
-  // defeating the self-approval gate.
-  if (String(user.id) === String(makerId)) return false; // Self-approval blocked
+  // Fail-safe: if we don't know the operator's id AND username we
+  // cannot confirm they are a different person from the maker. Hide
+  // the button and let the backend reject if they attempt via API.
+  if (!user.id && !user.username) return false;
+  // Compare against BOTH user.id (numeric DB ID) and user.username
+  // (login name). Per API_REFERENCE.md §15, the workflow response
+  // field `makerUserId` may be either a numeric ID string or a
+  // username string depending on the backend version. Comparing
+  // only against user.id would silently pass self-approval when
+  // the backend returns a username (e.g. "maker1" !== 42).
+  // Coerce to string: Spring returns user.id as Long (number).
+  if (user.id && String(user.id) === String(makerId)) return false;
+  if (user.username && user.username === makerId) return false;
   return isChecker();
 };

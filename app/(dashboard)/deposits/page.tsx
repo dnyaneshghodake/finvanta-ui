@@ -11,20 +11,31 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { apiClient } from '@/services/api/apiClient';
-import { StatusRibbon, AmountDisplay } from '@/components/cbs';
+import { StatusRibbon, AmountDisplay, Breadcrumb } from '@/components/cbs';
 import { Button, Spinner } from '@/components/atoms';
+import { formatCbsDate } from '@/utils/formatters';
 
 interface FdRecord {
   id: number;
   fdNumber: string;
   customerName?: string;
+  customerNumber?: string;
   principal: number;
   interestRate: number;
   tenureMonths: number;
   openDate: string;
   maturityDate: string;
   maturityAmount: number;
+  /** Interest compounding frequency: QUARTERLY, MONTHLY, etc. */
+  compoundingFrequency?: string;
+  /** Linked CASA for interest credit / maturity proceeds. */
+  linkedAccount?: string;
+  currencyCode?: string;
   lienMarked: boolean;
+  /** Lien amount when lienMarked is true. */
+  lienAmount?: number;
+  /** Auto-renewal flag per RBI deposit guidelines. */
+  autoRenew?: boolean;
   status: string;
 }
 
@@ -45,6 +56,11 @@ export default function FdInquiryPage() {
 
   return (
     <div className="space-y-4">
+      <Breadcrumb items={[
+        { label: 'Dashboard', href: '/dashboard' },
+        { label: 'Fixed Deposits' },
+      ]} />
+
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-semibold text-cbs-ink">Fixed Deposits</h1>
@@ -83,12 +99,16 @@ export default function FdInquiryPage() {
                 <tr>
                   <th>FD Number</th>
                   <th>Customer</th>
+                  <th>CCY</th>
                   <th className="text-right">Principal</th>
                   <th className="text-right">Rate %</th>
                   <th>Tenure</th>
+                  <th>Open Date</th>
                   <th>Maturity Date</th>
                   <th className="text-right">Maturity Amt</th>
+                  <th>Linked A/C</th>
                   <th>Lien</th>
+                  <th>Renew</th>
                   <th>Status</th>
                 </tr>
               </thead>
@@ -96,12 +116,20 @@ export default function FdInquiryPage() {
                 {deposits.map((fd) => (
                   <tr key={fd.id}>
                     <td className="cbs-tabular font-semibold text-cbs-navy-700">{fd.fdNumber}</td>
-                    <td className="text-cbs-ink">{fd.customerName || '—'}</td>
+                    <td className="text-cbs-ink">
+                      {fd.customerName || '—'}
+                      {fd.customerNumber && (
+                        <div className="text-[10px] text-cbs-steel-500 cbs-tabular">{fd.customerNumber}</div>
+                      )}
+                    </td>
+                    <td className="cbs-tabular text-cbs-steel-600">{fd.currencyCode || 'INR'}</td>
                     <td className="cbs-amount">{fd.principal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
                     <td className="cbs-amount">{fd.interestRate.toFixed(2)}</td>
                     <td className="cbs-tabular">{fd.tenureMonths} months</td>
-                    <td className="cbs-tabular">{fd.maturityDate}</td>
+                    <td className="cbs-tabular">{formatCbsDate(fd.openDate)}</td>
+                    <td className="cbs-tabular">{formatCbsDate(fd.maturityDate)}</td>
                     <td className="cbs-amount">{fd.maturityAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
+                    <td className="cbs-tabular text-cbs-steel-600">{fd.linkedAccount || '—'}</td>
                     <td>
                       {fd.lienMarked ? (
                         <span className="cbs-ribbon text-cbs-crimson-700 bg-cbs-crimson-50 border-cbs-crimson-600">LIEN</span>
@@ -109,6 +137,7 @@ export default function FdInquiryPage() {
                         <span className="text-xs text-cbs-steel-500">—</span>
                       )}
                     </td>
+                    <td className="text-xs text-cbs-steel-600">{fd.autoRenew ? 'Yes' : 'No'}</td>
                     <td><StatusRibbon status={fd.status} /></td>
                   </tr>
                 ))}

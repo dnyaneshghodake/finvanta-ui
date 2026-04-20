@@ -30,7 +30,9 @@ const ICON_SIZE = 18;
 const ICON_STROKE = 1.75;
 const MAKER: UserRole[] = ['MAKER', 'TELLER', 'OFFICER'];
 const CHECKER: UserRole[] = ['CHECKER', 'MANAGER', 'APPROVER'];
-const ADMIN: UserRole[] = ['ADMIN_HO', 'BRANCH_ADMIN'];
+// Per API_REFERENCE.md §1: Spring returns 'ADMIN' for full admin access.
+// Must include all three admin-tier roles so sidebar items are visible.
+const ADMIN: UserRole[] = ['ADMIN', 'ADMIN_HO', 'BRANCH_ADMIN'];
 
 interface SubItem { label: string; href: string; roles?: UserRole[]; }
 interface NavModule { id: string; label: string; icon: React.ReactNode; href?: string; children?: SubItem[]; roles?: UserRole[]; }
@@ -85,14 +87,14 @@ const MODULES: NavModule[] = [
   ]},
   { id: 'admin', label: 'Administration', roles: ADMIN,
     icon: <Settings size={ICON_SIZE} strokeWidth={ICON_STROKE} />, children: [
-    { label: 'Tenant Setup', href: '/admin/tenants' },
-    { label: 'Branch Management', href: '/admin/branches' },
-    { label: 'Calendar & Holidays', href: '/admin/calendar' },
-    { label: 'User Management', href: '/admin/users' },
-    { label: 'GL Chart of Accounts', href: '/admin/gl' },
-    { label: 'Product Setup', href: '/admin/products' },
-    { label: 'Charge Setup', href: '/admin/charges' },
-    { label: 'Day Open / Close', href: '/admin/day' },
+    { label: 'Tenant Setup', href: '/admin/tenants', roles: ['ADMIN_HO'] },
+    { label: 'Branch Management', href: '/admin/branches', roles: ADMIN },
+    { label: 'Calendar & Holidays', href: '/admin/calendar', roles: ADMIN },
+    { label: 'User Management', href: '/admin/users', roles: ADMIN },
+    { label: 'GL Chart of Accounts', href: '/admin/gl', roles: ['ADMIN_HO'] },
+    { label: 'Product Setup', href: '/admin/products', roles: ['ADMIN_HO'] },
+    { label: 'Charge Setup', href: '/admin/charges', roles: ['ADMIN_HO'] },
+    { label: 'Day Open / Close', href: '/admin/day', roles: ADMIN },
   ]},
   { id: 'legacy', label: 'Legacy Screens', href: '/legacy',
     icon: <Monitor size={ICON_SIZE} strokeWidth={ICON_STROKE} /> },

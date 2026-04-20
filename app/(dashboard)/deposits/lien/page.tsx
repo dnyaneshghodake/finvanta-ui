@@ -13,7 +13,7 @@
 
 import { useState } from 'react';
 import { apiClient } from '@/services/api/apiClient';
-import { CorrelationRefBadge } from '@/components/cbs';
+import { CorrelationRefBadge, Breadcrumb } from '@/components/cbs';
 import { Button } from '@/components/atoms';
 import Link from 'next/link';
 
@@ -53,6 +53,12 @@ export default function FdLienPage() {
 
   return (
     <div className="space-y-4">
+      <Breadcrumb items={[
+        { label: 'Dashboard', href: '/dashboard' },
+        { label: 'Fixed Deposits', href: '/deposits' },
+        { label: 'Lien Management' },
+      ]} />
+
       <div>
         <h1 className="text-xl font-semibold text-cbs-ink">FD Lien Mark / Release</h1>
         <p className="text-xs text-cbs-steel-600 mt-0.5">

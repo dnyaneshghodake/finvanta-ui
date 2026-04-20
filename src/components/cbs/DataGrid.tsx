@@ -175,8 +175,17 @@ export function CbsDataGrid<T extends Record<string, unknown>>({
 
   return (
     <div className={`cbs-surface ${className}`.trim()}>
+      {/* WCAG 4.1.3 — live region announces row count changes to screen readers
+          when data loads, filters change, or pagination navigates. */}
+      <div aria-live="polite" aria-atomic="true" className="sr-only">
+        {loading
+          ? 'Loading data…'
+          : rows.length === 0
+            ? emptyMessage
+            : `Showing ${rows.length} record${rows.length === 1 ? '' : 's'}${pagination ? ` of ${pagination.total}` : ''}`}
+      </div>
       <div className="cbs-table-wrap">
-        <table className="cbs-grid-table">
+        <table className="cbs-grid-table" role="grid">
           <thead>
             <tr>
               {selectable && (

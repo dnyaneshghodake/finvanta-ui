@@ -58,10 +58,23 @@ const generateRequestId = (): string => {
 };
 
 /**
- * Create Axios instance
+ * Browser API base URL — hardcoded to the Next.js BFF route prefix.
+ *
+ * This is NOT configurable via env vars. The browser MUST always talk
+ * to the BFF at `/api/cbs/**` on the same origin. The BFF then
+ * forwards to Spring with JWT, CSRF, branch/tenant headers injected
+ * server-side. Any direct-to-Spring URL here would bypass every
+ * security control (JWT containment, CSRF double-submit, branch
+ * injection, correlation-id propagation).
+ *
+ * The BFF route prefix `/api/cbs` is a compile-time architectural
+ * constant — it matches the Next.js App Router directory structure
+ * at `app/api/cbs/`. Changing it requires moving the route files.
  */
+const BFF_BASE_URL = '/api/cbs';
+
 const apiClient: AxiosInstance = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_URL || '/api/cbs',
+  baseURL: BFF_BASE_URL,
   timeout: parseInt(process.env.API_TIMEOUT || '30000', 10),
   headers: {
     'Content-Type': 'application/json',
@@ -81,7 +94,7 @@ apiClient.interceptors.request.use(
     // its HttpOnly fv_sid cookie automatically via withCredentials.
 
     // Per-request id for UI-side logging; the BFF generates its own
-    // X-Correlation-Id (seeded by middleware.ts) that survives retries.
+    // X-Correlation-Id (seeded by proxy.ts) that survives retries.
     config.headers['X-Request-ID'] = generateRequestId();
     config.headers['X-Client-Version'] = process.env.NEXT_PUBLIC_APP_VERSION || '1.0.0';
 

@@ -12,10 +12,15 @@
 
 # testing
 /coverage
+/test-results
+/playwright-report
+/e2e-results.xml
+/blob-report
 
 # next.js
 /.next/
 /out/
+proxy.ts.bak
 
 # production
 /build

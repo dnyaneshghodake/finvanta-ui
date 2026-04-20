@@ -31,7 +31,15 @@ type MfaForm = z.infer<typeof mfaSchema>;
 
 interface MfaOk {
   success: true;
-  data: { user: User; expiresAt: number; csrfToken: string; businessDate?: string };
+  data: {
+    user: User;
+    expiresAt: number;
+    csrfToken: string;
+    businessDate?: string;
+    businessDay?: { businessDate: string; dayStatus: string; isHoliday: boolean; previousBusinessDate?: string; nextBusinessDate?: string } | null;
+    operationalConfig?: { baseCurrency: string; decimalPrecision: number; roundingMode: string; fiscalYearStartMonth: number; businessDayPolicy: string } | null;
+    transactionLimits?: Array<{ transactionType: string; channel: string | null; perTransactionLimit: number; dailyAggregateLimit: number }> | null;
+  };
   correlationId?: string;
 }
 interface MfaErr {
@@ -44,8 +52,13 @@ interface MfaErr {
 /** Discriminated union — axios sees the full shape via validateStatus. */
 type MfaResponse = MfaOk | MfaErr;
 
-/** Max OTP attempts before forcing re-authentication (per contract §MFA). */
-const MAX_OTP_ATTEMPTS = 3;
+/**
+ * Max OTP attempts before forcing re-authentication.
+ * Per API_LOGIN_CONTRACT.md §5: server locks at 5 failed OTP attempts
+ * (failedLoginAttempts counter, starting from 0 after password phase
+ * reset). Client redirects to login at 5 to match server lockout.
+ */
+const MAX_OTP_ATTEMPTS = 5;
 
 export default function MfaPage() {
   const router = useRouter();
@@ -77,6 +90,9 @@ export default function MfaPage() {
       if (response.status !== 200 || !response.data?.success) {
         const err = response.data as MfaErr;
 
+        // Per API_REFERENCE.md §2.2 — terminal MFA error codes that
+        // require restarting the login flow from scratch.
+
         // Challenge expired or tampered — must restart login.
         if (err?.errorCode === 'INVALID_MFA_CHALLENGE') {
           router.push('/login?reason=mfa_expired');
@@ -89,7 +105,21 @@ export default function MfaPage() {
           return;
         }
 
-        // Track failed OTP attempts per LOGIN_API_RESPONSE_CONTRACT §MFA.
+        // Account disabled/locked between password and MFA steps.
+        if (err?.errorCode === 'ACCOUNT_INVALID') {
+          router.push('/login?reason=account_invalid');
+          return;
+        }
+
+        // Per API_LOGIN_CONTRACT.md §5: account locks at 5 failed OTP
+        // attempts. Spring returns ACCOUNT_LOCKED when the threshold
+        // is reached during the MFA phase.
+        if (err?.errorCode === 'ACCOUNT_LOCKED') {
+          router.push('/login?reason=account_locked');
+          return;
+        }
+
+        // Track failed OTP attempts per API_LOGIN_CONTRACT.md §5.
         const attempts = otpAttempts + 1;
         setOtpAttempts(attempts);
 
@@ -113,6 +143,8 @@ export default function MfaPage() {
         csrfToken: response.data.data.csrfToken,
         expiresAt: response.data.data.expiresAt,
         businessDate: response.data.data.businessDate ?? null,
+        businessDay: response.data.data.businessDay ?? null,
+        operationalConfig: response.data.data.operationalConfig ?? null,
         isAuthenticated: true,
         isHydrated: true,
         isLoading: false,

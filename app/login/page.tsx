@@ -43,6 +43,26 @@ interface BffLoginOk {
     expiresAt: number;
     csrfToken: string;
     businessDate?: string;
+    businessDay?: {
+      businessDate: string;
+      dayStatus: string;
+      isHoliday: boolean;
+      previousBusinessDate?: string;
+      nextBusinessDate?: string;
+    } | null;
+    operationalConfig?: {
+      baseCurrency: string;
+      decimalPrecision: number;
+      roundingMode: string;
+      fiscalYearStartMonth: number;
+      businessDayPolicy: string;
+    } | null;
+    transactionLimits?: Array<{
+      transactionType: string;
+      channel: string | null;
+      perTransactionLimit: number;
+      dailyAggregateLimit: number;
+    }> | null;
   };
   correlationId?: string;
 }
@@ -71,6 +91,7 @@ function LoginInner() {
     if (reason === 'mfa_expired') return 'MFA challenge expired. Please sign in again to receive a new code.';
     if (reason === 'unauthorized') return 'You must sign in to access that page.';
     if (reason === 'account_invalid') return 'Your account is no longer valid. Contact your administrator.';
+    if (reason === 'account_locked') return 'Your account has been locked due to too many failed attempts. Try again in 30 minutes or contact your branch administrator.';
     if (reason === 'session_compromised') return 'Your session was interrupted for security. Please sign in again.';
     return null;
   });
@@ -108,25 +129,59 @@ function LoginInner() {
 
         // Map backend error codes to operator-friendly messages per
         // the Tier-1 CBS login contract.
+        // Per API_LOGIN_CONTRACT.md §8 — Complete Error Code Reference.
+        // Each error code maps to a specific operator-facing message.
         switch (err?.errorCode) {
-          case 'BACKEND_UNREACHABLE':
-          case 'BACKEND_TIMEOUT':
-            msg = 'The banking server is currently unavailable. This may be a scheduled maintenance window or a temporary outage. Please try again in a few minutes or contact IT support.';
+          // ── Auth failures (§4) ──────────────────────────────────
+          case 'AUTH_FAILED':
+            // Per §4: identical response for user-not-found AND wrong
+            // password. No account enumeration per OWASP ASVS 2.5.2.
+            msg = 'Invalid credentials. Please check your User ID and password.';
             break;
           case 'ACCOUNT_LOCKED':
+            // Per §4: correct password but account locked (5 failed attempts).
             msg = err.message || 'Account locked.';
             if (err.data?.lockoutDurationMinutes) {
               msg += ` Try again in ${err.data.lockoutDurationMinutes} minutes or contact your branch administrator.`;
             }
             break;
           case 'ACCOUNT_DISABLED':
+            // Per §4: correct password but account disabled by admin.
             msg = 'Your account has been disabled. Contact your branch administrator for reactivation.';
             break;
           case 'PASSWORD_EXPIRED':
+            // Per §4: correct password but expired (90-day rotation).
+            // Contract says "Redirect to password change screen" — but
+            // Tier-1 CBS: password changes are admin-initiated, so we
+            // direct the operator to contact their administrator.
             msg = 'Your password has expired. Contact your branch administrator to reset it.';
             break;
+          // ── Rate limiting (§8) ──────────────────────────────────
           case 'RATE_LIMITED':
+          case 'AUTH_RATE_LIMIT_EXCEEDED':
             msg = err.message || 'Too many login attempts. Please wait and try again.';
+            break;
+          // ── Validation (§8) ─────────────────────────────────────
+          case 'VALIDATION_FAILED':
+            msg = err.message || 'Please provide both User ID and password.';
+            break;
+          // ── Tenant header errors (§3) ───────────────────────────
+          case 'MISSING_TENANT_ID':
+          case 'INVALID_TENANT_ID':
+            msg = 'System configuration error. Contact IT support. (Ref: tenant header)';
+            break;
+          // ── Backend infrastructure ──────────────────────────────
+          case 'BACKEND_UNREACHABLE':
+          case 'BACKEND_TIMEOUT':
+            msg = 'The banking server is currently unavailable. This may be a scheduled maintenance window or a temporary outage. Please try again in a few minutes or contact IT support.';
+            break;
+          case 'BACKEND_REDIRECT':
+          case 'BACKEND_INVALID_RESPONSE':
+            msg = err.message || 'The banking server returned an unexpected response. Contact IT support.';
+            break;
+          // ── Internal error (§8) ─────────────────────────────────
+          case 'INTERNAL_ERROR':
+            msg = 'An unexpected error occurred on the banking server. Contact IT support.';
             break;
           default:
             msg = err?.message || 'Unable to sign in. Please check your credentials.';
@@ -146,6 +201,8 @@ function LoginInner() {
         csrfToken: response.data.data.csrfToken,
         expiresAt: response.data.data.expiresAt,
         businessDate: response.data.data.businessDate ?? null,
+        businessDay: response.data.data.businessDay ?? null,
+        operationalConfig: response.data.data.operationalConfig ?? null,
         isAuthenticated: true,
         isHydrated: true,
         isLoading: false,

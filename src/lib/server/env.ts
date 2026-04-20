@@ -10,13 +10,22 @@ import "server-only";
 
 interface CbsServerEnv {
   backendBaseUrl: string;
+  /**
+   * Full API base including version prefix.
+   * Computed as `${backendBaseUrl}${apiPrefix}`.
+   * Example: "http://localhost:8080/api/v1"
+   *
+   * Auth routes append: `/auth/token`, `/auth/mfa/verify`, `/auth/refresh`
+   * Proxy routes append: `/<resource>`
+   */
+  backendApiBase: string;
   sessionSecret: string;
   csrfSecret: string;
   sessionCookieName: string;
   csrfCookieName: string;
   mfaChallengeCookieName: string;
   sessionTtlSeconds: number;
-  /** Idle extension window in seconds (default 15 min). Must match
+  /** Idle extension window in seconds (default 30 min). Must match
    *  the client-side SESSION_TIMEOUT_MS in useSessionTimeout.ts. */
   sessionIdleExtensionSeconds: number;
   mfaChallengeTtlSeconds: number;
@@ -46,12 +55,16 @@ export function serverEnv(): CbsServerEnv {
   if (cached !== null && process.env.NODE_ENV === "production") return cached;
   const isProduction = process.env.NODE_ENV === "production";
 
+  const backendBaseUrl = (process.env.CBS_BACKEND_URL || "http://localhost:8080").replace(/\/+$/, "");
+  // CBS_API_PREFIX controls the path between the server root and the
+  // versioned REST surface. Default: "/api/v1" (Spring context-path + version).
+  // If your Spring has no context-path, set CBS_API_PREFIX=/v1.
+  // If your Spring serves at /api/v1, keep the default.
+  const apiPrefix = (process.env.CBS_API_PREFIX || "/api/v1").replace(/\/+$/, "");
+
   cached = {
-    // Spring server root only -- no trailing path. The BFF appends
-    // `/api/v1/<resource>` to reach the Spring REST surface.
-    // Auth and all other endpoints use the `/api/v1/` prefix.
-    backendBaseUrl:
-      process.env.CBS_BACKEND_URL || "http://localhost:8080",
+    backendBaseUrl,
+    backendApiBase: `${backendBaseUrl}${apiPrefix}`,
     sessionSecret: requireSecret(
       "CBS_SESSION_SECRET",
       "dev-only-session-secret-at-least-32-characters-long",
@@ -68,8 +81,12 @@ export function serverEnv(): CbsServerEnv {
     sessionTtlSeconds: Number(
       process.env.CBS_SESSION_TTL_SECONDS || 60 * 60 * 8,
     ),
+    // Default: 30 min (1800s). MUST match the client-side
+    // SESSION_TIMEOUT_MS in useSessionTimeout.ts (30 * 60 * 1000).
+    // A mismatch causes the server to expire the session before
+    // the client shows the timeout warning, producing silent 401s.
     sessionIdleExtensionSeconds: Number(
-      process.env.CBS_SESSION_IDLE_SECONDS || 15 * 60,
+      process.env.CBS_SESSION_IDLE_SECONDS || 30 * 60,
     ),
     mfaChallengeTtlSeconds: Number(
       process.env.CBS_MFA_TTL_SECONDS || 5 * 60,

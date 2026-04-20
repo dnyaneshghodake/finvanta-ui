@@ -6,3 +6,9 @@
 export { useSessionTimeout } from './useSessionTimeout';
 export { useCbsKeyboard, kbdLabel, type CbsShortcutMap } from './useCbsKeyboard';
 export { useBackendHealth, type BackendStatus } from './useBackendHealth';
+export {
+  useDashboardWidget,
+  type WidgetState,
+  type WidgetStatus,
+  type UseDashboardWidgetOptions,
+} from './useDashboardWidget';

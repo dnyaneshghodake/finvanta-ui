@@ -43,9 +43,10 @@ import {
   CbsTextarea,
   Breadcrumb,
   CbsDatePicker,
+  TransactionConfirmDialog,
 } from '@/components/cbs';
 import { useCbsKeyboard } from '@/hooks/useCbsKeyboard';
-import { formatCbsTimestamp } from '@/utils/formatters';
+import { formatCurrency, formatCbsTimestamp } from '@/utils/formatters';
 
 const ACCOUNT_NUMBER_RE = /^[A-Z0-9][A-Z0-9-]{5,24}$/;
 
@@ -103,10 +104,16 @@ export default function TransfersPage() {
   // A network-level retry must reuse the same key so the backend
   // de-duplicates via its Redis + DB idempotency cache.
   const [idempotencyKey, setIdempotencyKey] = useState<string | null>(null);
+  // CBS two-step confirmation: capture → confirm dialog → post
+  const [showConfirm, setShowConfirm] = useState(false);
+  const [pendingData, setPendingData] = useState<FormData | null>(null);
 
-  // CBS keyboard shortcuts: F8 = Submit/Post (CBS convention)
+  // CBS keyboard shortcuts: F8 = Submit/Post, F10 = Submit form (CBS convention)
   const shortcuts = useMemo(() => ({
     F8: () => {
+      if (phase === 'capture') formRef.current?.requestSubmit();
+    },
+    F10: () => {
       if (phase === 'capture') formRef.current?.requestSubmit();
     },
   }), [phase]);
@@ -120,12 +127,20 @@ export default function TransfersPage() {
     valueDate: f.valueDate || undefined,
   });
 
-  const onConfirm = async (data: FormData) => {
+  // Step 1: Form validation passes → show confirm dialog
+  const onFormValid = (data: FormData) => {
     setError(null);
+    setPendingData(data);
+    setShowConfirm(true);
+  };
+
+  // Step 2: Operator confirms in dialog → post to backend
+  const onConfirmPost = async () => {
+    if (!pendingData) return;
     const key = idempotencyKey ?? transferService.mintKey();
     if (!idempotencyKey) setIdempotencyKey(key);
     try {
-      const res = await transferService.confirm(toReq(data), key);
+      const res = await transferService.confirm(toReq(pendingData), key);
       if (!res.success || !res.data) {
         // Server validation rejection (INSUFFICIENT_FUNDS, LIMIT_EXCEEDED,
         // ACCOUNT_FROZEN, etc.) — the server did NOT process the transfer,
@@ -134,17 +149,20 @@ export default function TransfersPage() {
         // backend's idempotency cache to replay the cached rejection
         // instead of evaluating the corrected request.
         setIdempotencyKey(null);
+        setShowConfirm(false);
         setError({
           message: res.error?.message || 'Transfer could not be processed',
           errorCode: res.error?.code,
         });
         return;
       }
+      setShowConfirm(false);
       setPosted(res.data);
       setPhase('posted');
     } catch (err) {
       // Network-level error — the server MAY have processed the request.
       // Keep the idempotency key so a retry de-duplicates correctly.
+      setShowConfirm(false);
       handleError(err);
     }
   };
@@ -168,6 +186,8 @@ export default function TransfersPage() {
     setPhase('capture');
     setPosted(null);
     setIdempotencyKey(null);
+    setShowConfirm(false);
+    setPendingData(null);
     setError(null);
     reset();
   };
@@ -221,7 +241,7 @@ export default function TransfersPage() {
           </div>
           <form
             ref={formRef}
-            onSubmit={handleSubmit(onConfirm)}
+            onSubmit={handleSubmit(onFormValid)}
             className="cbs-surface-body space-y-4"
           >
             <CbsFieldset legend="Debit Leg">
@@ -276,11 +296,29 @@ export default function TransfersPage() {
                 disabled={isSubmitting}
                 className="cbs-btn cbs-btn-primary"
               >
-                {isSubmitting ? 'Posting...' : 'Confirm transfer'}
+                {isSubmitting ? 'Validating...' : 'Review & Confirm'}
               </button>
             </div>
           </form>
         </section>
+      )}
+
+      {/* CBS two-step confirmation dialog (Step 2) */}
+      {pendingData && (
+        <TransactionConfirmDialog
+          isOpen={showConfirm}
+          onCancel={() => setShowConfirm(false)}
+          onConfirm={onConfirmPost}
+          transactionType="Internal Transfer"
+          amount={Number(pendingData.amount)}
+          fields={[
+            { label: 'Debit Account', value: pendingData.fromAccountNumber },
+            { label: 'Credit Account', value: pendingData.toAccountNumber },
+            { label: 'Amount', value: Number(pendingData.amount), isAmount: true },
+            ...(pendingData.valueDate ? [{ label: 'Value Date', value: pendingData.valueDate }] : []),
+            ...(pendingData.narration ? [{ label: 'Narration', value: pendingData.narration }] : []),
+          ]}
+        />
       )}
 
       {phase === 'posted' && posted && (

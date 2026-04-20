@@ -339,7 +339,7 @@ export function AmountDisplay({
   );
 }
 
-/** Mask a PAN for read-only display: ABCDE1234F -> ABCD***234F. */
+/** Mask a PAN for read-only display: ABCDE1234F -> ABCD***34F. */
 export function maskPan(pan: string): string {
   if (!pan || pan.length !== 10) return '****';
   return `${pan.slice(0, 4)}***${pan.slice(-3)}`;

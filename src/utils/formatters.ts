@@ -165,13 +165,19 @@ export const formatTransactionStatus = (status: string): string => {
 };
 
 /**
- * Format account type for display
+ * Format account type for display.
+ * Per API_REFERENCE.md §4: all account types from Spring.
  */
 export const formatAccountType = (type: string): string => {
   const typeMap: Record<string, string> = {
     'SAVINGS': 'Savings Account',
     'CURRENT': 'Current Account',
+    'CURRENT_OD': 'Current A/C (OD)',
     'SALARY': 'Salary Account',
+    'SAVINGS_NRI': 'NRI Savings',
+    'SAVINGS_MINOR': 'Minor Savings',
+    'SAVINGS_JOINT': 'Joint Savings',
+    'SAVINGS_PMJDY': 'PMJDY Savings',
   };
   return typeMap[type] || type;
 };

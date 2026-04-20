@@ -4,21 +4,21 @@
  * FINVANTA CBS — GL Inquiry (Phase 8.3).
  *
  * Fetches Chart of Accounts via GET /api/v1/gl/chart-of-accounts.
- * Shows GL code, account name, GL type (ASSET/LIABILITY/INCOME/EXPENSE),
- * and current balance. Amounts right-aligned in Indian numbering.
+ * Shows GL code, account name, GL type, level, parent, debit/credit
+ * split, and net balance. Header accounts are visually distinguished.
+ * Amounts right-aligned in Indian numbering per CBS convention.
  */
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { apiClient } from '@/services/api/apiClient';
-import { StatusRibbon } from '@/components/cbs';
+import { Breadcrumb } from '@/components/cbs';
 import { Spinner } from '@/components/atoms';
 
 /**
  * Per REST_API_COMPLETE_CATALOGUE §GL chart-of-accounts, Spring returns:
  *   { glCode, glName, accountType, debitBalance, creditBalance, netBalance,
  *     headerAccount, parentGlCode, glLevel }
- * We map `glName` → `accountName` and `netBalance` → `balance` for the UI.
  */
 interface SpringGlEntry {
   glCode: string;
@@ -36,7 +36,12 @@ interface GlEntry {
   glCode: string;
   accountName: string;
   accountType: string;
-  balance: number;
+  debitBalance: number;
+  creditBalance: number;
+  netBalance: number;
+  isHeader: boolean;
+  parentGlCode: string | null;
+  glLevel: number;
 }
 
 const GL_TYPE_TONE: Record<string, string> = {
@@ -56,13 +61,17 @@ export default function GlInquiryPage() {
     apiClient.get<{ status: string; data?: SpringGlEntry[] }>('/gl/chart-of-accounts')
       .then((res) => {
         if (cancelled) return;
-        // Map Spring field names → UI field names per REST_API_COMPLETE_CATALOGUE
         const raw = res.data?.data ?? [];
         setEntries(raw.map((e) => ({
           glCode: e.glCode,
           accountName: e.glName || e.glCode,
           accountType: e.accountType,
-          balance: e.netBalance ?? (e.debitBalance - e.creditBalance),
+          debitBalance: e.debitBalance ?? 0,
+          creditBalance: e.creditBalance ?? 0,
+          netBalance: e.netBalance ?? (e.debitBalance - e.creditBalance),
+          isHeader: e.headerAccount ?? false,
+          parentGlCode: e.parentGlCode ?? null,
+          glLevel: e.glLevel ?? 0,
         })));
       })
       .catch(() => {})
@@ -74,11 +83,17 @@ export default function GlInquiryPage() {
 
   return (
     <div className="space-y-4">
+      <Breadcrumb items={[
+        { label: 'Dashboard', href: '/dashboard' },
+        { label: 'Reports', href: '/reports/gl' },
+        { label: 'GL Inquiry' },
+      ]} />
+
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-semibold text-cbs-ink">GL Inquiry — Chart of Accounts</h1>
           <p className="text-xs text-cbs-steel-600 mt-0.5">
-            General Ledger chart of accounts with current balances.
+            General Ledger chart of accounts with debit / credit split and net balances.
           </p>
         </div>
         <Link href="/reports/trial-balance" className="cbs-btn cbs-btn-secondary">Trial Balance</Link>
@@ -100,23 +115,38 @@ export default function GlInquiryPage() {
             <table className="cbs-grid-table">
               <thead>
                 <tr>
+                  <th>Lvl</th>
                   <th>GL Code</th>
                   <th>Account Name</th>
                   <th>Type</th>
-                  <th className="text-right">Balance</th>
+                  <th>Parent</th>
+                  <th className="text-right">Debit</th>
+                  <th className="text-right">Credit</th>
+                  <th className="text-right">Net Balance</th>
                 </tr>
               </thead>
               <tbody>
                 {entries.map((e) => (
-                  <tr key={e.glCode}>
-                    <td className="cbs-tabular font-semibold text-cbs-navy-700">{e.glCode}</td>
-                    <td className="text-cbs-ink">{e.accountName}</td>
+                  <tr key={e.glCode} className={e.isHeader ? 'bg-cbs-mist font-semibold' : ''}>
+                    <td className="cbs-tabular text-cbs-steel-500 text-center">{e.glLevel}</td>
+                    <td className="cbs-tabular font-semibold text-cbs-navy-700">
+                      {/* Indent leaf accounts under their header */}
+                      {e.glLevel > 1 && <span style={{ paddingLeft: `${(e.glLevel - 1) * 12}px` }} />}
+                      {e.glCode}
+                    </td>
+                    <td className="text-cbs-ink">
+                      {e.accountName}
+                      {e.isHeader && <span className="ml-1 text-[10px] text-cbs-steel-500 uppercase">(Header)</span>}
+                    </td>
                     <td>
                       <span className={`cbs-ribbon ${GL_TYPE_TONE[e.accountType] || 'text-cbs-steel-700 bg-cbs-mist border-cbs-steel-300'}`}>
                         {e.accountType}
                       </span>
                     </td>
-                    <td className="cbs-amount font-medium">{fmt(e.balance)}</td>
+                    <td className="cbs-tabular text-cbs-steel-600">{e.parentGlCode || '—'}</td>
+                    <td className="cbs-amount">{fmt(e.debitBalance)}</td>
+                    <td className="cbs-amount">{fmt(e.creditBalance)}</td>
+                    <td className="cbs-amount font-medium">{fmt(e.netBalance)}</td>
                   </tr>
                 ))}
               </tbody>
