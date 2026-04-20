@@ -17,7 +17,7 @@
 import "server-only";
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
-import { readSession, type CbsSession } from "./session";
+import { readSession, writeSession, type CbsSession } from "./session";
 import { assertCsrf } from "./csrf";
 import { readCorrelationId } from "./correlation";
 import { serverEnv } from "./env";
@@ -111,6 +111,30 @@ export async function proxyToBackend(
   // now + sessionIdleExtensionSeconds (15 min), which matches the
   // client-side useSessionTimeout. The explicit extend endpoint
   // pushes it forward when the user clicks "Stay Logged In".
+
+  // ── Sliding session window ──────────────────────────────────────
+  // Every successful auth + CSRF check proves the operator is actively
+  // using the system. Slide `expiresAt` forward by the idle-extension
+  // window (default 15 min) so the session does not forcefully expire
+  // after the JWT's short lifetime (~15 min) while the user is active.
+  // The extension is capped at the absolute TTL ceiling anchored to
+  // `issuedAt` so sessions cannot be extended indefinitely.
+  if (session) {
+    const env2 = serverEnv();
+    const now = Date.now();
+    const absoluteCeiling = session.issuedAt + env2.sessionTtlSeconds * 1000;
+    const idleExtension = now + env2.sessionIdleExtensionSeconds * 1000;
+    const newExpiresAt = Math.min(idleExtension, absoluteCeiling);
+    // Only rewrite the cookie if the extension is meaningful (> 30s)
+    // to avoid unnecessary crypto + cookie writes on rapid-fire requests.
+    if (newExpiresAt - session.expiresAt > 30_000) {
+      await writeSession({
+        ...session,
+        expiresAt: newExpiresAt,
+        issuedAt: session.issuedAt,
+      });
+    }
+  }
 
   return forward(req, session, correlationId, targetPath, search);
 }
