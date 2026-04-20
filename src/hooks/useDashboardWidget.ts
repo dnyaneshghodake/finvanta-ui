@@ -86,6 +86,11 @@ export function useDashboardWidget<T>(
   const retriesRef = useRef(0);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const mountedRef = useRef(true);
+  // `fetchDataRef` decouples the internal retry self-call from the
+  // `fetchData` identifier so `fetchData` can reference itself without
+  // tripping React Compiler's `react-hooks/immutability` rule (which
+  // forbids naming a function inside its own definition).
+  const fetchDataRef = useRef<((silent?: boolean) => Promise<void>) | null>(null);
 
   const fetchData = useCallback(async (silent = false) => {
     if (!enabled) return;
@@ -109,7 +114,7 @@ export function useDashboardWidget<T>(
       // the JWT was rejected by Spring. Unlike 404/500 (widget-
       // specific failures), a 401 affects ALL widgets and requires
       // a full re-authentication. Redirect to login immediately.
-      // Per CBS benchmark: Finacle Connect treats 401 on ANY call
+      // Per CBS benchmark: Tier-1 CBS portal treats 401 on ANY call
       // as a session-termination signal regardless of the endpoint.
       if (res.status === 401) {
         const errorCode = (res.data as Record<string, unknown> | undefined)?.errorCode;
@@ -138,7 +143,11 @@ export function useDashboardWidget<T>(
       // Non-2xx means the widget endpoint failed (may not exist yet).
       // Show the widget error state — do NOT trigger a logout.
       if (res.status < 200 || res.status >= 300) {
-        const errMsg = res.data?.message || res.data?.errorCode || `HTTP ${res.status}`;
+        const envelope = res.data as
+          | { message?: string; errorCode?: string }
+          | undefined;
+        const errMsg =
+          envelope?.message || envelope?.errorCode || `HTTP ${res.status}`;
         throw new Error(String(errMsg));
       }
 
@@ -163,7 +172,7 @@ export function useDashboardWidget<T>(
       const isNetworkError = !(err instanceof Error) || !err.message.startsWith('HTTP ');
       if (retriesRef.current < maxRetries && isInitialLoadRef.current && isNetworkError) {
         retriesRef.current += 1;
-        setTimeout(() => { void fetchData(silent); }, retriesRef.current * 1000);
+        setTimeout(() => { void fetchDataRef.current?.(silent); }, retriesRef.current * 1000);
         return;
       }
       setError(msg);
@@ -176,20 +185,33 @@ export function useDashboardWidget<T>(
   // initial value (true) is captured on mount and updated by setState.
   // Including it would cause fetchData to be recreated when
   // setIsInitialLoad(false) fires, triggering the useEffect again.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [endpoint, errorRef, maxRetries, enabled]);
 
-  // Initial fetch
+  // Keep `fetchDataRef` pointed at the latest `fetchData` for the
+  // internal retry path (see declaration above).
+  useEffect(() => {
+    fetchDataRef.current = fetchData;
+  }, [fetchData]);
+
+  // Initial fetch. `fetchData` itself sets `status='loading'`
+  // synchronously, which React Compiler flags as set-state-in-effect.
+  // The alternative — computing initial state during render — is
+  // impossible here because the fetch is async and bound to the
+  // widget's lifecycle.
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     mountedRef.current = true;
     if (enabled) {
       void fetchData(false);
     } else {
+      // When the widget is role-gated off, mark the state machine as
+      // settled so consumers don't see a perpetual loading skeleton.
       setStatus('success');
       setIsInitialLoad(false);
     }
     return () => { mountedRef.current = false; };
   }, [enabled, fetchData]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   // Auto-refresh interval (silent — no loading flash).
   // Only refresh when the widget has data (status === 'success').

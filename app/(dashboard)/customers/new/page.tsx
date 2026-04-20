@@ -56,10 +56,10 @@ const cifSchema = z.object({
   fatherOrSpouseName: z.string().min(1, 'Father/Spouse name is required (CKYC)').max(80),
   motherName: z.string().min(1, 'Mother name is required (CKYC)').max(80),
   dob: z.string().min(1, 'Date of birth is required'),
-  gender: z.enum(['MALE', 'FEMALE', 'OTHER'], { required_error: 'Gender is required' }),
-  maritalStatus: z.enum(['SINGLE', 'MARRIED', 'WIDOWED', 'DIVORCED'], { required_error: 'Marital status is required' }),
+  gender: z.enum(['MALE', 'FEMALE', 'OTHER'], { message: 'Gender is required' }),
+  maritalStatus: z.enum(['SINGLE', 'MARRIED', 'WIDOWED', 'DIVORCED'], { message: 'Marital status is required' }),
   nationality: z.string().min(1, 'Nationality is required').max(30),
-  residentStatus: z.enum(['RESIDENT', 'NRI', 'NRE', 'NRO'], { required_error: 'Resident status is required' }),
+  residentStatus: z.enum(['RESIDENT', 'NRI', 'NRE', 'NRO'], { message: 'Resident status is required' }),
 
   /* ── KYC / OVD (RBI KYC §8) ── */
   pan: z.string().regex(/^[A-Z]{5}[0-9]{4}[A-Z]$/, 'Invalid PAN format'),
@@ -80,10 +80,10 @@ const cifSchema = z.object({
   occupation: z.enum([
     'SALARIED', 'SELF_EMPLOYED', 'BUSINESS', 'PROFESSIONAL',
     'RETIRED', 'HOUSEWIFE', 'STUDENT', 'AGRICULTURE', 'OTHER',
-  ], { required_error: 'Occupation is required' }),
+  ], { message: 'Occupation is required' }),
   annualIncomeRange: z.enum([
     'BELOW_1L', '1L_5L', '5L_10L', '10L_25L', '25L_1CR', 'ABOVE_1CR',
-  ], { required_error: 'Annual income range is required' }),
+  ], { message: 'Annual income range is required' }),
   sourceOfFunds: z.string().min(1, 'Source of funds is required').max(100),
 
   /* ── Risk & Compliance (PMLA / FATCA) ── */

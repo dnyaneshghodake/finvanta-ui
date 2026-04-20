@@ -41,6 +41,8 @@ export default function TenantSetupPage() {
     } finally { setIsLoading(false); }
   }, [addToast]);
 
+  // Standard fetch-on-mount: `loadTenant` calls `setIsLoading(true)`.
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { void loadTenant(); }, [loadTenant]);
 
   const t = tenant;

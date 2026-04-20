@@ -196,7 +196,7 @@ export const FEATURE_FLAGS = {
 /**
  * Date formats — CBS canonical: DD-MMM-YYYY (e.g. 19-APR-2026).
  *
- * All Tier-1 CBS platforms (Finacle, T24, Flexcube, BaNCS) use the
+ * All Tier-1 CBS platforms (Tier-1 CBS) use the
  * DD-MMM-YYYY format for audit trails, posting dates, value dates,
  * and operator-facing timestamps. The slash-delimited dd/MM/yyyy
  * format is NOT used in Indian banking CBS screens.

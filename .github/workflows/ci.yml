@@ -1,0 +1,235 @@
+name: CI
+
+# ──────────────────────────────────────────────────────────────
+# Finvanta UI — Tier-1 CBS security & quality gate.
+#
+# Every PR into `master` / `main` / `enhancements` / any `release/**`
+# branch is blocked until this workflow succeeds. Required jobs
+# (configured via repository branch-protection, NOT this file):
+#   - lint
+#   - typecheck
+#   - unit-tests
+#   - e2e-tests
+#   - sast-codeql
+#   - secrets-gitleaks
+#   - image-trivy
+#
+# The audit job runs `npm audit --audit-level=high`; the repo uses
+# npm (package-lock.json), so the spec's `pnpm audit` is adapted.
+# ──────────────────────────────────────────────────────────────
+
+on:
+  push:
+    branches: [master, main, enhancements]
+  pull_request:
+    branches: [master, main, enhancements, 'release/**']
+
+permissions:
+  contents: read
+  # Needed for CodeQL to upload SARIF, and for Gitleaks to post
+  # results back to the PR via the security tab.
+  security-events: write
+  actions: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: '22'
+
+jobs:
+  lint:
+    name: Lint (ESLint)
+    runs-on: ubuntu-latest
+    # Hard gate: `npm run lint` must exit 0. The React-Compiler
+    # `set-state-in-effect` / refs-during-render violations that
+    # existed on `enhancements` were either refactored or
+    # explicitly scoped with `eslint-disable` + rationale.
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+      - run: npm ci --no-audit --no-fund
+      - run: npm run lint
+
+  typecheck:
+    name: Typecheck (tsc --noEmit)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+      - run: npm ci --no-audit --no-fund
+      - run: npm run typecheck
+
+  unit-tests:
+    name: Unit tests + coverage (Vitest)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+      - run: npm ci --no-audit --no-fund
+      - run: npm run test:coverage
+      - name: Upload coverage artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-lcov
+          path: coverage/
+          if-no-files-found: warn
+
+  e2e-tests:
+    name: E2E tests (Playwright)
+    runs-on: ubuntu-latest
+    # Playwright is slow; don't block other jobs behind it.
+    needs: []
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+      - run: npm ci --no-audit --no-fund
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+      - name: Run Playwright
+        # Specs that depend on a live Spring backend are `.skip`'d
+        # today; Playwright still picks up the files but reports them
+        # as skipped. The suite therefore passes green on stub-only
+        # changes.
+        run: npm run test:e2e
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report/
+          if-no-files-found: warn
+
+  audit:
+    name: Dependency audit (npm audit --audit-level=high)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+      # --omit=dev narrows to runtime deps: dev-time tools (eslint,
+      # vitest, playwright) shouldn't block a production release.
+      - run: npm ci --no-audit --no-fund
+      - run: npm audit --audit-level=high --omit=dev
+
+  secrets-gitleaks:
+    name: Gitleaks secret scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: gitleaks/gitleaks-action@v2
+        env:
+          # Required for the action to annotate the PR.
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Public OSS-friendly rule set; no org licence required.
+          GITLEAKS_ENABLE_COMMENTS: 'true'
+          GITLEAKS_CONFIG: ''
+
+  sast-codeql:
+    name: CodeQL (javascript / typescript)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Initialise CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: javascript-typescript
+          queries: security-extended
+      - name: Autobuild
+        uses: github/codeql-action/autobuild@v3
+      - name: Analyse
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: '/language:javascript-typescript'
+
+  image-trivy:
+    name: Container image scan (Trivy)
+    runs-on: ubuntu-latest
+    # Hard gate: image must be free of CRITICAL/HIGH vulns that
+    # have an available fix. Pinned to a release tag (immutable
+    # release) to protect against upstream supply-chain drift on
+    # the `master` branch. Ratchet upward as new Trivy releases
+    # ship — see https://github.com/aquasecurity/trivy-action/releases
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+      - run: npm ci --no-audit --no-fund
+      - name: Build standalone Next.js bundle
+        run: npm run build
+      - name: Build container image
+        run: |
+          if [ -f Dockerfile ]; then
+            docker build -t finvanta-ui:ci .
+          else
+            # Minimal reproducible image over the standalone output
+            # so Trivy has something to scan until a real Dockerfile
+            # lands in the repo.
+            cat > Dockerfile.ci <<'DOCKER'
+          FROM node:22-alpine
+          WORKDIR /app
+          COPY .next/standalone/ ./
+          COPY .next/static/ ./.next/static/
+          COPY public/ ./public/
+          EXPOSE 3000
+          CMD ["node", "server.js"]
+          DOCKER
+            docker build -f Dockerfile.ci -t finvanta-ui:ci .
+          fi
+      - name: Trivy scan
+        # Pinned to a concrete release tag (immutable) rather than
+        # `@master` so a push to the action's default branch
+        # cannot silently change scan semantics on a release day.
+        #
+        # vuln-type: os
+        #   Trivy covers the container/OS layer only. JavaScript
+        #   runtime / build dependencies are scanned in the
+        #   dedicated `audit` job via `npm audit --audit-level=high
+        #   --omit=dev`, which understands the npm `overrides`
+        #   block and resolves transitive deps correctly. Including
+        #   language deps here as well causes double-counting and
+        #   surfaces false positives for packages that npm's
+        #   resolver has already replaced via an override but the
+        #   Next.js standalone trace still references by path.
+        uses: aquasecurity/trivy-action@v0.35.0
+        with:
+          image-ref: finvanta-ui:ci
+          format: sarif
+          output: trivy-results.sarif
+          severity: CRITICAL,HIGH
+          exit-code: '1'
+          ignore-unfixed: 'true'
+          vuln-type: 'os'
+          # Pin the Trivy CLI binary itself. The default the action
+          # downloads (currently `v0.69.3`) has been retracted from
+          # the `aquasecurity/trivy` releases page, which made the
+          # setup step fail with
+          # `aquasecurity/trivy crit unable to find 'v0.69.3'`.
+          # `v0.70.0` is the current published release (2026-04-17).
+          version: 'v0.70.0'
+      - name: Upload Trivy SARIF
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: trivy-results.sarif
+          category: trivy-container

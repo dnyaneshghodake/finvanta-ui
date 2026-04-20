@@ -267,11 +267,19 @@ export default function TransfersPage() {
             <CbsFieldset legend="Transaction Details">
               <div className="grid md:grid-cols-2 gap-4">
                 <AmountInr label="Amount" {...register('amount')} error={errors.amount?.message} />
-                <CbsDatePicker
-                  label="Value date"
-                  hint="Defaults to today if left blank. Weekends and 2nd/4th Saturdays are greyed."
-                  {...register('valueDate')}
-                />
+                {(() => {
+                  const r = register('valueDate');
+                  return (
+                    <CbsDatePicker
+                      label="Value date"
+                      hint="Defaults to today if left blank. Weekends and 2nd/4th Saturdays are greyed."
+                      name={r.name}
+                      onChange={r.onChange}
+                      onBlur={r.onBlur}
+                      ref={r.ref}
+                    />
+                  );
+                })()}
                 <div className="md:col-span-2">
                   <CbsTextarea
                     label="Narration"

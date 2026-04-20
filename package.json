@@ -7,6 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
@@ -45,5 +46,8 @@
     "tailwindcss": "^4",
     "typescript": "^5",
     "vitest": "^3.2.1"
+  },
+  "overrides": {
+    "picomatch": "^4.0.4"
   }
 }

@@ -14,9 +14,9 @@
  * the operator's context (branch, business date, session). The
  * boundary preserves the layout chrome and offers structured recovery.
  *
- * CBS benchmark: Finacle Connect uses module-level error isolation;
+ * CBS benchmark: Tier-1 CBS portal uses module-level error isolation;
  * a crash in the Loan module does not affect the Deposit module.
- * T24 Browser wraps each enquiry/input screen independently.
+ * Tier-1 CBS Browser wraps each enquiry/input screen independently.
  */
 
 import React, { Component, type ErrorInfo, type ReactNode } from 'react';

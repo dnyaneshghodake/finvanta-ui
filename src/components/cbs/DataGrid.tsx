@@ -3,7 +3,7 @@
  * row selection, column alignment, and responsive scroll.
  * @file src/components/cbs/DataGrid.tsx
  *
- * Tier-1 CBS convention (Finacle CUSTACCT grid / T24 ENQUIRY grid):
+ * Tier-1 CBS convention (Tier-1 CBS inquiry grid):
  *   - Sticky header row with sort indicators
  *   - Zebra striping for readability
  *   - Right-aligned amount columns (tabular-nums)

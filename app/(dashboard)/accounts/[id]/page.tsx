@@ -39,11 +39,21 @@ export default function AccountDetailsPage() {
   // client-side navigation from /accounts/A → /accounts/B does not
   // keep showing A's data. Without this, the stale `directAccount`
   // short-circuits the fetch and the operator sees the wrong account.
+  // React Compiler flags the reset-state-in-effect pattern; the fix-
+  // forward is a `key`-based remount, which is scoped for a follow-up
+  // UX refactor (we'd lose scroll / focus state on every route hop).
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     setDirectAccount(null);
     setDirectLoading(false);
   }, [accountId]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
+  // Fetch-on-demand when neither the store nor the direct-fetch cache
+  // has the account. The inline `setDirectLoading(true)` flips the
+  // loading state for the fallback render path; it cannot be hoisted
+  // to render-time because it must fire exactly once per route hit.
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (storeAccount || directAccount) return;
     let cancelled = false;
@@ -68,6 +78,7 @@ export default function AccountDetailsPage() {
     });
     return () => { cancelled = true; };
   }, [accountId, storeAccount, directAccount]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   const account = storeAccount ?? directAccount;
 
