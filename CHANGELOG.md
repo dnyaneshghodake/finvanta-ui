@@ -69,6 +69,11 @@ to a versioned release with an auditable change description.
 - **`aria-current="page"`** on active navigation links
 - **Pinned context + footer** — only nav tree scrolls, operator context and env badge always visible
 - **272px width** — matches Finacle sidebar standard
+- **Collapsed rail mode (72px)** — icon-only sidebar with hover flyout tooltips for sub-items (Blueprint §9)
+- **Navigation search (`Ctrl+K`)** — fuzzy substring search across all screens, role-filtered, combobox ARIA (Blueprint §7)
+- **Auto-collapse below 1280px** — `matchMedia` listener auto-collapses on narrow desktops (Blueprint §15)
+- **Collapse toggle** — `ChevronsLeft`/`ChevronsRight` button in sidebar footer + Header hamburger on desktop
+- **Uppercase initials** — `firstName`/`lastName` initials now consistently uppercased (fixes Devin Review flag)
 
 ### Changed
 - `SessionTimeoutWarning` now uses z-index token `var(--z-cbs-session)` instead of magic `z-[100]`
@@ -76,6 +81,7 @@ to a versioned release with an auditable change description.
 - `RoleGate` accepts optional `userRoles` prop for §9-compliant pure rendering (backward-compatible store fallback)
 - `Sidebar` width upgraded from 224px to 272px (Tier-1 CBS standard)
 - `Sidebar` top offset corrected from 48px to 64px to match Header height
+- `uiStore` — added `isSidebarCollapsed`, `toggleSidebarCollapse`, `setSidebarCollapsed` for desktop rail mode
 
 ### Fixed
 - Session extend `resetTimer()` moved before async call to prevent modal deadlock on transient failure

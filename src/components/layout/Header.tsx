@@ -28,7 +28,7 @@ export interface HeaderProps {
 
 const Header: FC<HeaderProps> = ({ className }) => {
   const { user, logout } = useAuthStore();
-  const { toggleSidebar } = useUIStore();
+  const { toggleSidebar, toggleSidebarCollapse } = useUIStore();
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -111,6 +111,13 @@ const Header: FC<HeaderProps> = ({ className }) => {
             onClick={toggleSidebar}
             className="p-1.5 rounded hover:bg-cbs-navy-700 lg:hidden"
             aria-label="Toggle sidebar"
+          >
+            <Menu size={18} strokeWidth={1.75} aria-hidden="true" />
+          </button>
+          <button
+            onClick={toggleSidebarCollapse}
+            className="p-1.5 rounded hover:bg-cbs-navy-700 hidden lg:inline-flex"
+            aria-label="Toggle sidebar collapse"
           >
             <Menu size={18} strokeWidth={1.75} aria-hidden="true" />
           </button>

@@ -246,12 +246,15 @@ const Sidebar: React.FC<SidebarProps> = ({ className }) => {
     }
   }, [pathname, setSidebarOpen]);
 
-  // Close search on navigation.
+  // Close search on navigation. setState calls are intentional —
+  // search must reset when the operator navigates to a new screen.
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     setIsSearchOpen(false);
     setSearchQuery('');
     setSearchHighlight(0);
   }, [pathname]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   /* ── Auto-collapse on narrow desktops (§15) ──────────────────
    * Per Blueprint §15: below 1280px → auto collapse to rail.
@@ -384,15 +387,140 @@ const Sidebar: React.FC<SidebarProps> = ({ className }) => {
           )}
         </div>
 
+        {/* ── Navigation Search (§7) ────────────────────────────
+         * Per Blueprint §7: Ctrl+K fuzzy search across all screens.
+         * In collapsed mode: search icon that expands sidebar. */}
+        {!collapsed ? (
+          <div className="shrink-0 px-2 py-2 border-b border-cbs-steel-200">
+            {isSearchOpen ? (
+              <div className="relative">
+                <Search size={14} strokeWidth={1.75} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-cbs-steel-400 pointer-events-none" aria-hidden="true" />
+                <input
+                  ref={searchInputRef}
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => { setSearchQuery(e.target.value); setSearchHighlight(0); }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Escape') { setIsSearchOpen(false); setSearchQuery(''); }
+                    if (e.key === 'ArrowDown') { e.preventDefault(); setSearchHighlight((p) => Math.min(p + 1, searchResults.length - 1)); }
+                    if (e.key === 'ArrowUp') { e.preventDefault(); setSearchHighlight((p) => Math.max(p - 1, 0)); }
+                    if (e.key === 'Enter' && searchResults[searchHighlight]) {
+                      window.location.href = searchResults[searchHighlight].href;
+                    }
+                  }}
+                  placeholder="Search screens… (Esc to close)"
+                  className="w-full h-8 pl-8 pr-2 text-xs bg-cbs-paper border border-cbs-steel-300 rounded-sm outline-none focus:border-cbs-navy-500 focus:ring-1 focus:ring-cbs-navy-100 placeholder:text-cbs-steel-400"
+                  aria-label="Search navigation screens"
+                  role="combobox"
+                  aria-expanded={searchResults.length > 0}
+                  aria-controls="cbs-nav-search-results"
+                  aria-activedescendant={searchResults.length > 0 ? `cbs-search-${searchHighlight}` : undefined}
+                />
+                {searchResults.length > 0 && (
+                  <ul id="cbs-nav-search-results" role="listbox" className="absolute left-0 right-0 top-full mt-1 bg-cbs-paper border border-cbs-steel-200 rounded-sm shadow-md z-50 py-1 max-h-64 overflow-y-auto">
+                    {searchResults.map((item, i) => (
+                      <li key={item.href} id={`cbs-search-${i}`} role="option" aria-selected={i === searchHighlight}>
+                        <Link
+                          href={item.href}
+                          className={clsx(
+                            'block px-3 py-1.5 text-xs transition-colors',
+                            i === searchHighlight ? 'bg-cbs-navy-50 text-cbs-navy-700' : 'text-cbs-steel-700 hover:bg-cbs-mist',
+                          )}
+                          onClick={() => { setIsSearchOpen(false); setSearchQuery(''); }}
+                        >
+                          <span className="font-medium">{item.label}</span>
+                          <span className="text-cbs-steel-400 ml-1.5">— {item.moduleLabel}</span>
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                {searchQuery.trim() && searchResults.length === 0 && (
+                  <div className="absolute left-0 right-0 top-full mt-1 bg-cbs-paper border border-cbs-steel-200 rounded-sm shadow-md z-50 px-3 py-2 text-xs text-cbs-steel-500">
+                    No screens found
+                  </div>
+                )}
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => { setIsSearchOpen(true); requestAnimationFrame(() => searchInputRef.current?.focus()); }}
+                className="flex items-center gap-2 w-full h-8 px-2.5 text-xs text-cbs-steel-400 bg-cbs-paper border border-cbs-steel-200 rounded-sm hover:border-cbs-steel-300 transition-colors"
+              >
+                <Search size={14} strokeWidth={1.75} aria-hidden="true" />
+                <span className="flex-1 text-left">Search…</span>
+                <kbd className="text-[10px] text-cbs-steel-400 bg-cbs-steel-50 border border-cbs-steel-200 rounded-sm px-1 py-px font-mono">⌘K</kbd>
+              </button>
+            )}
+          </div>
+        ) : (
+          <div className="shrink-0 px-2 py-2 border-b border-cbs-steel-200 flex justify-center">
+            <button
+              type="button"
+              onClick={() => { setSidebarCollapsed(false); setIsSearchOpen(true); requestAnimationFrame(() => searchInputRef.current?.focus()); }}
+              className="h-8 w-8 flex items-center justify-center rounded-sm text-cbs-steel-500 hover:bg-cbs-mist hover:text-cbs-steel-700 transition-colors"
+              aria-label="Search navigation (Ctrl+K)"
+            >
+              <Search size={ICON_SIZE} strokeWidth={ICON_STROKE} />
+            </button>
+          </div>
+        )}
+
         {/* ── Scrollable Navigation Tree ───────────────────────
          * Only the nav tree scrolls — user context and footer are
-         * pinned. This ensures the operator always sees their branch
-         * and environment without scrolling. */}
-        <nav aria-label="CBS module navigation" className="flex-1 overflow-y-auto px-2 py-2 space-y-px">
+         * pinned. In collapsed mode, icons are centered with
+         * hover-flyout tooltips showing sub-items. */}
+        <nav aria-label="CBS module navigation" className={clsx('flex-1 overflow-y-auto py-2 space-y-px', collapsed ? 'px-1.5' : 'px-2')}>
           {MODULES.map((mod) => {
             if (!hasAccess(mod.roles)) return null;
             const isExp = expanded === mod.id;
             const modActive = mod.href ? isActive(mod.href) : mod.children?.some((c) => isActive(c.href));
+
+            /* ── Collapsed rail: icon-only with tooltip flyout ── */
+            if (collapsed) {
+              const firstHref = mod.href || mod.children?.[0]?.href || '#';
+              return (
+                <div key={mod.id} className="relative group/rail">
+                  <Link href={firstHref}
+                    className={clsx(
+                      'flex items-center justify-center h-10 w-full rounded-sm transition-colors',
+                      modActive
+                        ? 'bg-cbs-navy-50 text-cbs-navy-700 border-l-[3px] border-cbs-navy-700'
+                        : 'text-cbs-steel-600 hover:bg-cbs-mist border-l-[3px] border-transparent',
+                    )}
+                    aria-current={modActive ? 'page' : undefined}
+                    aria-label={mod.label}
+                  >
+                    {mod.icon}
+                  </Link>
+                  {/* Tooltip flyout — module label + children */}
+                  <div className="absolute left-full top-0 ml-1.5 hidden group-hover/rail:block z-50 min-w-[180px] bg-cbs-paper border border-cbs-steel-200 rounded-sm shadow-md py-1">
+                    <div className="px-3 py-1.5 text-xs font-semibold text-cbs-ink border-b border-cbs-steel-100">
+                      {mod.label}
+                    </div>
+                    {mod.children ? mod.children.filter((c) => hasAccess(c.roles)).map((child) => (
+                      <Link key={child.href} href={child.href}
+                        className={clsx(
+                          'block px-3 py-1.5 text-xs transition-colors',
+                          isActive(child.href)
+                            ? 'text-cbs-navy-700 font-semibold bg-cbs-navy-50'
+                            : 'text-cbs-steel-600 hover:text-cbs-ink hover:bg-cbs-mist',
+                        )}
+                        aria-current={isActive(child.href) ? 'page' : undefined}
+                      >
+                        {child.label}
+                      </Link>
+                    )) : (
+                      <Link href={mod.href || '#'}
+                        className="block px-3 py-1.5 text-xs text-cbs-steel-600 hover:text-cbs-ink hover:bg-cbs-mist"
+                      >
+                        Open {mod.label}
+                      </Link>
+                    )}
+                  </div>
+                </div>
+              );
+            }
 
             /* Direct-link module (no children) */
             if (mod.href) {
@@ -461,22 +589,52 @@ const Sidebar: React.FC<SidebarProps> = ({ className }) => {
           })}
         </nav>
 
-        {/* ── Footer with Environment Badge (§12) ──────────────
-         * Per Tier-1 Sidebar Blueprint §12: environment indicator
-         * at the footer is MANDATORY. Prevents production mistakes
-         * when operators work across multiple environments. */}
-        <div className="shrink-0 px-3 py-2 border-t border-cbs-steel-200 bg-cbs-mist">
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] text-cbs-steel-500 cbs-tabular">
-              v{process.env.NEXT_PUBLIC_APP_VERSION || '1.0.0'}
-            </span>
-            <span className={clsx(
-              'text-[9px] font-bold px-1.5 py-0.5 rounded-sm uppercase tracking-wider',
-              ENV_TONE[CBS_ENV],
-            )}>
-              {CBS_ENV}
-            </span>
-          </div>
+        {/* ── Footer: Collapse Toggle + Environment Badge (§9, §12)
+         * Per Blueprint §9: collapse toggle always visible in footer.
+         * Per Blueprint §12: environment badge is MANDATORY. */}
+        <div className="shrink-0 border-t border-cbs-steel-200 bg-cbs-mist">
+          {collapsed ? (
+            /* Collapsed footer: collapse toggle + env badge stacked */
+            <div className="flex flex-col items-center gap-1.5 py-2">
+              <button
+                type="button"
+                onClick={toggleSidebarCollapse}
+                className="h-7 w-7 flex items-center justify-center rounded-sm text-cbs-steel-500 hover:bg-cbs-steel-100 hover:text-cbs-steel-700 transition-colors"
+                aria-label="Expand sidebar"
+              >
+                <ChevronsRight size={16} strokeWidth={1.75} />
+              </button>
+              <span className={clsx(
+                'text-[8px] font-bold px-1 py-px rounded-sm uppercase tracking-wider leading-none',
+                ENV_TONE[CBS_ENV],
+              )}>
+                {CBS_ENV}
+              </span>
+            </div>
+          ) : (
+            /* Expanded footer: version + env badge + collapse toggle */
+            <div className="flex items-center justify-between px-3 py-2">
+              <span className="text-[10px] text-cbs-steel-500 cbs-tabular">
+                v{process.env.NEXT_PUBLIC_APP_VERSION || '1.0.0'}
+              </span>
+              <div className="flex items-center gap-1.5">
+                <span className={clsx(
+                  'text-[9px] font-bold px-1.5 py-0.5 rounded-sm uppercase tracking-wider',
+                  ENV_TONE[CBS_ENV],
+                )}>
+                  {CBS_ENV}
+                </span>
+                <button
+                  type="button"
+                  onClick={toggleSidebarCollapse}
+                  className="h-6 w-6 flex items-center justify-center rounded-sm text-cbs-steel-400 hover:bg-cbs-steel-100 hover:text-cbs-steel-700 transition-colors"
+                  aria-label="Collapse sidebar"
+                >
+                  <ChevronsLeft size={14} strokeWidth={1.75} />
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </aside>
     </>
