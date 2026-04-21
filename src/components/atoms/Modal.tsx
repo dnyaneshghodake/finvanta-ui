@@ -194,4 +194,3 @@ Modal.Footer = ModalFooter;
 Modal.displayName = 'Modal';
 
 export { Modal };
-export type { ModalSize, ModalRole };

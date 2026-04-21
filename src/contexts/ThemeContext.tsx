@@ -88,14 +88,19 @@ function applyTheme(theme: CbsTheme) {
 }
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const [theme, setThemeState] = useState<CbsTheme>('light');
+  // Lazy initialiser reads localStorage/OS pref on first render.
+  // This avoids the setState-inside-useEffect pattern that triggers
+  // the react-hooks/set-state-in-effect lint rule.
+  const [theme, setThemeState] = useState<CbsTheme>(getInitialTheme);
 
-  // Initialise on mount (after hydration to avoid SSR mismatch)
+  // Sync the data-theme attribute to the DOM (external system).
+  // This effect only handles the DOM side-effect; state is already
+  // set by the lazy initialiser or by setTheme/toggleTheme.
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
-    const initial = getInitialTheme();
-    setThemeState(initial);
-    applyTheme(initial);
-  }, []);
+    applyTheme(theme);
+  }, [theme]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   const setTheme = useCallback((newTheme: CbsTheme) => {
     setThemeState(newTheme);
