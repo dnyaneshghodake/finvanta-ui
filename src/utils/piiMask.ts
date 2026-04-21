@@ -110,7 +110,7 @@ export function maskGeneric(
   const { showFirst = 0, showLast = 4, maskChar = '*' } = options;
   if (value.length <= showFirst + showLast) return value;
   const start = value.slice(0, showFirst);
-  const end = value.slice(-showLast);
+  const end = showLast > 0 ? value.slice(-showLast) : '';
   const middle = maskChar.repeat(value.length - showFirst - showLast);
   return `${start}${middle}${end}`;
 }
