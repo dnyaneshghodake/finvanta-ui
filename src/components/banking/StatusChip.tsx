@@ -106,6 +106,7 @@ function resolveTone(status: string): StatusTone {
  */
 function formatLabel(status: string): string {
   return status
+    .toLowerCase()
     .replace(/_/g, ' ')
     .replace(/\b\w/g, (c) => c.toUpperCase())
     .replace(/\b(Od|Id|Kyc|Aml|Nri|Pmjdy|Upi|Neft|Rtgs|Imps)\b/gi,
