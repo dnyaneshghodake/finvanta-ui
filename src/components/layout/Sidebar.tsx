@@ -11,7 +11,7 @@
  *   - Sub-items: indent + text only (CBS density convention)
  *   - User context block: operator, role, branch, biz date
  *   - Environment badge: PROD/UAT/SIT/DEV (prevents env mistakes)
- *   - 4px left border on active items (CBS active state convention)
+ *   - 3px left border on active items (CBS active state convention)
  *   - aria-expanded on expandable modules (WCAG 2.1 AA)
  *
  * CBS benchmark: mirrors Finacle sidebar (272px expanded), T24
@@ -121,6 +121,9 @@ function resolveEnvironment(): CbsEnvironment {
   if (env === 'SIT' || env === 'QA') return 'SIT';
   return 'DEV';
 }
+
+/** Resolved once at module load — env never changes at runtime. */
+const CBS_ENV = resolveEnvironment();
 
 const ENV_TONE: Record<CbsEnvironment, string> = {
   PROD: 'bg-cbs-crimson-600 text-white',
@@ -321,9 +324,9 @@ const Sidebar: React.FC<SidebarProps> = ({ className }) => {
             </span>
             <span className={clsx(
               'text-[9px] font-bold px-1.5 py-0.5 rounded-sm uppercase tracking-wider',
-              ENV_TONE[resolveEnvironment()],
+              ENV_TONE[CBS_ENV],
             )}>
-              {resolveEnvironment()}
+              {CBS_ENV}
             </span>
           </div>
         </div>
