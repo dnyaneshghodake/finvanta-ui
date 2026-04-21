@@ -81,15 +81,33 @@ export function useFocusTrap(
     return () => cancelAnimationFrame(raf);
   }, [active, containerRef, initialFocus]);
 
-  // ── Deactivate: return focus ─────────────────────────────────
+  // ── Deactivate / unmount: return focus ─────────────────────────
+  // Handles both transitions: active true→false AND unmount while
+  // still active (e.g. SessionTimeoutWarning conditionally rendered).
+  const wasActiveRef = useRef(false);
   useEffect(() => {
-    if (active) return;
-
-    if (returnFocusOnDeactivate && previousFocusRef.current) {
+    if (active) {
+      wasActiveRef.current = true;
+      return;
+    }
+    // active transitioned to false — restore focus.
+    if (wasActiveRef.current && returnFocusOnDeactivate && previousFocusRef.current) {
       previousFocusRef.current.focus();
       previousFocusRef.current = null;
     }
+    wasActiveRef.current = false;
   }, [active, returnFocusOnDeactivate]);
+
+  // Cleanup on unmount while active — the effect above won't fire
+  // because React doesn't run effects for unmounted components.
+  useEffect(() => {
+    return () => {
+      if (wasActiveRef.current && returnFocusOnDeactivate && previousFocusRef.current) {
+        previousFocusRef.current.focus();
+        previousFocusRef.current = null;
+      }
+    };
+  }, [returnFocusOnDeactivate]);
 
   // ── Tab key cycling ──────────────────────────────────────────
   useEffect(() => {

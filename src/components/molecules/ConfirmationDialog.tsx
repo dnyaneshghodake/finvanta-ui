@@ -35,7 +35,7 @@
 
 'use client';
 
-import React, { useRef } from 'react';
+import React, { useRef, useId } from 'react';
 import clsx from 'clsx';
 import { AlertTriangle, Info, ShieldAlert } from 'lucide-react';
 import { useFocusTrap } from '@/hooks/useFocusTrap';
@@ -100,6 +100,7 @@ const ConfirmationDialog: React.FC<ConfirmationDialogProps> = ({
 }) => {
   const dialogRef = useRef<HTMLDivElement>(null);
   const cancelRef = useRef<HTMLButtonElement>(null);
+  const instanceId = useId();
 
   // Focus trap with cancel button as initial focus (safe default —
   // operator must deliberately move to confirm).
@@ -112,6 +113,8 @@ const ConfirmationDialog: React.FC<ConfirmationDialogProps> = ({
 
   const config = SEVERITY_CONFIG[severity];
   const IconComponent = config.icon;
+  const titleId = `cbs-confirm-title-${instanceId}`;
+  const descId = `cbs-confirm-desc-${instanceId}`;
 
   return (
     <div
@@ -123,13 +126,13 @@ const ConfirmationDialog: React.FC<ConfirmationDialogProps> = ({
         ref={dialogRef}
         role="alertdialog"
         aria-modal="true"
-        aria-labelledby="cbs-confirm-title"
-        aria-describedby="cbs-confirm-desc"
+        aria-labelledby={titleId}
+        aria-describedby={descId}
         className="cbs-modal cbs-modal-sm mx-4"
       >
         {/* Header */}
         <div className="cbs-modal-header">
-          <h2 id="cbs-confirm-title" className="text-sm font-bold text-cbs-ink uppercase tracking-wider">
+          <h2 id={titleId} className="text-sm font-bold text-cbs-ink uppercase tracking-wider">
             {title}
           </h2>
         </div>
@@ -143,7 +146,7 @@ const ConfirmationDialog: React.FC<ConfirmationDialogProps> = ({
             )}>
               <IconComponent size={18} strokeWidth={1.75} className="text-current" />
             </div>
-            <p id="cbs-confirm-desc" className="text-sm text-cbs-steel-700 leading-relaxed">
+            <p id={descId} className="text-sm text-cbs-steel-700 leading-relaxed">
               {description}
             </p>
           </div>

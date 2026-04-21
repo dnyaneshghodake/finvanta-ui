@@ -30,7 +30,7 @@
 
 'use client';
 
-import React, { useRef, useEffect, useCallback } from 'react';
+import React, { useRef, useId, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import clsx from 'clsx';
 import { X } from 'lucide-react';
@@ -120,12 +120,16 @@ const Modal: React.FC<ModalProps> & {
     [closeOnBackdrop, onClose],
   );
 
+  // Unique ID per instance — prevents ARIA id collisions if
+  // multiple modals are mounted simultaneously.
+  const instanceId = useId();
+
   if (!open) return null;
 
   // SSR guard — portal requires document.body
   if (typeof document === 'undefined') return null;
 
-  const titleId = title ? 'cbs-modal-title' : undefined;
+  const titleId = title ? `cbs-modal-title-${instanceId}` : undefined;
 
   return createPortal(
     <div

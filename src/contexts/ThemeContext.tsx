@@ -104,7 +104,8 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
 
   const setTheme = useCallback((newTheme: CbsTheme) => {
     setThemeState(newTheme);
-    applyTheme(newTheme);
+    // applyTheme is called by the useEffect above when state changes.
+    // We only persist to localStorage here; DOM sync is the effect's job.
     if (typeof localStorage !== 'undefined') {
       localStorage.setItem(STORAGE_KEY, newTheme);
     }
@@ -114,7 +115,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     setThemeState((current) => {
       const idx = THEME_ORDER.indexOf(current);
       const next = THEME_ORDER[(idx + 1) % THEME_ORDER.length];
-      applyTheme(next);
+      // applyTheme is called by the useEffect above when state changes.
       if (typeof localStorage !== 'undefined') {
         localStorage.setItem(STORAGE_KEY, next);
       }

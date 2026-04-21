@@ -125,6 +125,16 @@ const AmountField: React.FC<AmountFieldProps> = ({
   const [isFocused, setIsFocused] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
+  // Sync displayValue when parent changes value externally (form
+  // reset, programmatic correction, selecting a different record).
+  // Only syncs when the field is NOT focused — during editing the
+  // operator's keystrokes own the display value.
+  const prevValueRef = useRef(value);
+  if (!isFocused && value !== prevValueRef.current) {
+    prevValueRef.current = value;
+    setDisplayValue(value != null ? formatIndian(value, precision) : '');
+  }
+
   const inputId = id || name || undefined;
   const errorId = inputId ? `${inputId}-error` : undefined;
   const helpId = inputId ? `${inputId}-help` : undefined;
