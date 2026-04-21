@@ -8,14 +8,16 @@
  * WCAG 2.1 AA compliance:
  *   - role="alertdialog" with aria-describedby for screen readers
  *   - Auto-focus on "Stay Logged In" button when warning appears
- *   - Focus trapped within the dialog (Tab cycles between buttons)
+ *   - Focus trapped within the dialog (via useFocusTrap hook)
+ *   - Focus returns to previously focused element on dismiss
  *   - aria-live countdown announced to assistive technology
  */
 
 'use client';
 
-import React, { useEffect, useRef, useCallback } from 'react';
+import React, { useRef } from 'react';
 import { AlertTriangle } from 'lucide-react';
+import { useFocusTrap } from '@/hooks/useFocusTrap';
 
 export interface SessionTimeoutWarningProps {
   secondsRemaining: number;
@@ -33,32 +35,18 @@ const SessionTimeoutWarning: React.FC<SessionTimeoutWarningProps> = ({
   const stayRef = useRef<HTMLButtonElement>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
 
-  // Auto-focus "Stay Logged In" on mount — WCAG 2.4.3 Focus Order
-  useEffect(() => {
-    stayRef.current?.focus();
-  }, []);
-
-  // Focus trap — Tab cycles within the dialog only
-  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
-    if (e.key !== 'Tab') return;
-    const focusable = dialogRef.current?.querySelectorAll<HTMLElement>(
-      'button:not([disabled]), [tabindex]:not([tabindex="-1"])',
-    );
-    if (!focusable || focusable.length === 0) return;
-    const first = focusable[0];
-    const last = focusable[focusable.length - 1];
-    if (e.shiftKey && document.activeElement === first) {
-      e.preventDefault();
-      last.focus();
-    } else if (!e.shiftKey && document.activeElement === last) {
-      e.preventDefault();
-      first.focus();
-    }
-  }, []);
+  // Focus trap via shared hook — replaces inline Tab-key handler.
+  // "Stay Logged In" is the initial focus target (safe default for
+  // session warnings — operator clicks it to dismiss).
+  useFocusTrap(dialogRef, true, {
+    initialFocus: stayRef,
+    returnFocusOnDeactivate: true,
+  });
 
   return (
     <div
-      className="fixed inset-0 bg-cbs-ink/60 z-[100] flex items-center justify-center"
+      className="fixed inset-0 bg-cbs-ink/60 flex items-center justify-center"
+      style={{ zIndex: 'var(--z-cbs-session, 120)' }}
       role="presentation"
     >
       <div
@@ -68,7 +56,6 @@ const SessionTimeoutWarning: React.FC<SessionTimeoutWarningProps> = ({
         aria-labelledby="session-timeout-title"
         aria-describedby="session-timeout-desc"
         className="cbs-surface shadow-md p-5 max-w-sm w-full mx-4"
-        onKeyDown={handleKeyDown}
       >
         <div className="text-center">
           {/* Warning Icon */}
