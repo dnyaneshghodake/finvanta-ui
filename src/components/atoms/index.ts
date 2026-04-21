@@ -12,3 +12,4 @@ export { Alert, type AlertProps } from './Alert';
 export { ErrorBoundary } from './ErrorBoundary';
 export { RoleGate, type RoleGateProps } from './RoleGate';
 export { AdminPageGuard, type AdminPageGuardProps } from './AdminPageGuard';
+export { MaskedField, type MaskedFieldProps } from './MaskedField';

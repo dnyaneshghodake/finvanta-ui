@@ -76,6 +76,90 @@
   --radius-cbs:    2px;
   --radius-cbs-md: 4px;
   --radius-cbs-lg: 6px;
+
+  /* ── Spacing Scale ──────────────────────────────────────────
+   * 4px base unit. CBS data-dense screens use tight spacing;
+   * form sections and page margins use wider spacing.
+   * Named semantically so layouts stay consistent across modules. */
+  --spacing-cbs-0:   0px;
+  --spacing-cbs-px:  1px;
+  --spacing-cbs-0_5: 2px;
+  --spacing-cbs-1:   4px;
+  --spacing-cbs-1_5: 6px;
+  --spacing-cbs-2:   8px;
+  --spacing-cbs-3:   12px;
+  --spacing-cbs-4:   16px;
+  --spacing-cbs-5:   20px;
+  --spacing-cbs-6:   24px;
+  --spacing-cbs-8:   32px;
+  --spacing-cbs-10:  40px;
+  --spacing-cbs-12:  48px;
+  --spacing-cbs-16:  64px;
+
+  /* ── Elevation / Shadows ────────────────────────────────────
+   * CBS convention: data surfaces are flat (no shadow). Elevation
+   * is reserved for overlays (modals, dropdowns, toasts).
+   * No shadow > lg on data surfaces per CBS visual spec. */
+  --shadow-cbs-none: 0 0 #0000;
+  --shadow-cbs-sm:   0 1px 2px rgba(20, 24, 35, 0.06);
+  --shadow-cbs-md:   0 2px 8px rgba(20, 24, 35, 0.10);
+  --shadow-cbs-lg:   0 4px 16px rgba(20, 24, 35, 0.12);
+  --shadow-cbs-xl:   0 4px 24px rgba(20, 24, 35, 0.15);
+
+  /* ── Z-Index Scale ──────────────────────────────────────────
+   * Explicit layering prevents z-index wars across modules.
+   * Per CBS convention: chrome is always above content, overlays
+   * above chrome, session warnings above everything. */
+  --z-cbs-base:         0;
+  --z-cbs-sticky:       1;
+  --z-cbs-dropdown:    30;
+  --z-cbs-sidebar:     40;
+  --z-cbs-header:      50;
+  --z-cbs-overlay:     60;
+  --z-cbs-modal:      100;
+  --z-cbs-toast:      110;
+  --z-cbs-session:    120;
+  --z-cbs-skip-link:  200;
+
+  /* ── Motion / Transition Durations ──────────────────────────
+   * CBS operator screens prioritise responsiveness over delight.
+   * All durations are short. Respects prefers-reduced-motion
+   * (see rule below). */
+  --duration-cbs-instant:  0ms;
+  --duration-cbs-fast:     80ms;
+  --duration-cbs-normal:  120ms;
+  --duration-cbs-slow:    200ms;
+  --duration-cbs-enter:   200ms;
+  --duration-cbs-exit:    150ms;
+
+  --ease-cbs-default:  ease;
+  --ease-cbs-in:       ease-in;
+  --ease-cbs-out:      ease-out;
+  --ease-cbs-in-out:   ease-in-out;
+
+  /* ── Semantic Status Aliases ────────────────────────────────
+   * Map CBS semantic intents to palette tokens so components
+   * reference intent (status-success) not palette (olive-700).
+   * Enables per-tenant theme overrides without touching components. */
+  --color-status-success-bg:     var(--color-cbs-olive-50);
+  --color-status-success-border: var(--color-cbs-olive-600);
+  --color-status-success-text:   var(--color-cbs-olive-700);
+
+  --color-status-error-bg:       var(--color-cbs-crimson-50);
+  --color-status-error-border:   var(--color-cbs-crimson-600);
+  --color-status-error-text:     var(--color-cbs-crimson-700);
+
+  --color-status-warning-bg:     var(--color-cbs-gold-50);
+  --color-status-warning-border: var(--color-cbs-gold-600);
+  --color-status-warning-text:   var(--color-cbs-gold-700);
+
+  --color-status-info-bg:        var(--color-cbs-navy-50);
+  --color-status-info-border:    var(--color-cbs-navy-200);
+  --color-status-info-text:      var(--color-cbs-navy-700);
+
+  --color-status-workflow-bg:    var(--color-cbs-violet-50);
+  --color-status-workflow-border: var(--color-cbs-violet-600);
+  --color-status-workflow-text:  var(--color-cbs-violet-700);
 }
 
 :root {
@@ -165,6 +249,92 @@ body {
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
+  }
+}
+
+/* High contrast — WCAG 2.1 AAA / §508 compliance.
+ * Operators in bright branch environments or with visual
+ * impairments may enable OS-level high contrast. We boost
+ * border widths and enforce solid backgrounds so all
+ * interactive elements remain clearly delineated. */
+@media (prefers-contrast: high) {
+  .cbs-input,
+  .cbs-textarea,
+  .cbs-select {
+    border-width: 2px;
+  }
+
+  .cbs-btn {
+    border-width: 2px;
+  }
+
+  .cbs-grid-table thead th {
+    border-bottom-width: 2px;
+  }
+
+  .cbs-grid-table tbody td {
+    border-bottom-width: 2px;
+  }
+
+  .cbs-surface {
+    border-width: 2px;
+  }
+
+  .cbs-ribbon {
+    border-width: 2px;
+  }
+
+  :focus-visible {
+    outline-width: 3px;
+  }
+}
+
+/* Windows High Contrast Mode (forced-colors) — ensures all
+ * custom-painted UI elements fall back to system colors.
+ * Without this, CBS buttons, badges, and alerts become
+ * invisible in Windows HC themes. */
+@media (forced-colors: active) {
+  .cbs-btn {
+    border: 2px solid ButtonText;
+  }
+
+  .cbs-btn-primary {
+    background: ButtonFace;
+    color: ButtonText;
+    forced-color-adjust: none;
+  }
+
+  .cbs-btn-danger {
+    background: ButtonFace;
+    color: ButtonText;
+    forced-color-adjust: none;
+  }
+
+  .cbs-ribbon {
+    border: 2px solid ButtonText;
+    forced-color-adjust: none;
+  }
+
+  .cbs-input,
+  .cbs-textarea,
+  .cbs-select {
+    border: 2px solid ButtonText;
+  }
+
+  .cbs-amount-debit,
+  .cbs-amount-credit {
+    color: LinkText;
+    forced-color-adjust: none;
+  }
+
+  .cbs-skeleton {
+    background: GrayText;
+    animation: none;
+    forced-color-adjust: none;
+  }
+
+  :focus-visible {
+    outline: 3px solid Highlight;
   }
 }
 
