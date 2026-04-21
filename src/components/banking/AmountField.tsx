@@ -129,11 +129,18 @@ const AmountField: React.FC<AmountFieldProps> = ({
   // reset, programmatic correction, selecting a different record).
   // Only syncs when the field is NOT focused — during editing the
   // operator's keystrokes own the display value.
+  //
+  // The setState inside this effect is intentional: the external
+  // `value` prop is the source of truth and `displayValue` is a
+  // derived display cache. This is the React-recommended pattern
+  // for syncing external state into a controlled component.
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (!isFocused) {
       setDisplayValue(value != null ? formatIndian(value, precision) : '');
     }
   }, [value, precision, isFocused]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   const inputId = id || name || undefined;
   const errorId = inputId ? `${inputId}-error` : undefined;
