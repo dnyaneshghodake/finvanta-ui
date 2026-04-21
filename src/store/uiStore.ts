@@ -1,6 +1,17 @@
 /**
- * UI state Zustand store for CBS Banking Application
+ * UI state Zustand store for CBS Banking Application.
  * @file src/store/uiStore.ts
+ *
+ * Per Tier-1 CBS Enterprise Sidebar UX Blueprint §9 and §15:
+ *   - isSidebarOpen   = mobile drawer visibility (< lg breakpoint)
+ *   - isSidebarCollapsed = desktop rail mode (72px icon-only, ≥ lg)
+ *
+ * The two states are independent:
+ *   - On mobile (< 1024px): isSidebarOpen controls the overlay drawer.
+ *     isSidebarCollapsed is irrelevant (drawer is always full-width).
+ *   - On desktop (≥ 1024px): isSidebarCollapsed toggles between
+ *     272px expanded and 72px collapsed rail. isSidebarOpen is
+ *     always true on desktop.
  */
 
 import { create } from 'zustand';
@@ -11,6 +22,8 @@ import { Toast } from '@/types/ui';
  */
 interface UIState {
   isSidebarOpen: boolean;
+  /** Desktop rail mode — 72px icon-only when true (Blueprint §9). */
+  isSidebarCollapsed: boolean;
   isDarkMode: boolean;
   toasts: Toast[];
   modals: Record<string, boolean>;
@@ -19,6 +32,9 @@ interface UIState {
   // Actions
   toggleSidebar: () => void;
   setSidebarOpen: (isOpen: boolean) => void;
+  /** Toggle between 272px expanded and 72px collapsed rail (Blueprint §9). */
+  toggleSidebarCollapse: () => void;
+  setSidebarCollapsed: (isCollapsed: boolean) => void;
   toggleDarkMode: () => void;
   setDarkMode: (isDark: boolean) => void;
   addToast: (toast: Omit<Toast, 'id'>) => string;
@@ -34,6 +50,7 @@ interface UIState {
  */
 export const useUIStore = create<UIState>((set) => ({
   isSidebarOpen: true,
+  isSidebarCollapsed: false,
   isDarkMode: false,
   toasts: [],
   modals: {},
@@ -42,6 +59,10 @@ export const useUIStore = create<UIState>((set) => ({
   toggleSidebar: () => set((state) => ({ isSidebarOpen: !state.isSidebarOpen })),
 
   setSidebarOpen: (isOpen: boolean) => set({ isSidebarOpen: isOpen }),
+
+  toggleSidebarCollapse: () => set((state) => ({ isSidebarCollapsed: !state.isSidebarCollapsed })),
+
+  setSidebarCollapsed: (isCollapsed: boolean) => set({ isSidebarCollapsed: isCollapsed }),
 
   toggleDarkMode: () => set((state) => ({ isDarkMode: !state.isDarkMode })),
 

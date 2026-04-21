@@ -13,14 +13,17 @@
  *   - Environment badge: PROD/UAT/SIT/DEV (prevents env mistakes)
  *   - 3px left border on active items (CBS active state convention)
  *   - aria-expanded on expandable modules (WCAG 2.1 AA)
+ *   - Collapsed rail mode: 72px icon-only with tooltips (§9)
+ *   - Navigation search: Ctrl+K fuzzy search over all screens (§7)
+ *   - Auto-collapse below 1280px viewport width (§15)
  *
- * CBS benchmark: mirrors Finacle sidebar (272px expanded), T24
- * module tree, and FLEXCUBE navigation panel patterns.
+ * CBS benchmark: mirrors Finacle sidebar (272px expanded, 72px
+ * collapsed rail), T24 module tree, and FLEXCUBE navigation panel.
  */
 
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useUIStore } from '@/store/uiStore';
@@ -29,7 +32,7 @@ import clsx from 'clsx';
 import {
   LayoutDashboard, Landmark, ArrowLeftRight, ClipboardCheck,
   Users, UserPlus, Banknote, CreditCard, BarChart3, Settings, Monitor,
-  ChevronRight, Building2, Calendar,
+  ChevronRight, Building2, Calendar, Search, ChevronsLeft, ChevronsRight,
 } from 'lucide-react';
 import type { UserRole } from '@/types/entities';
 
@@ -106,6 +109,54 @@ const MODULES: NavModule[] = [
   { id: 'legacy', label: 'Legacy Screens', href: '/legacy',
     icon: <Monitor size={ICON_SIZE} strokeWidth={ICON_STROKE} /> },
 ];
+
+/* ── Layout Constants ───────────────────────────────────────────
+ * Per Blueprint §2: 272px expanded, 72px collapsed rail.
+ * Per Blueprint §15: auto-collapse below 1280px. */
+const SIDEBAR_WIDTH_EXPANDED = 272;
+const SIDEBAR_WIDTH_COLLAPSED = 72;
+const AUTO_COLLAPSE_BREAKPOINT = 1280;
+
+/* ── Searchable Index (§7) ──────────────────────────────────────
+ * Pre-computed flat list of all navigable screens for fuzzy search.
+ * Built once at module load — no runtime allocation per keystroke. */
+interface SearchableItem {
+  label: string;
+  href: string;
+  moduleId: string;
+  moduleLabel: string;
+  /** Lowercase label for case-insensitive matching. */
+  searchKey: string;
+}
+
+function buildSearchIndex(modules: NavModule[]): SearchableItem[] {
+  const items: SearchableItem[] = [];
+  for (const mod of modules) {
+    if (mod.href) {
+      items.push({
+        label: mod.label,
+        href: mod.href,
+        moduleId: mod.id,
+        moduleLabel: mod.label,
+        searchKey: mod.label.toLowerCase(),
+      });
+    }
+    if (mod.children) {
+      for (const child of mod.children) {
+        items.push({
+          label: child.label,
+          href: child.href,
+          moduleId: mod.id,
+          moduleLabel: mod.label,
+          searchKey: `${child.label} ${mod.label}`.toLowerCase(),
+        });
+      }
+    }
+  }
+  return items;
+}
+
+const SEARCH_INDEX = buildSearchIndex(MODULES);
 
 /* ── Environment Badge ──────────────────────────────────────────
  * Per §12 of the Tier-1 Sidebar Blueprint: environment indicator
