@@ -15,6 +15,8 @@ export { Card, type CardProps } from './Card';
 export { Badge, type BadgeProps } from './Badge';
 export { Spinner, type SpinnerProps } from './Spinner';
 export { Alert, type AlertProps } from './Alert';
+export { Skeleton, type SkeletonProps, type SkeletonVariant } from './Skeleton';
+export { Tooltip, type TooltipProps, type TooltipPosition } from './Tooltip';
 export { ErrorBoundary } from './ErrorBoundary';
 export { RoleGate, type RoleGateProps } from './RoleGate';
 export { AdminPageGuard, type AdminPageGuardProps } from './AdminPageGuard';

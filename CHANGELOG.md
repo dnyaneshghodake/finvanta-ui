@@ -29,6 +29,9 @@ to a versioned release with an auditable change description.
 - **Checkbox** — CBS-styled with label, error, disabled states
 - **RadioGroup** — fieldset/legend grouping, vertical/horizontal layout
 - **Pagination** — "Page X of Y" with page size selector, monospace tabular-nums
+- **Modal** — headless primitive with React portal, focus trap, Escape/backdrop dismiss, body scroll lock, compound sub-components (Header/Body/Footer)
+- **Skeleton** — typed wrapper for CBS shimmer loading placeholders (text/heading/cell/card/circle variants)
+- **Tooltip** — CSS-only positioning (top/bottom/left/right), visible on hover AND keyboard focus (WCAG)
 - **MaskedField** — PII display with copy prevention, auto-hide reveal toggle
 
 #### L3 — Composite Components
@@ -49,9 +52,19 @@ to a versioned release with an auditable change description.
 - **PII masking utilities** (`src/utils/piiMask.ts`) — maskAadhaar, maskPAN, maskAccountNumber, maskPhone, maskEmail, maskGeneric
 - **MaskedField component** — copy/cut prevention, user-select: none, auto-hide reveal
 
+#### Multi-Tenant Theming (§13)
+- **ThemeProvider** context — light/dark/high-contrast themes via `data-theme` attribute
+- **Dark theme CSS** — full palette inversion for night-shift operators, no pure black, semantic tones preserved
+- **`useTheme()` hook** — `{ theme, setTheme, toggleTheme }` for any component
+- **localStorage persistence** — operator theme preference survives session restart
+
+#### Performance (§14)
+- **`lazyModule()` utility** — wraps `next/dynamic` with CBS loading skeleton and error boundary for per-module code splitting
+
 ### Changed
 - `SessionTimeoutWarning` now uses z-index token `var(--z-cbs-session)` instead of magic `z-[100]`
 - `FormField` decoupled from `Input` — accepts `children` for any input type
+- `RoleGate` accepts optional `userRoles` prop for §9-compliant pure rendering (backward-compatible store fallback)
 
 ### Fixed
 - Session extend `resetTimer()` moved before async call to prevent modal deadlock on transient failure
