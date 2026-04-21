@@ -187,13 +187,19 @@ export interface SidebarProps { className?: string; }
 
 const Sidebar: React.FC<SidebarProps> = ({ className }) => {
   const pathname = usePathname();
-  const { isSidebarOpen, setSidebarOpen } = useUIStore();
+  const { isSidebarOpen, setSidebarOpen, isSidebarCollapsed, setSidebarCollapsed, toggleSidebarCollapse } = useUIStore();
   const user = useAuthStore((s) => s.user);
   const userRoles = user?.roles ?? [];
   const businessDay = useAuthStore((s) => s.businessDay);
   const businessDate = useAuthStore((s) => s.businessDate);
 
   const [expanded, setExpanded] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [searchHighlight, setSearchHighlight] = useState(0);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+
+  const collapsed = isSidebarCollapsed;
 
   const hasAccess = useCallback(
     (roles?: UserRole[]) => !roles || roles.length === 0 || roles.some((r) => userRoles.includes(r)),
@@ -203,6 +209,22 @@ const Sidebar: React.FC<SidebarProps> = ({ className }) => {
     (href: string) => pathname === href || pathname.startsWith(href + '/'),
     [pathname],
   );
+
+  /* ── Search Results (§7) ─────────────────────────────────────
+   * Role-filtered fuzzy match over the pre-built search index.
+   * Filters by substring match on the lowercase search key.
+   * Memoized to avoid re-computation on unrelated re-renders. */
+  const searchResults = useMemo(() => {
+    if (!searchQuery.trim()) return [];
+    const q = searchQuery.toLowerCase().trim();
+    return SEARCH_INDEX.filter((item) => {
+      const mod = MODULES.find((m) => m.id === item.moduleId);
+      if (!hasAccess(mod?.roles)) return false;
+      const child = mod?.children?.find((c) => c.href === item.href);
+      if (child && !hasAccess(child.roles)) return false;
+      return item.searchKey.includes(q);
+    }).slice(0, 8);
+  }, [searchQuery, hasAccess]);
 
   // Auto-expand module owning the current route. React Compiler
   // flags the synchronous `setExpanded` inside the effect; the pure-
@@ -224,6 +246,46 @@ const Sidebar: React.FC<SidebarProps> = ({ className }) => {
     }
   }, [pathname, setSidebarOpen]);
 
+  // Close search on navigation.
+  useEffect(() => {
+    setIsSearchOpen(false);
+    setSearchQuery('');
+    setSearchHighlight(0);
+  }, [pathname]);
+
+  /* ── Auto-collapse on narrow desktops (§15) ──────────────────
+   * Per Blueprint §15: below 1280px → auto collapse to rail.
+   * Uses resize observer for efficiency over resize event. */
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const mql = window.matchMedia(`(max-width: ${AUTO_COLLAPSE_BREAKPOINT - 1}px)`);
+    const handler = (e: MediaQueryListEvent | MediaQueryList) => {
+      setSidebarCollapsed(e.matches);
+    };
+    handler(mql);
+    mql.addEventListener('change', handler);
+    return () => mql.removeEventListener('change', handler);
+  }, [setSidebarCollapsed]);
+
+  /* ── Ctrl+K global search shortcut (§7) ──────────────────────
+   * Registered here (not in useCbsKeyboardNav) because the search
+   * input lives inside the sidebar component tree. The global hook
+   * dispatches a custom event; we listen for it as a fallback. */
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+        e.preventDefault();
+        e.stopPropagation();
+        setIsSearchOpen(true);
+        // If collapsed, expand temporarily for search
+        if (isSidebarCollapsed) setSidebarCollapsed(false);
+        requestAnimationFrame(() => searchInputRef.current?.focus());
+      }
+    };
+    window.addEventListener('keydown', handler, { capture: true });
+    return () => window.removeEventListener('keydown', handler, { capture: true });
+  }, [isSidebarCollapsed, setSidebarCollapsed]);
+
   return (
     <>
       {isSidebarOpen && (
@@ -239,52 +301,87 @@ const Sidebar: React.FC<SidebarProps> = ({ className }) => {
 
       <aside
         className={clsx(
-          'fixed left-0 top-16 h-[calc(100vh-64px)] w-[272px] shrink-0 bg-cbs-paper border-r border-cbs-steel-200 flex flex-col transition-transform duration-200 z-40 lg:z-0 lg:translate-x-0 lg:relative lg:top-0 cbs-no-print',
+          'fixed left-0 top-16 h-[calc(100vh-64px)] shrink-0 bg-cbs-paper border-r border-cbs-steel-200 flex flex-col transition-all duration-200 z-40 lg:z-0 lg:translate-x-0 lg:relative lg:top-0 cbs-no-print',
           isSidebarOpen ? 'translate-x-0' : '-translate-x-full',
           className,
         )}
+        style={{ width: collapsed ? SIDEBAR_WIDTH_COLLAPSED : SIDEBAR_WIDTH_EXPANDED }}
       >
         {/* ── User Context Block (§6) ──────────────────────────
          * Per Tier-1 Sidebar Blueprint §6: operator context must
          * always be visible in the sidebar for 8-12hr shift awareness.
-         * Branch, role, and biz date are the three most critical
-         * context indicators — every teller glance must confirm them. */}
-        <div className="px-3 py-3 border-b border-cbs-steel-200 bg-cbs-mist shrink-0">
-          <div className="flex items-center gap-2 mb-2">
-            <div className="h-8 w-8 bg-cbs-navy-700 rounded-sm flex items-center justify-center text-xs font-bold text-white shrink-0">
-              {(user?.firstName?.[0] || user?.username?.[0]?.toUpperCase() || '?')}
-              {(user?.lastName?.[0] || user?.username?.[1]?.toUpperCase() || '')}
-            </div>
-            <div className="min-w-0">
-              <div className="text-xs font-semibold text-cbs-ink truncate">
-                {user?.displayName || user?.firstName || user?.username || 'Operator'}
+         * In collapsed mode: show only the initials avatar as a
+         * compact identity indicator with a tooltip. */}
+        <div className={clsx(
+          'border-b border-cbs-steel-200 bg-cbs-mist shrink-0',
+          collapsed ? 'px-2 py-3 flex justify-center' : 'px-3 py-3',
+        )}>
+          {collapsed ? (
+            /* Collapsed: initials avatar only with tooltip */
+            <div className="relative group/ctx">
+              <div className="h-8 w-8 bg-cbs-navy-700 rounded-sm flex items-center justify-center text-xs font-bold text-white shrink-0">
+                {(user?.firstName?.[0]?.toUpperCase() || user?.username?.[0]?.toUpperCase() || '?')}
+                {(user?.lastName?.[0]?.toUpperCase() || user?.username?.[1]?.toUpperCase() || '')}
               </div>
-              <div className="text-[10px] text-cbs-steel-500 uppercase tracking-wider">
-                {userRoles[0] || 'No Role'}
-              </div>
-            </div>
-          </div>
-          <div className="space-y-1">
-            {user?.branchCode && (
-              <div className="flex items-center gap-1.5 text-[10px]">
-                <Building2 size={11} strokeWidth={1.75} className="text-cbs-steel-400 shrink-0" aria-hidden="true" />
-                <span className="text-cbs-steel-600 cbs-tabular truncate">
-                  {user.branchCode}{user.branchName ? ` — ${user.branchName}` : ''}
-                </span>
-              </div>
-            )}
-            {businessDate && (
-              <div className="flex items-center gap-1.5 text-[10px]">
-                <Calendar size={11} strokeWidth={1.75} className="text-cbs-steel-400 shrink-0" aria-hidden="true" />
-                <span className="text-cbs-steel-600 cbs-tabular">{businessDate}</span>
-                {businessDay?.dayStatus && businessDay.dayStatus !== 'DAY_OPEN' && (
-                  <span className="text-[9px] font-bold text-cbs-gold-700 uppercase">
-                    {businessDay.dayStatus.replace(/_/g, ' ')}
-                  </span>
+              <div className="absolute left-full top-0 ml-2 hidden group-hover/ctx:block z-50 w-52 bg-cbs-paper border border-cbs-steel-200 rounded-sm shadow-md p-2.5 pointer-events-none">
+                <div className="text-xs font-semibold text-cbs-ink truncate">
+                  {user?.displayName || user?.firstName || user?.username || 'Operator'}
+                </div>
+                <div className="text-[10px] text-cbs-steel-500 uppercase tracking-wider mt-0.5">
+                  {userRoles[0] || 'No Role'}
+                </div>
+                {user?.branchCode && (
+                  <div className="text-[10px] text-cbs-steel-600 cbs-tabular mt-1">
+                    {user.branchCode}{user.branchName ? ` — ${user.branchName}` : ''}
+                  </div>
+                )}
+                {businessDate && (
+                  <div className="text-[10px] text-cbs-steel-600 cbs-tabular mt-0.5">
+                    {businessDate}
+                  </div>
                 )}
               </div>
-            )}
-          </div>
+            </div>
+          ) : (
+            /* Expanded: full context block */
+            <>
+              <div className="flex items-center gap-2 mb-2">
+                <div className="h-8 w-8 bg-cbs-navy-700 rounded-sm flex items-center justify-center text-xs font-bold text-white shrink-0">
+                  {(user?.firstName?.[0]?.toUpperCase() || user?.username?.[0]?.toUpperCase() || '?')}
+                  {(user?.lastName?.[0]?.toUpperCase() || user?.username?.[1]?.toUpperCase() || '')}
+                </div>
+                <div className="min-w-0">
+                  <div className="text-xs font-semibold text-cbs-ink truncate">
+                    {user?.displayName || user?.firstName || user?.username || 'Operator'}
+                  </div>
+                  <div className="text-[10px] text-cbs-steel-500 uppercase tracking-wider">
+                    {userRoles[0] || 'No Role'}
+                  </div>
+                </div>
+              </div>
+              <div className="space-y-1">
+                {user?.branchCode && (
+                  <div className="flex items-center gap-1.5 text-[10px]">
+                    <Building2 size={11} strokeWidth={1.75} className="text-cbs-steel-400 shrink-0" aria-hidden="true" />
+                    <span className="text-cbs-steel-600 cbs-tabular truncate">
+                      {user.branchCode}{user.branchName ? ` — ${user.branchName}` : ''}
+                    </span>
+                  </div>
+                )}
+                {businessDate && (
+                  <div className="flex items-center gap-1.5 text-[10px]">
+                    <Calendar size={11} strokeWidth={1.75} className="text-cbs-steel-400 shrink-0" aria-hidden="true" />
+                    <span className="text-cbs-steel-600 cbs-tabular">{businessDate}</span>
+                    {businessDay?.dayStatus && businessDay.dayStatus !== 'DAY_OPEN' && (
+                      <span className="text-[9px] font-bold text-cbs-gold-700 uppercase">
+                        {businessDay.dayStatus.replace(/_/g, ' ')}
+                      </span>
+                    )}
+                  </div>
+                )}
+              </div>
+            </>
+          )}
         </div>
 
         {/* ── Scrollable Navigation Tree ───────────────────────
