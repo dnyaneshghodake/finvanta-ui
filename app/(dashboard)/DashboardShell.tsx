@@ -185,9 +185,17 @@ export default function DashboardShell({
   }, [isInitialized, isAuthenticated, router]);
 
   const handleStayLoggedIn = async () => {
+    // Always dismiss the warning overlay immediately so the operator
+    // is not stuck staring at a frozen modal on a transient failure.
+    // If the server-side extend actually failed, the next real API
+    // call will hit a 401 and the apiClient interceptor redirects to
+    // /login?reason=session_expired. The server remains the authority
+    // on session lifetime — the client timer is purely UX. This
+    // follows the Tier-1 CBS pattern (optimistic client dismiss,
+    // server-authoritative expiry).
+    resetTimer();
     try {
       await authService.extendSession();
-      resetTimer();
     } catch (err) {
       logger.warn('Session extend failed — server session may have expired', err);
     }
