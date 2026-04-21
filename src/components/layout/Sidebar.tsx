@@ -1,14 +1,21 @@
 /**
- * CBS Sidebar — Tier-1 module → sub-navigation panel.
+ * CBS Sidebar — Tier-1 Enterprise Navigation Panel.
  * @file src/components/layout/Sidebar.tsx
  *
- * Tier-1 CBS convention (RBI IT Governance 2023):
- *   - Module headers expand/collapse to reveal operation sub-items.
- *   - Accordion: only one module open at a time.
- *   - Sub-items are role-gated (MAKER/CHECKER/ADMIN).
- *   - Active sub-item auto-expands its parent module.
- *   - Icons: 18px stroke on module headers only.
- *   - Sub-items: indent + text only (CBS density convention).
+ * Per Tier-1 CBS Enterprise Sidebar UX Blueprint:
+ *   - Module headers expand/collapse to reveal operation sub-items
+ *   - Accordion: only one module open at a time
+ *   - Sub-items are role-gated (MAKER/CHECKER/ADMIN)
+ *   - Active sub-item auto-expands its parent module
+ *   - Icons: 18px stroke on module headers only
+ *   - Sub-items: indent + text only (CBS density convention)
+ *   - User context block: operator, role, branch, biz date
+ *   - Environment badge: PROD/UAT/SIT/DEV (prevents env mistakes)
+ *   - 4px left border on active items (CBS active state convention)
+ *   - aria-expanded on expandable modules (WCAG 2.1 AA)
+ *
+ * CBS benchmark: mirrors Finacle sidebar (272px expanded), T24
+ * module tree, and FLEXCUBE navigation panel patterns.
  */
 
 'use client';
@@ -22,7 +29,7 @@ import clsx from 'clsx';
 import {
   LayoutDashboard, Landmark, ArrowLeftRight, ClipboardCheck,
   Users, UserPlus, Banknote, CreditCard, BarChart3, Settings, Monitor,
-  ChevronRight,
+  ChevronRight, Building2, Calendar,
 } from 'lucide-react';
 import type { UserRole } from '@/types/entities';
 
@@ -100,6 +107,28 @@ const MODULES: NavModule[] = [
     icon: <Monitor size={ICON_SIZE} strokeWidth={ICON_STROKE} /> },
 ];
 
+/* ── Environment Badge ──────────────────────────────────────────
+ * Per §12 of the Tier-1 Sidebar Blueprint: environment indicator
+ * is MANDATORY at the sidebar footer to prevent production mistakes.
+ * Operators on branch terminals must always know which environment
+ * they are working in. Color-coded: PROD=red, UAT=amber, SIT=violet, DEV=olive. */
+type CbsEnvironment = 'PROD' | 'UAT' | 'SIT' | 'DEV';
+
+function resolveEnvironment(): CbsEnvironment {
+  const env = (process.env.NEXT_PUBLIC_CBS_ENV || '').toUpperCase();
+  if (env === 'PROD' || env === 'PRODUCTION') return 'PROD';
+  if (env === 'UAT' || env === 'STAGING') return 'UAT';
+  if (env === 'SIT' || env === 'QA') return 'SIT';
+  return 'DEV';
+}
+
+const ENV_TONE: Record<CbsEnvironment, string> = {
+  PROD: 'bg-cbs-crimson-600 text-white',
+  UAT: 'bg-cbs-gold-600 text-white',
+  SIT: 'bg-cbs-violet-600 text-white',
+  DEV: 'bg-cbs-olive-600 text-white',
+};
+
 export interface SidebarProps { className?: string; }
 
 const Sidebar: React.FC<SidebarProps> = ({ className }) => {
@@ -107,6 +136,8 @@ const Sidebar: React.FC<SidebarProps> = ({ className }) => {
   const { isSidebarOpen, setSidebarOpen } = useUIStore();
   const user = useAuthStore((s) => s.user);
   const userRoles = user?.roles ?? [];
+  const businessDay = useAuthStore((s) => s.businessDay);
+  const businessDate = useAuthStore((s) => s.businessDate);
 
   const [expanded, setExpanded] = useState<string | null>(null);
 
@@ -154,12 +185,59 @@ const Sidebar: React.FC<SidebarProps> = ({ className }) => {
 
       <aside
         className={clsx(
-          'fixed left-0 top-12 h-[calc(100vh-48px)] w-56 shrink-0 bg-cbs-paper border-r border-cbs-steel-200 overflow-y-auto transition-transform duration-200 z-40 lg:z-0 lg:translate-x-0 lg:relative lg:top-0 cbs-no-print',
+          'fixed left-0 top-16 h-[calc(100vh-64px)] w-[272px] shrink-0 bg-cbs-paper border-r border-cbs-steel-200 flex flex-col transition-transform duration-200 z-40 lg:z-0 lg:translate-x-0 lg:relative lg:top-0 cbs-no-print',
           isSidebarOpen ? 'translate-x-0' : '-translate-x-full',
           className,
         )}
       >
-        <nav aria-label="CBS module navigation" className="px-2 py-2 space-y-px pb-10">
+        {/* ── User Context Block (§6) ──────────────────────────
+         * Per Tier-1 Sidebar Blueprint §6: operator context must
+         * always be visible in the sidebar for 8-12hr shift awareness.
+         * Branch, role, and biz date are the three most critical
+         * context indicators — every teller glance must confirm them. */}
+        <div className="px-3 py-3 border-b border-cbs-steel-200 bg-cbs-mist shrink-0">
+          <div className="flex items-center gap-2 mb-2">
+            <div className="h-8 w-8 bg-cbs-navy-700 rounded-sm flex items-center justify-center text-xs font-bold text-white shrink-0">
+              {(user?.firstName?.[0] || user?.username?.[0]?.toUpperCase() || '?')}
+              {(user?.lastName?.[0] || user?.username?.[1]?.toUpperCase() || '')}
+            </div>
+            <div className="min-w-0">
+              <div className="text-xs font-semibold text-cbs-ink truncate">
+                {user?.displayName || user?.firstName || user?.username || 'Operator'}
+              </div>
+              <div className="text-[10px] text-cbs-steel-500 uppercase tracking-wider">
+                {userRoles[0] || 'No Role'}
+              </div>
+            </div>
+          </div>
+          <div className="space-y-1">
+            {user?.branchCode && (
+              <div className="flex items-center gap-1.5 text-[10px]">
+                <Building2 size={11} strokeWidth={1.75} className="text-cbs-steel-400 shrink-0" aria-hidden="true" />
+                <span className="text-cbs-steel-600 cbs-tabular truncate">
+                  {user.branchCode}{user.branchName ? ` — ${user.branchName}` : ''}
+                </span>
+              </div>
+            )}
+            {businessDate && (
+              <div className="flex items-center gap-1.5 text-[10px]">
+                <Calendar size={11} strokeWidth={1.75} className="text-cbs-steel-400 shrink-0" aria-hidden="true" />
+                <span className="text-cbs-steel-600 cbs-tabular">{businessDate}</span>
+                {businessDay?.dayStatus && businessDay.dayStatus !== 'DAY_OPEN' && (
+                  <span className="text-[9px] font-bold text-cbs-gold-700 uppercase">
+                    {businessDay.dayStatus.replace(/_/g, ' ')}
+                  </span>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* ── Scrollable Navigation Tree ───────────────────────
+         * Only the nav tree scrolls — user context and footer are
+         * pinned. This ensures the operator always sees their branch
+         * and environment without scrolling. */}
+        <nav aria-label="CBS module navigation" className="flex-1 overflow-y-auto px-2 py-2 space-y-px">
           {MODULES.map((mod) => {
             if (!hasAccess(mod.roles)) return null;
             const isExp = expanded === mod.id;
@@ -171,8 +249,11 @@ const Sidebar: React.FC<SidebarProps> = ({ className }) => {
                 <Link key={mod.id} href={mod.href}
                   className={clsx(
                     'flex items-center gap-2 px-3 py-[7px] rounded-sm text-[13px] transition-colors',
-                    modActive ? 'bg-cbs-navy-50 text-cbs-navy-700 font-semibold' : 'text-cbs-steel-700 hover:bg-cbs-mist',
+                    modActive
+                      ? 'bg-cbs-navy-50 text-cbs-navy-700 font-semibold border-l-[3px] border-cbs-navy-700 pl-[9px]'
+                      : 'text-cbs-steel-700 hover:bg-cbs-mist border-l-[3px] border-transparent pl-[9px]',
                   )}
+                  aria-current={modActive ? 'page' : undefined}
                 >
                   {mod.icon}
                   <span className="flex-1">{mod.label}</span>
@@ -189,9 +270,12 @@ const Sidebar: React.FC<SidebarProps> = ({ className }) => {
                 <button
                   type="button"
                   onClick={() => setExpanded((p) => (p === mod.id ? null : mod.id))}
+                  aria-expanded={isExp}
                   className={clsx(
                     'flex items-center gap-2 w-full px-3 py-[7px] rounded-sm text-[13px] transition-colors text-left',
-                    modActive ? 'text-cbs-navy-700 font-semibold' : 'text-cbs-steel-700 hover:bg-cbs-mist',
+                    modActive
+                      ? 'text-cbs-navy-700 font-semibold border-l-[3px] border-cbs-navy-700 pl-[9px]'
+                      : 'text-cbs-steel-700 hover:bg-cbs-mist border-l-[3px] border-transparent pl-[9px]',
                   )}
                 >
                   {mod.icon}
@@ -199,6 +283,7 @@ const Sidebar: React.FC<SidebarProps> = ({ className }) => {
                   <ChevronRight
                     size={14} strokeWidth={2}
                     className={clsx('text-cbs-steel-400 transition-transform duration-150', isExp && 'rotate-90')}
+                    aria-hidden="true"
                   />
                 </button>
 
@@ -213,6 +298,7 @@ const Sidebar: React.FC<SidebarProps> = ({ className }) => {
                             ? 'text-cbs-navy-700 font-semibold bg-cbs-navy-50'
                             : 'text-cbs-steel-600 hover:text-cbs-ink hover:bg-cbs-mist',
                         )}
+                        aria-current={isActive(child.href) ? 'page' : undefined}
                       >
                         {child.label}
                       </Link>
@@ -224,10 +310,22 @@ const Sidebar: React.FC<SidebarProps> = ({ className }) => {
           })}
         </nav>
 
-        <div className="absolute bottom-0 left-0 right-0 px-3 py-2 border-t border-cbs-steel-200 bg-cbs-mist">
-          <p className="text-[10px] text-cbs-steel-500 cbs-tabular">
-            v{process.env.NEXT_PUBLIC_APP_VERSION || '1.0.0'}
-          </p>
+        {/* ── Footer with Environment Badge (§12) ──────────────
+         * Per Tier-1 Sidebar Blueprint §12: environment indicator
+         * at the footer is MANDATORY. Prevents production mistakes
+         * when operators work across multiple environments. */}
+        <div className="shrink-0 px-3 py-2 border-t border-cbs-steel-200 bg-cbs-mist">
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] text-cbs-steel-500 cbs-tabular">
+              v{process.env.NEXT_PUBLIC_APP_VERSION || '1.0.0'}
+            </span>
+            <span className={clsx(
+              'text-[9px] font-bold px-1.5 py-0.5 rounded-sm uppercase tracking-wider',
+              ENV_TONE[resolveEnvironment()],
+            )}>
+              {resolveEnvironment()}
+            </span>
+          </div>
         </div>
       </aside>
     </>

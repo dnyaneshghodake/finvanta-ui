@@ -61,10 +61,21 @@ to a versioned release with an auditable change description.
 #### Performance (§14)
 - **`lazyModule()` utility** — wraps `next/dynamic` with CBS loading skeleton and error boundary for per-module code splitting
 
+#### L5 — Sidebar (Enterprise Navigation Panel)
+- **User Context Block** — operator initials, display name, role, branch code/name, business date, day status warning
+- **Environment Badge** — PROD (red), UAT (amber), SIT (violet), DEV (olive) in sidebar footer
+- **Active state 3px left border** — CBS convention for active module/item indication
+- **`aria-expanded`** on expandable module buttons (WCAG 2.1 AA)
+- **`aria-current="page"`** on active navigation links
+- **Pinned context + footer** — only nav tree scrolls, operator context and env badge always visible
+- **272px width** — matches Finacle sidebar standard
+
 ### Changed
 - `SessionTimeoutWarning` now uses z-index token `var(--z-cbs-session)` instead of magic `z-[100]`
 - `FormField` decoupled from `Input` — accepts `children` for any input type
 - `RoleGate` accepts optional `userRoles` prop for §9-compliant pure rendering (backward-compatible store fallback)
+- `Sidebar` width upgraded from 224px to 272px (Tier-1 CBS standard)
+- `Sidebar` top offset corrected from 48px to 64px to match Header height
 
 ### Fixed
 - Session extend `resetTimer()` moved before async call to prevent modal deadlock on transient failure
