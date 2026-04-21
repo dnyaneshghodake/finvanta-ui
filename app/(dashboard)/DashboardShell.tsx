@@ -188,11 +188,11 @@ export default function DashboardShell({
     // Always dismiss the warning overlay immediately so the operator
     // is not stuck staring at a frozen modal on a transient failure.
     // If the server-side extend actually failed, the next real API
-    // call will hit a 401 and the apiClient interceptor (line 205)
-    // redirects to /login?reason=session_expired. The server remains
-    // the authority on session lifetime — the client timer is purely
-    // UX. This matches the pre-PR behavior and the Tier-1 CBS
-    // pattern (optimistic client dismiss, server-authoritative expiry).
+    // call will hit a 401 and the apiClient interceptor redirects to
+    // /login?reason=session_expired. The server remains the authority
+    // on session lifetime — the client timer is purely UX. This
+    // follows the Tier-1 CBS pattern (optimistic client dismiss,
+    // server-authoritative expiry).
     resetTimer();
     try {
       await authService.extendSession();
