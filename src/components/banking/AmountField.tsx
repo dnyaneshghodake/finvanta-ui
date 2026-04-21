@@ -32,7 +32,7 @@
 
 'use client';
 
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import clsx from 'clsx';
 import { cbsConstants } from '@/tokens';
 
@@ -129,11 +129,11 @@ const AmountField: React.FC<AmountFieldProps> = ({
   // reset, programmatic correction, selecting a different record).
   // Only syncs when the field is NOT focused — during editing the
   // operator's keystrokes own the display value.
-  const prevValueRef = useRef(value);
-  if (!isFocused && value !== prevValueRef.current) {
-    prevValueRef.current = value;
-    setDisplayValue(value != null ? formatIndian(value, precision) : '');
-  }
+  useEffect(() => {
+    if (!isFocused) {
+      setDisplayValue(value != null ? formatIndian(value, precision) : '');
+    }
+  }, [value, precision, isFocused]);
 
   const inputId = id || name || undefined;
   const errorId = inputId ? `${inputId}-error` : undefined;
