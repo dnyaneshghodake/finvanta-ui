@@ -304,7 +304,7 @@ const Sidebar: React.FC<SidebarProps> = ({ className }) => {
 
       <aside
         className={clsx(
-          'fixed left-0 top-16 h-[calc(100vh-64px)] shrink-0 bg-cbs-paper border-r border-cbs-steel-200 flex flex-col transition-all duration-200 z-40 lg:z-0 lg:translate-x-0 lg:relative lg:top-0 cbs-no-print',
+          'fixed left-0 top-16 h-[calc(100vh-64px)] shrink-0 bg-cbs-paper border-r border-cbs-steel-200 flex flex-col transition-[transform,width] duration-200 z-40 lg:z-0 lg:translate-x-0 lg:relative lg:top-0 cbs-no-print',
           isSidebarOpen ? 'translate-x-0' : '-translate-x-full',
           className,
         )}
@@ -321,12 +321,12 @@ const Sidebar: React.FC<SidebarProps> = ({ className }) => {
         )}>
           {collapsed ? (
             /* Collapsed: initials avatar only with tooltip */
-            <div className="relative group/ctx">
+            <div className="relative group">
               <div className="h-8 w-8 bg-cbs-navy-700 rounded-sm flex items-center justify-center text-xs font-bold text-white shrink-0">
                 {(user?.firstName?.[0]?.toUpperCase() || user?.username?.[0]?.toUpperCase() || '?')}
                 {(user?.lastName?.[0]?.toUpperCase() || user?.username?.[1]?.toUpperCase() || '')}
               </div>
-              <div className="absolute left-full top-0 ml-2 hidden group-hover/ctx:block z-50 w-52 bg-cbs-paper border border-cbs-steel-200 rounded-sm shadow-md p-2.5 pointer-events-none">
+              <div className="absolute left-full top-0 ml-2 hidden group-hover:block z-50 w-52 bg-cbs-paper border border-cbs-steel-200 rounded-sm shadow-md p-2.5 pointer-events-none">
                 <div className="text-xs font-semibold text-cbs-ink truncate">
                   {user?.displayName || user?.firstName || user?.username || 'Operator'}
                 </div>
@@ -409,7 +409,7 @@ const Sidebar: React.FC<SidebarProps> = ({ className }) => {
                     }
                   }}
                   placeholder="Search screens… (Esc to close)"
-                  className="w-full h-8 pl-8 pr-2 text-xs bg-cbs-paper border border-cbs-steel-300 rounded-sm outline-none focus:border-cbs-navy-500 focus:ring-1 focus:ring-cbs-navy-100 placeholder:text-cbs-steel-400"
+                  className="w-full h-8 pl-8 pr-2 text-xs bg-cbs-paper border border-cbs-steel-300 rounded-sm outline-none focus:border-cbs-navy-500 placeholder:text-cbs-steel-400"
                   aria-label="Search navigation screens"
                   role="combobox"
                   aria-expanded={searchResults.length > 0}
@@ -480,7 +480,7 @@ const Sidebar: React.FC<SidebarProps> = ({ className }) => {
             if (collapsed) {
               const firstHref = mod.href || mod.children?.[0]?.href || '#';
               return (
-                <div key={mod.id} className="relative group/rail">
+                <div key={mod.id} className="relative group">
                   <Link href={firstHref}
                     className={clsx(
                       'flex items-center justify-center h-10 w-full rounded-sm transition-colors',
@@ -494,7 +494,7 @@ const Sidebar: React.FC<SidebarProps> = ({ className }) => {
                     {mod.icon}
                   </Link>
                   {/* Tooltip flyout — module label + children */}
-                  <div className="absolute left-full top-0 ml-1.5 hidden group-hover/rail:block z-50 min-w-[180px] bg-cbs-paper border border-cbs-steel-200 rounded-sm shadow-md py-1">
+                  <div className="absolute left-full top-0 ml-1.5 hidden group-hover:block z-50 min-w-[180px] bg-cbs-paper border border-cbs-steel-200 rounded-sm shadow-md py-1">
                     <div className="px-3 py-1.5 text-xs font-semibold text-cbs-ink border-b border-cbs-steel-100">
                       {mod.label}
                     </div>
