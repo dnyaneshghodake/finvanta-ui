@@ -168,6 +168,69 @@
   color-scheme: light;
 }
 
+/* ── Dark Theme ───────────────────────────────────────────────
+ * Activated via data-theme="dark" on <html> (set by ThemeProvider).
+ * CBS dark theme for night-shift operators and reduced eye-strain.
+ *
+ * Design constraints:
+ *   - Amounts, dates, and status codes remain equally readable
+ *   - Error/warning/success tones retain their semantic meaning
+ *   - Data surfaces use subtle elevation, not colour inversion
+ *   - No pure black (#000) — use cbs-ink-dark (#0e1117) to
+ *     reduce halation on OLED branch terminals
+ */
+:root[data-theme="dark"] {
+  --background: #0e1117;
+  --foreground: #d1d5db;
+  color-scheme: dark;
+
+  --color-cbs-ink:     #d1d5db;
+  --color-cbs-paper:   #161b22;
+  --color-cbs-mist:    #1c2128;
+
+  --color-cbs-navy-50:  #0d1b2a;
+  --color-cbs-navy-100: #152238;
+  --color-cbs-navy-200: #1e3050;
+  --color-cbs-navy-300: #2d4a73;
+  --color-cbs-navy-400: #3d6496;
+  --color-cbs-navy-500: #5a8abf;
+  --color-cbs-navy-600: #7aa8d9;
+  --color-cbs-navy-700: #9ac0e8;
+  --color-cbs-navy-800: #bdd6f0;
+  --color-cbs-navy-900: #dfeaf7;
+
+  --color-cbs-steel-50:  #1c2128;
+  --color-cbs-steel-100: #21262d;
+  --color-cbs-steel-200: #30363d;
+  --color-cbs-steel-300: #484f58;
+  --color-cbs-steel-400: #8b949e;
+  --color-cbs-steel-500: #9ca3ad;
+  --color-cbs-steel-600: #b1bac4;
+  --color-cbs-steel-700: #c9d1d9;
+  --color-cbs-steel-800: #e6edf3;
+  --color-cbs-steel-900: #f0f3f6;
+
+  --color-cbs-gold-50:  #2a2000;
+  --color-cbs-gold-100: #3d3000;
+  --color-cbs-gold-600: #d4a017;
+  --color-cbs-gold-700: #e8b830;
+
+  --color-cbs-olive-50:  #0d2818;
+  --color-cbs-olive-100: #163d24;
+  --color-cbs-olive-600: #3fb950;
+  --color-cbs-olive-700: #56d364;
+
+  --color-cbs-crimson-50:  #2d0b0b;
+  --color-cbs-crimson-100: #4a1212;
+  --color-cbs-crimson-600: #f85149;
+  --color-cbs-crimson-700: #ff7b72;
+
+  --color-cbs-violet-50:  #1a1333;
+  --color-cbs-violet-100: #271d4d;
+  --color-cbs-violet-600: #a371f7;
+  --color-cbs-violet-700: #bc8cff;
+}
+
 html {
   height: 100%;
 }
