@@ -8,6 +8,7 @@ export { Input, type InputProps } from './Input';
 export { Select, type SelectProps, type SelectOption } from './Select';
 export { Textarea, type TextareaProps } from './Textarea';
 export { Checkbox, type CheckboxProps } from './Checkbox';
+export { RadioGroup, type RadioGroupProps, type RadioOption } from './Radio';
 export { Pagination, type PaginationProps } from './Pagination';
 export { Card, type CardProps } from './Card';
 export { Badge, type BadgeProps } from './Badge';
