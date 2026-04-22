@@ -367,6 +367,11 @@ export default function AccountOpeningPage() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {/* customerId is set by CifLookup → handleCustomerFound */}
                   <input type="hidden" {...register('customerId')} />
+                  {errors.customerId && (
+                    <p className="text-xs text-cbs-crimson-700 md:col-span-2" role="alert">
+                      ⚠ {errors.customerId.message} — use the CIF Lookup above to select a customer.
+                    </p>
+                  )}
                   <CbsSelect label="Account Type" options={[
                     { value: 'SAVINGS', label: 'Savings (SB)' }, { value: 'CURRENT', label: 'Current (CA)' },
                     { value: 'CURRENT_OD', label: 'Current OD' }, { value: 'SAVINGS_NRI', label: 'NRI Savings' },
