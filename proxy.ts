@@ -238,6 +238,9 @@ const PUBLIC_PREFIXES = [
   "/api/cbs/health",
 ];
 
+/** Paths that have their own server-side auth check + redirect logic. */
+const SELF_REDIRECTING_PATHS = ["/"];
+
 /** Paths that have their own server-side session check + redirect logic.
  *  The root page (app/page.tsx) reads the session and redirects to /dashboard
  *  or /login without a misleading `reason=session_expired` parameter. Letting
