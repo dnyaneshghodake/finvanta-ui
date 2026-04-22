@@ -103,7 +103,7 @@ The wider sidebar accommodates:
 - Ctrl+K search bar with keyboard shortcut hint
 - Environment badge (PROD/UAT/SIT/DEV) in footer
 - Longer module labels (e.g., "Reconciliation Dashboard")
-- Finacle's actual sidebar is ~280px
+- Tier-1 CBS sidebars are typically 260–280px
 
 ---
 
@@ -130,8 +130,8 @@ Font size:     14px
 
 CBS operator screens prioritise data density. A teller processes
 200+ transactions/day — every pixel of vertical space matters.
-Actual Tier-1 CBS input heights: Finacle 28–32px, FLEXCUBE 30px,
-T24 28px. Our 34px is already generous by CBS standards. The 40px
+Actual Tier-1 CBS input heights range from 28–32px across major
+platforms. Our 34px is already generous by CBS standards. The 40px
 height is reserved for the login page where institutional trust
 weight matters more than density.
 
@@ -223,10 +223,9 @@ Stroke width convention:
 
 ### Why 2–4px (not 8px)?
 
-Tier-1 CBS platforms use minimal radius:
-- Finacle: 0px (completely square)
-- FLEXCUBE: 2–4px
-- T24: 0–2px
+Tier-1 CBS platforms use minimal radius (0–4px across major
+platforms). Most use completely square (0px) or near-square (2px)
+corners for institutional visual weight.
 
 8px radius signals "consumer SaaS app". 2–4px signals
 "institutional banking tool". The distinction matters for operator

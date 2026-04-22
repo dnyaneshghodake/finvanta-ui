@@ -11,10 +11,8 @@
  * store — this hook is fire-and-forget; failures are logged but
  * never block the operator.
  *
- * CBS benchmark:
- *   Finacle:  HFINLOG — logs every screen open with CATM code
- *   T24:      STMT.ENTRY audit — screen ID + operator + timestamp
- *   FLEXCUBE: CSTB_AUDIT_TRAIL — function ID + user + branch
+ * CBS benchmark: Tier-1 CBS platforms log every screen open with
+ * a function code, operator ID, branch code, and timestamp.
  *
  * The hook resolves the screen code from the route registry
  * (src/config/routes.ts) by matching the current pathname against
