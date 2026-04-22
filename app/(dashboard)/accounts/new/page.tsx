@@ -164,20 +164,6 @@ export default function AccountOpeningPage() {
     return next;
   });
 
-  /* ── CIF Clear Handler ──────────────────────────────────────
-   * Wrapped in useCallback to avoid recreating CifLookup's
-   * fetchCustomer on every parent render (it's in the dep array). */
-  const handleCustomerCleared = useCallback(() => {
-    setCifCustomer(null);
-    const cifFields = [
-      'customerId', 'fullName', 'panNumber', 'aadhaarNumber', 'mobileNumber',
-      'email', 'dateOfBirth', 'gender', 'nationality', 'fatherSpouseName',
-      'occupation', 'annualIncome', 'sourceOfFunds', 'pepFlag', 'usTaxResident',
-      'kycStatus', 'addressLine1', 'addressLine2', 'city', 'state', 'pinCode',
-    ] as const;
-    cifFields.forEach((f) => setValue(f, ''));
-  }, [setValue]);
-
   const {
     register,
     handleSubmit,
@@ -194,6 +180,20 @@ export default function AccountOpeningPage() {
       customerConsentObtained: false as unknown as true,
     },
   });
+
+  /* ── CIF Clear Handler ──────────────────────────────────────
+   * Wrapped in useCallback to avoid recreating CifLookup's
+   * fetchCustomer on every parent render (it's in the dep array). */
+  const handleCustomerCleared = useCallback(() => {
+    setCifCustomer(null);
+    const cifFields = [
+      'customerId', 'fullName', 'panNumber', 'aadhaarNumber', 'mobileNumber',
+      'email', 'dateOfBirth', 'gender', 'nationality', 'fatherSpouseName',
+      'occupation', 'annualIncome', 'sourceOfFunds', 'pepFlag', 'usTaxResident',
+      'kycStatus', 'addressLine1', 'addressLine2', 'city', 'state', 'pinCode',
+    ] as const;
+    cifFields.forEach((f) => setValue(f, ''));
+  }, [setValue]);
 
   /* Auto-expand sections containing validation errors so users can see them.
    * react-hook-form's onInvalid callback receives the FieldErrors object. */
