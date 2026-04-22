@@ -6,6 +6,37 @@
 
 ---
 
+## 0. Token Architecture
+
+All design tokens follow a strict 3-layer hierarchy:
+
+```
+Layer 1: Core Tokens (raw palette values)
+  --color-cbs-navy-700: #162a50
+  --color-cbs-crimson-600: #9a1d1d
+
+Layer 2: Semantic Tokens (intent/meaning)
+  --color-status-error-text: var(--color-cbs-crimson-700)
+  --color-status-success-bg: var(--color-cbs-olive-50)
+
+Layer 3: Component Tokens (specific usage)
+  --comp-input-height: 34px
+  --comp-btn-font-size: 13px
+```
+
+**Rules:**
+- Components reference `--comp-*` or semantic tokens, never raw palette
+- Semantic tokens reference core tokens via `var()`
+- Changing a core token cascades through all layers automatically
+- Dark mode works by overriding Layer 1 — Layers 2 and 3 adapt
+
+All tokens live in `app/globals.css` inside the `@theme inline` block.
+No separate JSON files — CSS custom properties ARE the single source
+of truth. This avoids a build step and ensures the running code always
+matches the token definitions.
+
+---
+
 ## 1. Base Unit
 
 ```
