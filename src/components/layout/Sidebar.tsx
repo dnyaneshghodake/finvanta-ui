@@ -25,7 +25,7 @@
 
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { useUIStore } from '@/store/uiStore';
 import { useAuthStore } from '@/store/authStore';
 import clsx from 'clsx';
@@ -187,6 +187,7 @@ export interface SidebarProps { className?: string; }
 
 const Sidebar: React.FC<SidebarProps> = ({ className }) => {
   const pathname = usePathname();
+  const router = useRouter();
   const { isSidebarOpen, setSidebarOpen, isSidebarCollapsed, setSidebarCollapsed, toggleSidebarCollapse } = useUIStore();
   const user = useAuthStore((s) => s.user);
   const userRoles = user?.roles ?? [];
@@ -207,6 +208,11 @@ const Sidebar: React.FC<SidebarProps> = ({ className }) => {
   );
   const isActive = useCallback(
     (href: string) => pathname === href || pathname.startsWith(href + '/'),
+    [pathname],
+  );
+  /** Exact match — for aria-current="page" which must mark only the single current page (WCAG). */
+  const isExactPage = useCallback(
+    (href: string) => pathname === href,
     [pathname],
   );
 
@@ -405,7 +411,9 @@ const Sidebar: React.FC<SidebarProps> = ({ className }) => {
                     if (e.key === 'ArrowDown') { e.preventDefault(); setSearchHighlight((p) => Math.min(p + 1, searchResults.length - 1)); }
                     if (e.key === 'ArrowUp') { e.preventDefault(); setSearchHighlight((p) => Math.max(p - 1, 0)); }
                     if (e.key === 'Enter' && searchResults[searchHighlight]) {
-                      window.location.href = searchResults[searchHighlight].href;
+                      router.push(searchResults[searchHighlight].href);
+                      setIsSearchOpen(false);
+                      setSearchQuery('');
                     }
                   }}
                   placeholder="Search screens… (Esc to close)"
@@ -478,7 +486,7 @@ const Sidebar: React.FC<SidebarProps> = ({ className }) => {
 
             /* ── Collapsed rail: icon-only with tooltip flyout ── */
             if (collapsed) {
-              const firstHref = mod.href || mod.children?.[0]?.href || '#';
+              const firstHref = mod.href || mod.children?.find((c) => hasAccess(c.roles))?.href || '#';
               return (
                 <div key={mod.id} className="relative group">
                   <Link href={firstHref}
@@ -488,7 +496,7 @@ const Sidebar: React.FC<SidebarProps> = ({ className }) => {
                         ? 'bg-cbs-navy-50 text-cbs-navy-700 border-l-[3px] border-cbs-navy-700'
                         : 'text-cbs-steel-600 hover:bg-cbs-mist border-l-[3px] border-transparent',
                     )}
-                    aria-current={modActive ? 'page' : undefined}
+                    aria-current={mod.href && isExactPage(mod.href) ? 'page' : undefined}
                     aria-label={mod.label}
                   >
                     {mod.icon}
@@ -506,7 +514,7 @@ const Sidebar: React.FC<SidebarProps> = ({ className }) => {
                             ? 'text-cbs-navy-700 font-semibold bg-cbs-navy-50'
                             : 'text-cbs-steel-600 hover:text-cbs-ink hover:bg-cbs-mist',
                         )}
-                        aria-current={isActive(child.href) ? 'page' : undefined}
+                        aria-current={isExactPage(child.href) ? 'page' : undefined}
                       >
                         {child.label}
                       </Link>
@@ -532,7 +540,7 @@ const Sidebar: React.FC<SidebarProps> = ({ className }) => {
                       ? 'bg-cbs-navy-50 text-cbs-navy-700 font-semibold border-l-[3px] border-cbs-navy-700 pl-[9px]'
                       : 'text-cbs-steel-700 hover:bg-cbs-mist border-l-[3px] border-transparent pl-[9px]',
                   )}
-                  aria-current={modActive ? 'page' : undefined}
+                  aria-current={mod.href && isExactPage(mod.href) ? 'page' : undefined}
                 >
                   {mod.icon}
                   <span className="flex-1">{mod.label}</span>
