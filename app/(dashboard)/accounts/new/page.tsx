@@ -1,19 +1,25 @@
 'use client';
 
 /**
- * FINVANTA CBS — Account Opening (Phase 4.1).
+ * FINVANTA CBS — Account Opening (Tier-1 Enterprise Blueprint).
+ * @file app/(dashboard)/accounts/new/page.tsx
  *
- * MAKER action: opens a CASA (Savings/Current/Salary) account.
+ * MAKER action: opens a CASA account per RBI KYC/AML guidelines.
  * Calls POST /v1/accounts/open via BFF proxy.
+ *
+ * Per Tier-1 CBS Account Opening Blueprint:
+ *   - Sectioned form (accordion, not a single scroll)
+ *   - 2-column max layout for regulated forms
+ *   - Right-side risk/summary panel (lg:col-span-4)
+ *   - Sticky footer with role-gated actions
+ *   - Day-status aware (postings blocked when day not open)
+ *   - Maker-Checker workflow (PENDING_APPROVAL on submit)
  *
  * Prerequisites:
  *   - Customer CIF must exist and be ACTIVE
  *   - Customer KYC must be VERIFIED
  *   - Operator must have MAKER role
- *
- * The account enters PENDING_APPROVAL state and requires CHECKER
- * approval before activation. Product code determines the account
- * type, interest rate, minimum balance, and GL mapping.
+ *   - Business day must be DAY_OPEN
  */
 
 import { useState } from 'react';
@@ -21,20 +27,100 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import { ChevronRight } from 'lucide-react';
+import clsx from 'clsx';
 import { apiClient } from '@/services/api/apiClient';
-import { AmountInr, Breadcrumb, CbsFieldset, CbsSelect } from '@/components/cbs';
-import { Button } from '@/components/atoms';
+import {
+  AmountInr, Pan, Aadhaar, ValueDate,
+  Breadcrumb, CbsFieldset, CbsSelect,
+} from '@/components/cbs';
+import { Button, Checkbox, Badge } from '@/components/atoms';
+import { FormField } from '@/components/molecules/FormField';
+import { useAuthStore } from '@/store/authStore';
+import { useDayStatus } from '@/contexts/DayStatusContext';
 import Link from 'next/link';
 
+/* ── Zod Schema ─────────────────────────────────────────────────
+ * Validates all sections. Optional fields allow DRAFT saves. */
 const accountSchema = z.object({
+  // §1 Product Selection
   customerId: z.string().min(1, 'Customer ID is required'),
-  accountType: z.enum(['SAVINGS', 'CURRENT', 'SALARY']),
-  currencyCode: z.string().min(1),
+  accountType: z.enum(['SAVINGS', 'CURRENT', 'CURRENT_OD', 'SAVINGS_NRI', 'SAVINGS_MINOR', 'SAVINGS_JOINT', 'SAVINGS_PMJDY', 'SALARY']),
+  currencyCode: z.string().min(1, 'Currency is required'),
+  // §3 KYC & Regulatory
+  panNumber: z.string().regex(/^[A-Z]{5}[0-9]{4}[A-Z]$/, 'Invalid PAN format').optional().or(z.literal('')),
+  aadhaarNumber: z.string().regex(/^\d{12}$/, 'Aadhaar must be 12 digits').optional().or(z.literal('')),
+  kycStatus: z.string().optional(),
+  pepFlag: z.string().optional(),
+  // §4 Personal Details
+  fullName: z.string().min(1, 'Full name is required'),
+  dateOfBirth: z.string().optional(),
+  gender: z.string().optional(),
+  fatherSpouseName: z.string().optional(),
+  nationality: z.string().optional(),
+  // §5 Contact Details
+  mobileNumber: z.string().regex(/^[6-9]\d{9}$/, 'Invalid Indian mobile').optional().or(z.literal('')),
+  email: z.string().email('Invalid email').optional().or(z.literal('')),
+  // §6 Address
+  addressLine1: z.string().optional(),
+  addressLine2: z.string().optional(),
+  city: z.string().optional(),
+  state: z.string().optional(),
+  pinCode: z.string().regex(/^\d{6}$/, 'PIN must be 6 digits').optional().or(z.literal('')),
+  // §7 Occupation & Financial Profile
+  occupation: z.string().optional(),
+  annualIncome: z.string().optional(),
+  sourceOfFunds: z.string().optional(),
+  // §8 Nominee
   nomineeName: z.string().optional(),
-  initialDeposit: z.string().regex(/^\d+(\.\d{1,2})?$/, 'Enter a valid amount').optional(),
+  nomineeRelationship: z.string().optional(),
+  // §9 FATCA
+  usTaxResident: z.string().optional(),
+  // §10 Account Configuration
+  chequeBookRequired: z.boolean().optional(),
+  debitCardRequired: z.boolean().optional(),
+  smsAlerts: z.boolean().optional(),
+  // §11 Initial Deposit
+  initialDeposit: z.string().regex(/^\d+(\.\d{1,2})?$/, 'Enter a valid amount').optional().or(z.literal('')),
+  // §14 Declarations
+  dueDiligenceConfirmed: z.boolean().optional(),
+  documentsVerified: z.boolean().optional(),
+  customerConsentObtained: z.boolean().optional(),
 });
 
 type AccountForm = z.infer<typeof accountSchema>;
+
+/* ── Collapsible Section ────────────────────────────────────────
+ * Accordion-style wrapper. Uses CbsFieldset visual pattern with
+ * a clickable legend bar. */
+function Section({ id, title, isOpen, onToggle, children }: {
+  id: string; title: string; isOpen: boolean;
+  onToggle: () => void; children: React.ReactNode;
+}) {
+  return (
+    <fieldset className="cbs-fieldset overflow-hidden">
+      <button
+        type="button"
+        onClick={onToggle}
+        className="cbs-fieldset-legend flex items-center gap-2 w-full text-left cursor-pointer hover:bg-cbs-steel-50 transition-colors"
+        aria-expanded={isOpen}
+        aria-controls={`section-${id}`}
+      >
+        <ChevronRight
+          size={14} strokeWidth={2}
+          className={clsx('text-cbs-steel-400 transition-transform duration-150 shrink-0', isOpen && 'rotate-90')}
+          aria-hidden="true"
+        />
+        <span className="flex-1">{title}</span>
+      </button>
+      {isOpen && (
+        <div id={`section-${id}`} className="cbs-fieldset-body">
+          {children}
+        </div>
+      )}
+    </fieldset>
+  );
+}
 
 export default function AccountOpeningPage() {
   const router = useRouter();
