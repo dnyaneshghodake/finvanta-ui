@@ -70,8 +70,8 @@ const Header: FC<HeaderProps> = ({ className }) => {
   })();
 
   const initials =
-    (user?.firstName?.[0] || user?.username?.[0]?.toUpperCase() || '?') +
-    (user?.lastName?.[0] || user?.username?.[1]?.toUpperCase() || '');
+    (user?.firstName?.[0]?.toUpperCase() || user?.username?.[0]?.toUpperCase() || '?') +
+    (user?.lastName?.[0]?.toUpperCase() || user?.username?.[1]?.toUpperCase() || '');
 
   const displayName = user?.displayName || user?.firstName || user?.username || 'Operator';
   const primaryRole = user?.roles?.[0] || '';

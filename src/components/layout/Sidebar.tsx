@@ -202,6 +202,12 @@ const Sidebar: React.FC<SidebarProps> = ({ className }) => {
 
   const collapsed = isSidebarCollapsed;
 
+  /** Hydration-safe platform detection for keyboard shortcut hints. */
+  const [isMac, setIsMac] = useState(false);
+  useEffect(() => {
+    setIsMac(/Mac|iPod|iPhone|iPad/.test(navigator.platform));
+  }, []);
+
   const hasAccess = useCallback(
     (roles?: UserRole[]) => !roles || roles.length === 0 || roles.some((r) => userRoles.includes(r)),
     [userRoles],
@@ -254,12 +260,17 @@ const Sidebar: React.FC<SidebarProps> = ({ className }) => {
 
   // Close search on navigation. setState calls are intentional —
   // search must reset when the operator navigates to a new screen.
+  // Also re-assert auto-collapse on narrow desktops (§15) since
+  // Ctrl+K temporarily expands the sidebar for search input.
   /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     setIsSearchOpen(false);
     setSearchQuery('');
     setSearchHighlight(0);
-  }, [pathname]);
+    if (typeof window !== 'undefined' && window.innerWidth < AUTO_COLLAPSE_BREAKPOINT) {
+      setSidebarCollapsed(true);
+    }
+  }, [pathname, setSidebarCollapsed]);
   /* eslint-enable react-hooks/set-state-in-effect */
 
   /* ── Auto-collapse on narrow desktops (§15) ──────────────────
@@ -408,8 +419,8 @@ const Sidebar: React.FC<SidebarProps> = ({ className }) => {
                   onChange={(e) => { setSearchQuery(e.target.value); setSearchHighlight(0); }}
                   onKeyDown={(e) => {
                     if (e.key === 'Escape') { setIsSearchOpen(false); setSearchQuery(''); }
-                    if (e.key === 'ArrowDown') { e.preventDefault(); setSearchHighlight((p) => Math.min(p + 1, searchResults.length - 1)); }
-                    if (e.key === 'ArrowUp') { e.preventDefault(); setSearchHighlight((p) => Math.max(p - 1, 0)); }
+                    if (e.key === 'ArrowDown' && searchResults.length > 0) { e.preventDefault(); setSearchHighlight((p) => Math.min(p + 1, searchResults.length - 1)); }
+                    if (e.key === 'ArrowUp' && searchResults.length > 0) { e.preventDefault(); setSearchHighlight((p) => Math.max(p - 1, 0)); }
                     if (e.key === 'Enter' && searchResults[searchHighlight]) {
                       router.push(searchResults[searchHighlight].href);
                       setIsSearchOpen(false);
@@ -457,7 +468,7 @@ const Sidebar: React.FC<SidebarProps> = ({ className }) => {
               >
                 <Search size={14} strokeWidth={1.75} aria-hidden="true" />
                 <span className="flex-1 text-left">Search…</span>
-                <kbd className="text-[10px] text-cbs-steel-400 bg-cbs-steel-50 border border-cbs-steel-200 rounded-sm px-1 py-px font-mono">⌘K</kbd>
+                <kbd className="text-[10px] text-cbs-steel-400 bg-cbs-steel-50 border border-cbs-steel-200 rounded-sm px-1 py-px font-mono">{isMac ? '⌘K' : 'Ctrl+K'}</kbd>
               </button>
             )}
           </div>
@@ -585,7 +596,7 @@ const Sidebar: React.FC<SidebarProps> = ({ className }) => {
                             ? 'text-cbs-navy-700 font-semibold bg-cbs-navy-50'
                             : 'text-cbs-steel-600 hover:text-cbs-ink hover:bg-cbs-mist',
                         )}
-                        aria-current={isActive(child.href) ? 'page' : undefined}
+                        aria-current={isExactPage(child.href) ? 'page' : undefined}
                       >
                         {child.label}
                       </Link>
