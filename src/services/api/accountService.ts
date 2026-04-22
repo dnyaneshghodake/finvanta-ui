@@ -436,7 +436,7 @@ class AccountService {
 
   /**
    * Open a new deposit account.
-   * Per API_REFERENCE.md §4 and ACCOUNT_OPENING_API_CONTRACT.md:
+   * Per ACCOUNT_OPENING_API_CONTRACT.md:
    * `POST /accounts/open` creates an account in PENDING_ACTIVATION status.
    *
    * Accepts all 29 API fields per the contract. The backend MUST use
