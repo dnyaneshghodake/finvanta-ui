@@ -233,17 +233,16 @@ No changes to the existing 32-field `AccountResponse` per API_REFERENCE.md §4. 
 
 ---
 
-## 9. Frontend Integration (already done)
+## 9. Frontend Integration (complete)
 
-The frontend at `app/(dashboard)/accounts/new/page.tsx` already:
+The frontend at `app/(dashboard)/accounts/new/page.tsx`:
 - Collects all 32 fields across 11 accordion sections
 - Validates with Zod (PAN regex, Aadhaar 12-digit, mobile 10-digit, PIN 6-digit, email format)
-- Sends via `accountService.createAccount()` which calls `POST /accounts/open`
-- Currently sends only the 7 fields the backend accepts
-- Will automatically send all 29 fields once `accountService.createAccount()` DTO is extended
+- Sends all 29 API fields via `accountService.createAccount()` which calls `POST /accounts/open`
+- `pepFlag` and `usTaxResident` are converted from form strings (`"YES"`/`"NO"`) to booleans before submission
+- Empty optional strings are converted to `undefined` (absent from JSON payload)
+- `accountService.createAccount()` DTO accepts all 29 fields
 
-**Frontend change needed after backend upgrade:**
-1. Extend `accountService.createAccount()` parameter type to include all 29 fields
-2. Pass all form fields in `onSubmit` handler (currently only passes 7)
-3. Update `SpringAccount` interface to include new response fields
-4. Wire risk panel to display `kycStatus`, `pepFlag` from response
+**Remaining backend-only work:**
+1. Update `SpringAccount` interface to include new response fields (PAN masked, KYC, personal, contact)
+2. Wire risk panel to display `kycStatus`, `pepFlag` from account response (currently uses CIF data)

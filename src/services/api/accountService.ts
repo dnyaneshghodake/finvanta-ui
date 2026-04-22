@@ -436,17 +436,55 @@ class AccountService {
 
   /**
    * Open a new deposit account.
-   * Per API_REFERENCE.md §4: `POST /accounts/open`
-   * creates an account in PENDING_ACTIVATION status.
+   * Per API_REFERENCE.md §4 and ACCOUNT_OPENING_API_CONTRACT.md:
+   * `POST /accounts/open` creates an account in PENDING_ACTIVATION status.
+   *
+   * Accepts all 29 API fields per the contract. The backend MUST use
+   * `@JsonIgnoreProperties(ignoreUnknown = true)` so fields it doesn't
+   * yet support are silently ignored. This allows the UI to send the
+   * full payload today and the backend to adopt fields incrementally.
    */
   async createAccount(data: {
+    // §1 Product Selection
     customerId: number;
     branchId: number;
     accountType: string;
     productCode?: string;
+    currencyCode?: string;
     initialDeposit?: number;
+    // §3 KYC & Regulatory
+    panNumber?: string;
+    aadhaarNumber?: string;
+    kycStatus?: string;
+    pepFlag?: boolean;
+    // §4 Personal Details
+    fullName?: string;
+    dateOfBirth?: string;
+    gender?: string;
+    fatherSpouseName?: string;
+    nationality?: string;
+    // §5 Contact Details
+    mobileNumber?: string;
+    email?: string;
+    // §6 Address
+    addressLine1?: string;
+    addressLine2?: string;
+    city?: string;
+    state?: string;
+    pinCode?: string;
+    // §7 Occupation & Financial Profile
+    occupation?: string;
+    annualIncome?: string;
+    sourceOfFunds?: string;
+    // §8 Nominee
     nomineeName?: string;
     nomineeRelationship?: string;
+    // §9 FATCA / CRS
+    usTaxResident?: boolean;
+    // §10 Account Configuration
+    chequeBookRequired?: boolean;
+    debitCardRequired?: boolean;
+    smsAlerts?: boolean;
   }): Promise<ApiResponse<Account>> {
     const response = await apiClient.post<SpringEnvelope<SpringAccount>>(
       '/accounts/open',

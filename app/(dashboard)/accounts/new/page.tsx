@@ -98,7 +98,7 @@ type AccountForm = z.infer<typeof accountSchema>;
 const FIELD_SECTION_MAP: Record<string, string> = {
   customerId: 'product', accountType: 'product', currencyCode: 'product', initialDeposit: 'product',
   panNumber: 'kyc', aadhaarNumber: 'kyc', kycStatus: 'kyc', pepFlag: 'kyc',
-  fullName: 'personal', dateOfBirth: 'personal', gender: 'personal', fatherSpouseName: 'personal',
+  fullName: 'personal', dateOfBirth: 'personal', gender: 'personal', fatherSpouseName: 'personal', nationality: 'personal',
   mobileNumber: 'contact', email: 'contact',
   addressLine1: 'address', addressLine2: 'address', city: 'address', state: 'address', pinCode: 'address',
   occupation: 'occupation', annualIncome: 'occupation', sourceOfFunds: 'occupation',
@@ -254,18 +254,56 @@ export default function AccountOpeningPage() {
   const onSubmit = async (data: AccountForm) => {
     setError(null);
     try {
-      /* Per API_REFERENCE.md §4: POST /accounts/open creates account
-       * in PENDING_ACTIVATION status. Checker activates via
-       * POST /accounts/{accountNumber}/activate. The workflow engine
-       * (§15) routes the approval to the checker queue automatically. */
+      /* Per API_REFERENCE.md §4 and ACCOUNT_OPENING_API_CONTRACT.md:
+       * POST /accounts/open creates account in PENDING_ACTIVATION status.
+       * Checker activates via POST /accounts/{accountNumber}/activate.
+       * The workflow engine (§15) routes the approval to the checker
+       * queue automatically.
+       *
+       * All 29 API fields are sent. The backend uses
+       * @JsonIgnoreProperties(ignoreUnknown = true) so fields it doesn't
+       * yet support are silently ignored — no breaking change. */
       const result = await accountService.createAccount({
+        // §1 Product Selection
         customerId: Number(data.customerId),
         branchId: user?.branchId || 1,
         accountType: data.accountType,
         productCode: data.accountType,
+        currencyCode: data.currencyCode || 'INR',
+        initialDeposit: data.initialDeposit ? Number(data.initialDeposit.replace(/,/g, '')) : undefined,
+        // §3 KYC & Regulatory
+        panNumber: data.panNumber || undefined,
+        aadhaarNumber: data.aadhaarNumber || undefined,
+        kycStatus: data.kycStatus || undefined,
+        pepFlag: data.pepFlag === 'YES' ? true : data.pepFlag === 'NO' ? false : undefined,
+        // §4 Personal Details
+        fullName: data.fullName || undefined,
+        dateOfBirth: data.dateOfBirth || undefined,
+        gender: data.gender || undefined,
+        fatherSpouseName: data.fatherSpouseName || undefined,
+        nationality: data.nationality || undefined,
+        // §5 Contact Details
+        mobileNumber: data.mobileNumber || undefined,
+        email: data.email || undefined,
+        // §6 Address
+        addressLine1: data.addressLine1 || undefined,
+        addressLine2: data.addressLine2 || undefined,
+        city: data.city || undefined,
+        state: data.state || undefined,
+        pinCode: data.pinCode || undefined,
+        // §7 Occupation & Financial Profile
+        occupation: data.occupation || undefined,
+        annualIncome: data.annualIncome || undefined,
+        sourceOfFunds: data.sourceOfFunds || undefined,
+        // §8 Nominee
         nomineeName: data.nomineeName || undefined,
         nomineeRelationship: data.nomineeRelationship || undefined,
-        initialDeposit: data.initialDeposit ? Number(data.initialDeposit.replace(/,/g, '')) : undefined,
+        // §9 FATCA / CRS
+        usTaxResident: data.usTaxResident === 'YES' ? true : data.usTaxResident === 'NO' ? false : undefined,
+        // §10 Account Configuration
+        chequeBookRequired: data.chequeBookRequired ?? false,
+        debitCardRequired: data.debitCardRequired ?? false,
+        smsAlerts: data.smsAlerts ?? true,
       });
       if (result.success && result.data) {
         router.push(`/accounts/${result.data.accountNumber}`);
@@ -407,7 +445,12 @@ export default function AccountOpeningPage() {
               <Section id="nominee" title="Nominee Details" isOpen={openSections.has('nominee')} onToggle={() => toggle('nominee')}>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <FormField label="Nominee Name" htmlFor="nomineeName"><input id="nomineeName" className="cbs-input" {...register('nomineeName')} /></FormField>
-                  <CbsSelect label="Relationship" options={[{ value: '', label: '— Select —' }, { value: 'SPOUSE', label: 'Spouse' }, { value: 'FATHER', label: 'Father' }, { value: 'MOTHER', label: 'Mother' }]} {...register('nomineeRelationship')} />
+                  <CbsSelect label="Relationship" options={[
+                    { value: '', label: '— Select —' }, { value: 'SPOUSE', label: 'Spouse' },
+                    { value: 'FATHER', label: 'Father' }, { value: 'MOTHER', label: 'Mother' },
+                    { value: 'SON', label: 'Son' }, { value: 'DAUGHTER', label: 'Daughter' },
+                    { value: 'SIBLING', label: 'Sibling' }, { value: 'OTHER', label: 'Other' },
+                  ]} {...register('nomineeRelationship')} />
                 </div>
               </Section>
               {/* §9 FATCA */}
