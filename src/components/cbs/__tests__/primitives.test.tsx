@@ -10,14 +10,15 @@ import { describe, it, expect } from 'vitest';
 import {
   maskPan,
   maskAadhaar,
+  maskMobile,
   maskAccountNo,
 } from '../primitives';
 
-// ── PII Masking (RBI KYC / UIDAI compliance) ──────────────────────
+// ── PII Masking (RBI IT Governance §8.5 / UIDAI compliance) ───────
 
 describe('maskPan', () => {
-  it('masks a valid 10-char PAN: ABCDE1234F → ABCD***34F', () => {
-    expect(maskPan('ABCDE1234F')).toBe('ABCD***34F');
+  it('masks a valid 10-char PAN: ABCDE1234F → XXXXXX234F (last 4 visible)', () => {
+    expect(maskPan('ABCDE1234F')).toBe('XXXXXX234F');
   });
 
   it('returns **** for short/invalid PAN', () => {
@@ -31,8 +32,8 @@ describe('maskPan', () => {
 });
 
 describe('maskAadhaar', () => {
-  it('masks a valid 12-digit Aadhaar: shows last 4 only', () => {
-    expect(maskAadhaar('123456789012')).toBe('**** **** 9012');
+  it('masks a valid 12-digit Aadhaar: XXXXXXXX + last 4 visible', () => {
+    expect(maskAadhaar('123456789012')).toBe('XXXXXXXX9012');
   });
 
   it('returns full mask for short/invalid Aadhaar', () => {
@@ -42,6 +43,21 @@ describe('maskAadhaar', () => {
 
   it('returns full mask for null-like input', () => {
     expect(maskAadhaar(undefined as unknown as string)).toBe('**** **** ****');
+  });
+});
+
+describe('maskMobile', () => {
+  it('masks a valid 10-digit mobile: 9876543210 → XXXXXX3210 (last 4 visible)', () => {
+    expect(maskMobile('9876543210')).toBe('XXXXXX3210');
+  });
+
+  it('returns **** for short/invalid mobile', () => {
+    expect(maskMobile('')).toBe('****');
+    expect(maskMobile('12')).toBe('****');
+  });
+
+  it('returns **** for null-like input', () => {
+    expect(maskMobile(undefined as unknown as string)).toBe('****');
   });
 });
 

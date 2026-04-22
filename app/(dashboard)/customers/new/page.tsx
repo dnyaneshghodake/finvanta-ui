@@ -24,6 +24,8 @@ import { z } from 'zod';
 import { apiClient } from '@/services/api/apiClient';
 import { Pan, Aadhaar, ValueDate, Breadcrumb } from '@/components/cbs';
 import { Button } from '@/components/atoms';
+import { R, resolvePath } from '@/config/routes';
+import type { RouteEntry } from '@/config/routes';
 
 /* ── Indian states for address dropdown ── */
 const INDIAN_STATES = [
@@ -157,11 +159,11 @@ export default function NewCustomerPage() {
     resolver: zodResolver(cifSchema),
     defaultValues: {
       customerType: 'INDIVIDUAL', firstName: '', middleName: '', lastName: '',
-      fatherOrSpouseName: '', motherName: '', dob: '', gender: undefined,
-      maritalStatus: undefined, nationality: 'Indian', residentStatus: 'RESIDENT',
+      fatherOrSpouseName: '', motherName: '', dob: '', gender: '' as unknown as 'MALE',
+      maritalStatus: '' as unknown as 'SINGLE', nationality: 'Indian', residentStatus: 'RESIDENT',
       pan: '', aadhaar: '', ckycNumber: '', passportNumber: '', passportExpiry: '',
       voterId: '', drivingLicense: '', mobile: '', alternateMobile: '', email: '',
-      communicationPref: 'BOTH', occupation: undefined, annualIncomeRange: undefined,
+      communicationPref: 'BOTH', occupation: '' as unknown as 'SALARIED', annualIncomeRange: '' as unknown as 'BELOW_1L',
       sourceOfFunds: '', riskCategory: 'LOW', pepFlag: false, fatcaCountry: '',
       customerSegment: 'RETAIL', sourceOfIntroduction: '', relationshipManagerId: '',
       companyName: '', cin: '', gstin: '', dateOfIncorporation: '', constitutionType: undefined,
@@ -226,7 +228,7 @@ export default function NewCustomerPage() {
       const corr = res.headers?.['x-correlation-id'] as string | undefined;
       setCorrelationId(corr || null);
       if (res.data?.status === 'SUCCESS' && res.data?.data?.id) {
-        router.push(`/customers/${res.data.data.id}`);
+        router.push(resolvePath(R.customers.view as RouteEntry, String(res.data.data.id)));
       }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Failed to create customer';
@@ -236,7 +238,7 @@ export default function NewCustomerPage() {
 
   return (
     <div className="space-y-4">
-      <Breadcrumb items={[{ label: 'Dashboard', href: '/dashboard' }, { label: 'Customers', href: '/customers' }, { label: 'New Customer (CIF)' }]} />
+      <Breadcrumb items={[{ label: R.dashboard.home.label, href: R.dashboard.home.path as string }, { label: R.customers.search.label, href: R.customers.search.path as string }, { label: R.customers.create.label }]} />
 
       <div>
         <h1 className="text-xl font-semibold text-cbs-ink">New Customer — CIF Creation</h1>
@@ -259,6 +261,15 @@ export default function NewCustomerPage() {
       </div>
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" noValidate>
+        {/* Global validation error summary — shows when fields have errors
+          * but the operator may not see them (e.g. scrolled past). Per CBS
+          * convention: always show a top-level banner on failed submit. */}
+        {Object.keys(errors).length > 0 && (
+          <div role="alert" className="cbs-alert cbs-alert-error">
+            <div className="font-semibold text-sm">Please fix {Object.keys(errors).length} validation error{Object.keys(errors).length > 1 ? 's' : ''} below</div>
+            <div className="mt-1 text-xs text-cbs-crimson-700">All fields marked with * are mandatory per RBI KYC / CKYC guidelines.</div>
+          </div>
+        )}
         {/* 1. PERSONAL IDENTIFICATION (CKYC Part I) */}
         <section className="cbs-surface"><div className="cbs-surface-header"><span className="text-sm font-semibold uppercase tracking-wider text-cbs-steel-700">Personal Identification — CKYC Part I</span></div>
           <div className="cbs-surface-body grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -336,13 +347,13 @@ export default function NewCustomerPage() {
         {/* 8. PERMANENT ADDRESS (CKYC mandate) */}
         <section className="cbs-surface"><div className="cbs-surface-header"><span className="text-sm font-semibold uppercase tracking-wider text-cbs-steel-700">Permanent Address</span></div>
           <div className="cbs-surface-body grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div className="md:col-span-2"><F id="pa-l1" label="Address Line 1" required><input id="pa-l1" className="cbs-input" {...register('permanentAddress.line1')} /></F></div>
+            <div className="md:col-span-2"><F id="pa-l1" label="Address Line 1" error={errors.permanentAddress?.line1?.message} required><input id="pa-l1" className="cbs-input" {...register('permanentAddress.line1')} /></F></div>
             <F id="pa-l2" label="Address Line 2"><input id="pa-l2" className="cbs-input" {...register('permanentAddress.line2')} /></F>
-            <F id="pa-city" label="City" required><input id="pa-city" className="cbs-input" {...register('permanentAddress.city')} /></F>
-            <F id="pa-dist" label="District" required><input id="pa-dist" className="cbs-input" {...register('permanentAddress.district')} /></F>
-            <F id="pa-state" label="State" required><select id="pa-state" className="cbs-select" {...register('permanentAddress.state')}><option value="">— Select —</option>{INDIAN_STATES.map((s) => <option key={s} value={s}>{s}</option>)}</select></F>
-            <F id="pa-pin" label="Pincode" required><input id="pa-pin" className="cbs-input cbs-tabular" inputMode="numeric" maxLength={6} {...register('permanentAddress.pincode')} /></F>
-            <F id="pa-country" label="Country" required><input id="pa-country" className="cbs-input" {...register('permanentAddress.country')} /></F>
+            <F id="pa-city" label="City" error={errors.permanentAddress?.city?.message} required><input id="pa-city" className="cbs-input" {...register('permanentAddress.city')} /></F>
+            <F id="pa-dist" label="District" error={errors.permanentAddress?.district?.message} required><input id="pa-dist" className="cbs-input" {...register('permanentAddress.district')} /></F>
+            <F id="pa-state" label="State" error={errors.permanentAddress?.state?.message} required><select id="pa-state" className="cbs-select" {...register('permanentAddress.state')}><option value="">— Select —</option>{INDIAN_STATES.map((s) => <option key={s} value={s}>{s}</option>)}</select></F>
+            <F id="pa-pin" label="Pincode" error={errors.permanentAddress?.pincode?.message} required><input id="pa-pin" className="cbs-input cbs-tabular" inputMode="numeric" maxLength={6} {...register('permanentAddress.pincode')} /></F>
+            <F id="pa-country" label="Country" error={errors.permanentAddress?.country?.message} required><input id="pa-country" className="cbs-input" {...register('permanentAddress.country')} /></F>
           </div></section>
 
         {/* 9. CORRESPONDENCE ADDRESS (CKYC mandate) */}
@@ -350,19 +361,19 @@ export default function NewCustomerPage() {
             <label className="flex items-center gap-2 text-xs text-cbs-steel-600"><input type="checkbox" className="h-3.5 w-3.5 accent-cbs-navy-700" {...register('sameAsPermanent')} /> Same as permanent</label></div>
           {!sameAsPermanent && (
             <div className="cbs-surface-body grid grid-cols-1 md:grid-cols-4 gap-4">
-              <div className="md:col-span-2"><F id="ca-l1" label="Address Line 1" required><input id="ca-l1" className="cbs-input" {...register('correspondenceAddress.line1')} /></F></div>
+              <div className="md:col-span-2"><F id="ca-l1" label="Address Line 1" error={errors.correspondenceAddress?.line1?.message} required><input id="ca-l1" className="cbs-input" {...register('correspondenceAddress.line1')} /></F></div>
               <F id="ca-l2" label="Address Line 2"><input id="ca-l2" className="cbs-input" {...register('correspondenceAddress.line2')} /></F>
-              <F id="ca-city" label="City" required><input id="ca-city" className="cbs-input" {...register('correspondenceAddress.city')} /></F>
-              <F id="ca-dist" label="District" required><input id="ca-dist" className="cbs-input" {...register('correspondenceAddress.district')} /></F>
-              <F id="ca-state" label="State" required><select id="ca-state" className="cbs-select" {...register('correspondenceAddress.state')}><option value="">— Select —</option>{INDIAN_STATES.map((s) => <option key={s} value={s}>{s}</option>)}</select></F>
-              <F id="ca-pin" label="Pincode" required><input id="ca-pin" className="cbs-input cbs-tabular" inputMode="numeric" maxLength={6} {...register('correspondenceAddress.pincode')} /></F>
-              <F id="ca-country" label="Country" required><input id="ca-country" className="cbs-input" {...register('correspondenceAddress.country')} /></F>
+              <F id="ca-city" label="City" error={errors.correspondenceAddress?.city?.message} required><input id="ca-city" className="cbs-input" {...register('correspondenceAddress.city')} /></F>
+              <F id="ca-dist" label="District" error={errors.correspondenceAddress?.district?.message} required><input id="ca-dist" className="cbs-input" {...register('correspondenceAddress.district')} /></F>
+              <F id="ca-state" label="State" error={errors.correspondenceAddress?.state?.message} required><select id="ca-state" className="cbs-select" {...register('correspondenceAddress.state')}><option value="">— Select —</option>{INDIAN_STATES.map((s) => <option key={s} value={s}>{s}</option>)}</select></F>
+              <F id="ca-pin" label="Pincode" error={errors.correspondenceAddress?.pincode?.message} required><input id="ca-pin" className="cbs-input cbs-tabular" inputMode="numeric" maxLength={6} {...register('correspondenceAddress.pincode')} /></F>
+              <F id="ca-country" label="Country" error={errors.correspondenceAddress?.country?.message} required><input id="ca-country" className="cbs-input" {...register('correspondenceAddress.country')} /></F>
             </div>
           )}</section>
 
         {/* SUBMIT */}
         <div className="flex gap-2 justify-end border-t border-cbs-steel-200 pt-3">
-          <Button type="button" variant="secondary" onClick={() => router.back()}>Cancel</Button>
+          <Button type="button" variant="secondary" onClick={() => router.push(R.customers.search.path as string)}>Cancel</Button>
           <Button type="submit" isLoading={isSubmitting}>Submit for Approval</Button>
         </div>
       </form>

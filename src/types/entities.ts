@@ -33,3 +33,11 @@ export type {
   Holiday, HolidayType, HolidayScope,
   Tenant, TenantStatus,
 } from './admin.types';
+
+// Customer (CIF) domain
+export type {
+  CreateCustomerRequest, CustomerResponse,
+  CustomerType, Gender, MaritalStatus, Nationality, ResidentStatus,
+  OccupationCode, AnnualIncomeBand, SourceOfFunds,
+  KycRiskCategory, KycMode, CustomerErrorCode,
+} from './customer.types';

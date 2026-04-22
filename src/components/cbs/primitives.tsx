@@ -8,10 +8,12 @@
  *     display, right-aligned, negative values rendered in red.
  *   - IFSC: 11-char [A-Z]{4}0[A-Z0-9]{6} pattern, forced uppercase.
  *   - PAN: 10-char [A-Z]{5}[0-9]{4}[A-Z] pattern, masked display
- *     (first 4 + *** + last 1) in read-only views per RBI KYC.
- *   - Aadhaar: 12-digit, displayed masked (last 4 visible) per
- *     UIDAI guideline; raw value never echoed into the DOM in read-
- *     only views.
+ *     XXXXXX + last 4 (e.g. XXXXXX234F) per RBI IT Governance §8.5.
+ *   - Aadhaar: 12-digit, displayed masked XXXXXXXX + last 4
+ *     (e.g. XXXXXXXX9012) per UIDAI guideline; raw value never
+ *     echoed into the DOM in read-only views.
+ *   - Mobile: 10-digit, displayed masked XXXXXX + last 4
+ *     (e.g. XXXXXX3210) per RBI IT Governance §8.5.
  *   - Account number: opaque masked display ("****1234"); the full
  *     value remains in state only for submit.
  *   - Value date: calendar-date text input (dd-MMM-yyyy), rendered
@@ -96,10 +98,20 @@ export const AmountInr = forwardRef<HTMLInputElement, BaseProps>(
     const handleBlur = useCallback(
       (e: FocusEvent<HTMLInputElement>) => {
         const raw = e.target.value.replace(/,/g, '');
+        // Sync the comma-free value to react-hook-form FIRST so the
+        // form state always holds a Zod-valid number (no commas).
+        // Then format the display value with Indian grouping.
         if (raw && /^\d+(\.\d{0,2})?$/.test(raw)) {
+          // Normalise to 2-decimal raw value for form state
+          const parts = raw.split('.');
+          const normalised = parts[0] + '.' + (parts[1] ?? '').slice(0, 2).padEnd(2, '0');
+          e.target.value = normalised;
+          onBlur?.(e);
+          // Now format for display (commas) — this does NOT re-trigger RHF
           e.target.value = formatAmountInr(raw);
+        } else {
+          onBlur?.(e);
         }
-        onBlur?.(e);
       },
       [onBlur],
     );
@@ -339,16 +351,31 @@ export function AmountDisplay({
   );
 }
 
-/** Mask a PAN for read-only display: ABCDE1234F -> ABCD***34F. */
+/**
+ * Mask a PAN for read-only display per RBI IT Governance §8.5.
+ * ABCDE1234F → XXXXXX234F (last 4 visible).
+ */
 export function maskPan(pan: string): string {
   if (!pan || pan.length !== 10) return '****';
-  return `${pan.slice(0, 4)}***${pan.slice(-3)}`;
+  return `XXXXXX${pan.slice(-4)}`;
 }
 
-/** Mask an Aadhaar for read-only display: last 4 only. */
+/**
+ * Mask an Aadhaar for read-only display per UIDAI guidelines.
+ * 123456789012 → XXXXXXXX9012 (last 4 visible).
+ */
 export function maskAadhaar(aadhaar: string): string {
   if (!aadhaar || aadhaar.length !== 12) return '**** **** ****';
-  return `**** **** ${aadhaar.slice(-4)}`;
+  return `XXXXXXXX${aadhaar.slice(-4)}`;
+}
+
+/**
+ * Mask a mobile number for read-only display per RBI IT Governance §8.5.
+ * 9876543210 → XXXXXX3210 (last 4 visible).
+ */
+export function maskMobile(mobile: string): string {
+  if (!mobile || mobile.length < 4) return '****';
+  return `XXXXXX${mobile.slice(-4)}`;
 }
 
 /** Mask an account number for read-only display: last 4 only. */
