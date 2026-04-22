@@ -238,6 +238,14 @@ const PUBLIC_PREFIXES = [
   "/api/cbs/health",
 ];
 
+/** Paths that have their own server-side session check + redirect logic.
+ *  The root page (app/page.tsx) reads the session and redirects to /dashboard
+ *  or /login without a misleading `reason=session_expired` parameter. Letting
+ *  enforceSession intercept these would show "session expired" to first-time
+ *  visitors who never had a session. */
+const SELF_REDIRECTING_PATHS = new Set(["/"]);
+
+
 function isPublicPath(pathname: string): boolean {
   return PUBLIC_PREFIXES.some((prefix) => pathname.startsWith(prefix));
 }
@@ -246,6 +254,10 @@ function enforceSession(req: NextRequest): NextResponse | null {
   const { pathname } = req.nextUrl;
   // Public paths (login, pre-auth BFF, health) skip the check.
   if (isPublicPath(pathname)) return null;
+  // Paths with their own server-side session check + redirect logic.
+  // E.g. "/" reads the session in app/page.tsx and redirects cleanly
+  // without the misleading `reason=session_expired` parameter.
+  if (SELF_REDIRECTING_PATHS.has(pathname)) return null;
   // API routes are authenticated by the BFF proxy (Layer 3) — the
   // session cookie is read and validated there. No redirect needed.
   if (pathname.startsWith("/api/")) return null;

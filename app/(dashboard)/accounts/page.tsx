@@ -194,7 +194,7 @@ export default function AccountsPage() {
                             </RoleGate>
                             <RoleGate roles={['MAKER', 'CHECKER', 'ADMIN']}>
                               <Link
-                                href={R.accounts.freeze.path as string}
+                                href={buildUrl(R.accounts.freeze.path as string, { accountNumber: acct.accountNumber })}
                                 className={`cbs-btn cbs-btn-secondary h-[26px] px-2 text-xs ${!isPostingAllowed ? 'opacity-40 pointer-events-none' : ''}`}
                                 title="Freeze / Unfreeze"
                                 aria-disabled={!isPostingAllowed}

@@ -216,7 +216,7 @@ export default function CustomerSearchPage() {
                         </RoleGate>
                         <RoleGate roles={['CHECKER', 'ADMIN']}>
                           <Link
-                            href={R.customers.kyc.path as string}
+                            href={buildUrl(R.customers.kyc.path as string, { id: String(c.id) })}
                             className="cbs-btn cbs-btn-secondary h-[26px] px-2 text-xs"
                             title="KYC Verify"
                           >
