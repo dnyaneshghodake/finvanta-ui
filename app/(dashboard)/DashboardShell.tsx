@@ -265,7 +265,7 @@ export default function DashboardShell({
         <div className="flex flex-1 min-h-0">
           <Sidebar />
           <main id="cbs-main" className="flex-1 overflow-y-auto" tabIndex={-1}>
-            <div className="p-3 sm:p-4 lg:p-6">
+            <div className="p-3 sm:p-4 lg:p-6 mx-auto max-w-[1320px]">
               <PageErrorBoundary moduleRef="MAIN">
                 {children}
               </PageErrorBoundary>

@@ -100,6 +100,30 @@
   --spacing-cbs-12:  48px;
   --spacing-cbs-16:  64px;
 
+  /* ── Icon Size Scale ──────────────────────────────────────────
+   * CBS convention: icons come in 3 sizes. The clickable area
+   * around an icon must always be ≥ 32px for touch/click targets
+   * (WCAG 2.5.8 Target Size). Stroke width decreases with size
+   * to maintain visual weight consistency.
+   *
+   *   sm (14px) — inline with text (table cells, breadcrumbs)
+   *   md (18px) — sidebar nav, form actions, button icons
+   *   lg (24px) — page headers, empty states, error boundaries
+   */
+  --icon-cbs-sm:    14px;
+  --icon-cbs-md:    18px;
+  --icon-cbs-lg:    24px;
+  --icon-cbs-touch: 32px;
+
+  /* ── Layout Constants ──────────────────────────────────────────
+   * Formalised shell dimensions per CBS grid system.
+   * These match the values in Sidebar.tsx and Header.tsx. */
+  --layout-header-height:     64px;
+  --layout-sidebar-expanded:  272px;
+  --layout-sidebar-collapsed: 72px;
+  --layout-content-max-width: 1320px;
+  --layout-content-padding:   24px;
+
   /* ── Elevation / Shadows ────────────────────────────────────
    * CBS convention: data surfaces are flat (no shadow). Elevation
    * is reserved for overlays (modals, dropdowns, toasts).
