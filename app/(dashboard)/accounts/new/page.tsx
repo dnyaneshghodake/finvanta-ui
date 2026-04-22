@@ -238,7 +238,14 @@ export default function AccountOpeningPage() {
     if (c.annualIncomeRange) setValue('annualIncome', c.annualIncomeRange);
     if (c.sourceOfFunds) setValue('sourceOfFunds', c.sourceOfFunds);
     if (c.pepFlag !== undefined && c.pepFlag !== null) setValue('pepFlag', c.pepFlag ? 'YES' : 'NO');
-    if (c.fatcaCountry) setValue('usTaxResident', c.fatcaCountry !== 'IN' ? 'YES' : 'NO');
+    // FATCA/CRS mapping — per IGA (Inter-Governmental Agreement):
+    // `fatcaCountry` is the customer's foreign tax obligation country.
+    // Only set "US Tax Resident = YES" when the country is explicitly US.
+    // Any other non-IN country (GB, DE, etc.) indicates a foreign tax
+    // obligation but NOT a US-specific FATCA obligation. The previous
+    // `!== 'IN'` check incorrectly flagged all non-Indian customers as
+    // US tax residents — a compliance misstatement.
+    if (c.fatcaCountry) setValue('usTaxResident', c.fatcaCountry === 'US' ? 'YES' : 'NO');
     // KYC mapping — per CIF_API_CONTRACT v2.0 §5: kycStatus is VERIFIED/PENDING/EXPIRED
     const kyc = c.kycStatus || '';
     if (kyc === 'VERIFIED') setValue('kycStatus', 'FULL_KYC');

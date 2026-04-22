@@ -72,10 +72,16 @@ export interface Account {
   branchCode?: string;
   ifscCode?: string;
   // ── Lifecycle ──
-  openedDate: Date;
-  closedDate: Date | null;
+  // NOTE: Spring returns ISO-8601 date strings (e.g. "2024-01-15").
+  // JSON.parse does NOT auto-hydrate Date objects — these arrive as
+  // strings at runtime. Using `string` here matches the actual wire
+  // format and prevents silent type mismatches when comparing or
+  // rendering dates. Consumers should parse with `new Date()` or
+  // `parseISO()` from date-fns when date arithmetic is needed.
+  openedDate: string;
+  closedDate: string | null;
   closureReason?: string;
-  lastTransactionDate?: Date;
+  lastTransactionDate?: string;
   // ── Freeze ──
   freezeType?: FreezeType;
   freezeReason?: string;
@@ -90,8 +96,8 @@ export interface Account {
   dailyTransferLimit?: number;
   // ── Legacy compat ──
   linkedAccounts: string[];
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: string;
+  updatedAt: string;
 }
 
 /**
@@ -111,8 +117,8 @@ export interface Transaction {
   debitCredit?: 'DR' | 'CR';
   status: 'PENDING' | 'COMPLETED' | 'FAILED' | 'REVERSED';
   description: string;
-  valueDate: Date;
-  postingDate: Date;
+  valueDate: string;
+  postingDate: string;
   referenceNumber: string;
   beneficiaryName?: string;
   // ── Amount context (per API §5 Response — Amount) ──
@@ -129,6 +135,6 @@ export interface Transaction {
   reversed?: boolean;
   reversedByRef?: string;
   idempotencyKey?: string;
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: string;
+  updatedAt: string;
 }
