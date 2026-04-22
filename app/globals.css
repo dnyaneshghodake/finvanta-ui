@@ -62,6 +62,10 @@
   --color-cbs-crimson-100: #f2c2c2;
   --color-cbs-crimson-600: #9a1d1d;
   --color-cbs-crimson-700: #741313;
+  /* -800 added for danger button :active press state (distinct from
+   * -700 hover). Without this, hover and active are visually identical,
+   * eliminating tactile press feedback on destructive actions. */
+  --color-cbs-crimson-800: #5c0f0f;
 
   --color-cbs-violet-50:  #ece9f7;
   --color-cbs-violet-100: #cfc4ea;
@@ -224,6 +228,7 @@
   --color-cbs-crimson-100: #4a1212;
   --color-cbs-crimson-600: #f85149;
   --color-cbs-crimson-700: #ff7b72;
+  --color-cbs-crimson-800: #ffa9a3;
 
   --color-cbs-violet-50:  #1a1333;
   --color-cbs-violet-100: #271d4d;
@@ -561,12 +566,17 @@ body {
   box-shadow: 0 0 0 2px var(--color-cbs-navy-100);
 }
 
+/* Error state: border + background tint for discoverability in
+ * dense CBS forms with 15+ fields. Border-only is insufficient
+ * when scanning a full account-opening or loan-application form. */
 .cbs-input[aria-invalid="true"] {
   border-color: var(--color-cbs-crimson-600);
+  background: var(--color-cbs-crimson-50);
 }
 
 .cbs-input[aria-invalid="true"]:focus {
   border-color: var(--color-cbs-crimson-600);
+  background: var(--color-cbs-paper);
   box-shadow: 0 0 0 2px var(--color-cbs-crimson-100);
 }
 
@@ -657,7 +667,7 @@ body {
 }
 
 .cbs-btn-danger:active:not([disabled]) {
-  background: #5c0f0f;
+  background: var(--color-cbs-crimson-800);
   transform: translateY(1px);
 }
 
@@ -696,6 +706,17 @@ body {
   box-shadow: 0 0 0 2px var(--color-cbs-navy-100);
 }
 
+.cbs-textarea[aria-invalid="true"] {
+  border-color: var(--color-cbs-crimson-600);
+  background: var(--color-cbs-crimson-50);
+}
+
+.cbs-textarea[aria-invalid="true"]:focus {
+  border-color: var(--color-cbs-crimson-600);
+  background: var(--color-cbs-paper);
+  box-shadow: 0 0 0 2px var(--color-cbs-crimson-100);
+}
+
 .cbs-textarea[disabled],
 .cbs-textarea[readonly] {
   background: var(--color-cbs-mist);
@@ -716,7 +737,10 @@ body {
   border-radius: var(--radius-cbs);
   outline: none;
   appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236f7b92' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  /* Chevron hex must match --color-cbs-steel-400 (#5e6a82).
+   * Embedded in data URI — cannot use CSS custom properties.
+   * Update this if steel-400 token changes. */
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%235e6a82' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
   background-position: right 10px center;
   background-size: 12px;
@@ -725,6 +749,17 @@ body {
 .cbs-select:focus {
   border-color: var(--color-cbs-navy-500);
   box-shadow: 0 0 0 2px var(--color-cbs-navy-100);
+}
+
+.cbs-select[aria-invalid="true"] {
+  border-color: var(--color-cbs-crimson-600);
+  background-color: var(--color-cbs-crimson-50);
+}
+
+.cbs-select[aria-invalid="true"]:focus {
+  border-color: var(--color-cbs-crimson-600);
+  background-color: var(--color-cbs-paper);
+  box-shadow: 0 0 0 2px var(--color-cbs-crimson-100);
 }
 
 .cbs-select[disabled] {
