@@ -98,7 +98,7 @@ type AccountForm = z.infer<typeof accountSchema>;
 const FIELD_SECTION_MAP: Record<string, string> = {
   customerId: 'product', accountType: 'product', currencyCode: 'product', initialDeposit: 'product',
   panNumber: 'kyc', aadhaarNumber: 'kyc', kycStatus: 'kyc', pepFlag: 'kyc',
-  fullName: 'personal', dateOfBirth: 'personal', gender: 'personal', fatherSpouseName: 'personal',
+  fullName: 'personal', dateOfBirth: 'personal', gender: 'personal', fatherSpouseName: 'personal', nationality: 'personal',
   mobileNumber: 'contact', email: 'contact',
   addressLine1: 'address', addressLine2: 'address', city: 'address', state: 'address', pinCode: 'address',
   occupation: 'occupation', annualIncome: 'occupation', sourceOfFunds: 'occupation',
@@ -115,6 +115,7 @@ function Section({ id, title, isOpen, onToggle, children }: {
   id: string; title: string; isOpen: boolean;
   onToggle: () => void; children: React.ReactNode;
 }) {
+  const panelId = `section-${id}`;
   return (
     <fieldset className="cbs-fieldset overflow-hidden">
       <button
@@ -122,7 +123,7 @@ function Section({ id, title, isOpen, onToggle, children }: {
         onClick={onToggle}
         className="cbs-fieldset-legend flex items-center gap-2 w-full text-left cursor-pointer hover:bg-cbs-steel-50 transition-colors"
         aria-expanded={isOpen}
-        aria-controls={`section-${id}`}
+        aria-controls={panelId}
       >
         <ChevronRight
           size={14} strokeWidth={2}
@@ -131,11 +132,12 @@ function Section({ id, title, isOpen, onToggle, children }: {
         />
         <span className="flex-1">{title}</span>
       </button>
-      {isOpen && (
-        <div id={`section-${id}`} className="cbs-fieldset-body">
-          {children}
-        </div>
-      )}
+      {/* Always render the panel div so aria-controls references a valid
+       * DOM element (WCAG 1.3.1). Use hidden attribute when collapsed
+       * to keep fields registered with react-hook-form. */}
+      <div id={panelId} className="cbs-fieldset-body" hidden={!isOpen}>
+        {children}
+      </div>
     </fieldset>
   );
 }
@@ -226,44 +228,84 @@ export default function AccountOpeningPage() {
     if (c.dob) setValue('dateOfBirth', c.dob);
     if (c.gender) setValue('gender', c.gender);
     if (c.nationality) setValue('nationality', c.nationality);
-    if (c.fatherOrSpouseName) setValue('fatherSpouseName', c.fatherOrSpouseName);
+    // Per CIF_API_CONTRACT v2.0 §3.4: prefer CERSAI separate fields, fall back to legacy combined field.
+    const fatherOrSpouse = c.fatherName || c.spouseName || c.fatherOrSpouseName;
+    if (fatherOrSpouse) setValue('fatherSpouseName', fatherOrSpouse);
     if (c.occupation) setValue('occupation', c.occupation);
     if (c.annualIncomeRange) setValue('annualIncome', c.annualIncomeRange);
     if (c.sourceOfFunds) setValue('sourceOfFunds', c.sourceOfFunds);
     if (c.pepFlag !== undefined && c.pepFlag !== null) setValue('pepFlag', c.pepFlag ? 'YES' : 'NO');
     if (c.fatcaCountry) setValue('usTaxResident', c.fatcaCountry !== 'IN' ? 'YES' : 'NO');
-    // KYC mapping
+    // KYC mapping — per CIF_API_CONTRACT v2.0 §5: kycStatus is VERIFIED/PENDING/EXPIRED
     const kyc = c.kycStatus || '';
-    if (kyc === 'VERIFIED' || kyc === 'APPROVED') setValue('kycStatus', 'FULL_KYC');
-    else if (kyc === 'PENDING') setValue('kycStatus', 'MIN_KYC');
-    // Address
-    const addr = c.permanentAddress || c.address;
+    if (kyc === 'VERIFIED') setValue('kycStatus', 'FULL_KYC');
+    else if (kyc === 'PENDING' || kyc === 'EXPIRED') setValue('kycStatus', 'MIN_KYC');
+    // Address — per CIF_API_CONTRACT v2.0 §3.9: use permanentAddress (nested object)
+    const addr = c.permanentAddress;
     if (addr) {
-      setValue('addressLine1', ('line1' in addr ? addr.line1 : 'street' in addr ? addr.street : '') || '');
-      if ('line2' in addr && addr.line2) setValue('addressLine2', addr.line2);
+      if (addr.line1) setValue('addressLine1', addr.line1);
+      if (addr.line2) setValue('addressLine2', addr.line2);
       if (addr.city) setValue('city', addr.city);
       if (addr.state) setValue('state', addr.state);
-      if ('pincode' in addr && addr.pincode) setValue('pinCode', addr.pincode);
+      if (addr.pincode) setValue('pinCode', addr.pincode);
     }
-    // Expand populated sections
-    setOpenSections(new Set(['product', 'kyc', 'personal', 'contact', 'address', 'occupation']));
+    // Expand populated sections (merge, don't replace — preserves user-opened sections)
+    setOpenSections((prev) => new Set([...prev, 'product', 'kyc', 'personal', 'contact', 'address', 'occupation']));
   }, [setValue]);
 
   const onSubmit = async (data: AccountForm) => {
     setError(null);
+    setCorrelationId(null);
     try {
-      /* Per API_REFERENCE.md §4: POST /accounts/open creates account
-       * in PENDING_ACTIVATION status. Checker activates via
-       * POST /accounts/{accountNumber}/activate. The workflow engine
-       * (§15) routes the approval to the checker queue automatically. */
+      /* Per ACCOUNT_OPENING_API_CONTRACT.md:
+       * POST /accounts/open creates account in PENDING_ACTIVATION status.
+       * Checker activates via POST /accounts/{accountNumber}/activate.
+       * The workflow engine routes the approval to the checker queue.
+       *
+       * All 29 API fields are sent. The backend uses
+       * @JsonIgnoreProperties(ignoreUnknown = true) so fields it doesn't
+       * yet support are silently ignored — no breaking change. */
       const result = await accountService.createAccount({
+        // §1 Product Selection
         customerId: Number(data.customerId),
         branchId: user?.branchId || 1,
         accountType: data.accountType,
         productCode: data.accountType,
+        currencyCode: data.currencyCode || 'INR',
+        initialDeposit: data.initialDeposit ? Number(data.initialDeposit.replace(/,/g, '')) : undefined,
+        // §3 KYC & Regulatory
+        panNumber: data.panNumber || undefined,
+        aadhaarNumber: data.aadhaarNumber || undefined,
+        kycStatus: data.kycStatus || undefined,
+        pepFlag: data.pepFlag === 'YES' ? true : data.pepFlag === 'NO' ? false : undefined,
+        // §4 Personal Details
+        fullName: data.fullName || undefined,
+        dateOfBirth: data.dateOfBirth || undefined,
+        gender: data.gender || undefined,
+        fatherSpouseName: data.fatherSpouseName || undefined,
+        nationality: data.nationality || undefined,
+        // §5 Contact Details
+        mobileNumber: data.mobileNumber || undefined,
+        email: data.email || undefined,
+        // §6 Address
+        addressLine1: data.addressLine1 || undefined,
+        addressLine2: data.addressLine2 || undefined,
+        city: data.city || undefined,
+        state: data.state || undefined,
+        pinCode: data.pinCode || undefined,
+        // §7 Occupation & Financial Profile
+        occupation: data.occupation || undefined,
+        annualIncome: data.annualIncome || undefined,
+        sourceOfFunds: data.sourceOfFunds || undefined,
+        // §8 Nominee
         nomineeName: data.nomineeName || undefined,
         nomineeRelationship: data.nomineeRelationship || undefined,
-        initialDeposit: data.initialDeposit ? Number(data.initialDeposit.replace(/,/g, '')) : undefined,
+        // §9 FATCA / CRS
+        usTaxResident: data.usTaxResident === 'YES' ? true : data.usTaxResident === 'NO' ? false : undefined,
+        // §10 Account Configuration
+        chequeBookRequired: data.chequeBookRequired ?? false,
+        debitCardRequired: data.debitCardRequired ?? false,
+        smsAlerts: data.smsAlerts ?? true,
       });
       if (result.success && result.data) {
         router.push(`/accounts/${result.data.accountNumber}`);
@@ -352,6 +394,7 @@ export default function AccountOpeningPage() {
                   <FormField label="Father / Spouse" htmlFor="fatherSpouseName">
                     <input id="fatherSpouseName" className="cbs-input" {...register('fatherSpouseName')} />
                   </FormField>
+                  <CbsSelect label="Nationality" options={[{ value: '', label: '— Select —' }, { value: 'INDIAN', label: 'Indian' }, { value: 'NRI', label: 'NRI' }]} {...register('nationality')} />
                 </div>
               </Section>
               {/* §5 Contact */}
@@ -380,16 +423,36 @@ export default function AccountOpeningPage() {
               {/* §7 Occupation */}
               <Section id="occupation" title="Occupation & Financial Profile" isOpen={openSections.has('occupation')} onToggle={() => toggle('occupation')}>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <CbsSelect label="Occupation" options={[{ value: '', label: '— Select —' }, { value: 'SALARIED', label: 'Salaried' }, { value: 'BUSINESS', label: 'Business' }, { value: 'RETIRED', label: 'Retired' }]} {...register('occupation')} />
-                  <CbsSelect label="Annual Income" options={[{ value: '', label: '— Select —' }, { value: 'BELOW_1L', label: 'Below ₹1L' }, { value: '1L_5L', label: '₹1–5L' }, { value: '5L_10L', label: '₹5–10L' }]} {...register('annualIncome')} />
-                  <CbsSelect label="Source of Funds" options={[{ value: '', label: '— Select —' }, { value: 'SALARY', label: 'Salary' }, { value: 'BUSINESS', label: 'Business' }]} {...register('sourceOfFunds')} />
+                  <CbsSelect label="Occupation" options={[
+                    { value: '', label: '— Select —' }, { value: 'SALARIED', label: 'Salaried' },
+                    { value: 'SELF_EMPLOYED', label: 'Self Employed' }, { value: 'BUSINESS', label: 'Business' },
+                    { value: 'PROFESSIONAL', label: 'Professional' }, { value: 'RETIRED', label: 'Retired' },
+                    { value: 'STUDENT', label: 'Student' }, { value: 'HOMEMAKER', label: 'Homemaker' },
+                  ]} {...register('occupation')} />
+                  <CbsSelect label="Annual Income" options={[
+                    { value: '', label: '— Select —' }, { value: 'BELOW_1L', label: 'Below ₹1L' },
+                    { value: '1L_5L', label: '₹1–5L' }, { value: '5L_10L', label: '₹5–10L' },
+                    { value: '10L_25L', label: '₹10–25L' }, { value: '25L_50L', label: '₹25–50L' },
+                    { value: 'ABOVE_50L', label: 'Above ₹50L' },
+                  ]} {...register('annualIncome')} />
+                  <CbsSelect label="Source of Funds" options={[
+                    { value: '', label: '— Select —' }, { value: 'SALARY', label: 'Salary' },
+                    { value: 'BUSINESS', label: 'Business' }, { value: 'INVESTMENT', label: 'Investment' },
+                    { value: 'AGRICULTURE', label: 'Agriculture' }, { value: 'PENSION', label: 'Pension' },
+                    { value: 'OTHER', label: 'Other' },
+                  ]} {...register('sourceOfFunds')} />
                 </div>
               </Section>
               {/* §8 Nominee */}
               <Section id="nominee" title="Nominee Details" isOpen={openSections.has('nominee')} onToggle={() => toggle('nominee')}>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <FormField label="Nominee Name" htmlFor="nomineeName"><input id="nomineeName" className="cbs-input" {...register('nomineeName')} /></FormField>
-                  <CbsSelect label="Relationship" options={[{ value: '', label: '— Select —' }, { value: 'SPOUSE', label: 'Spouse' }, { value: 'FATHER', label: 'Father' }, { value: 'MOTHER', label: 'Mother' }]} {...register('nomineeRelationship')} />
+                  <CbsSelect label="Relationship" options={[
+                    { value: '', label: '— Select —' }, { value: 'SPOUSE', label: 'Spouse' },
+                    { value: 'FATHER', label: 'Father' }, { value: 'MOTHER', label: 'Mother' },
+                    { value: 'SON', label: 'Son' }, { value: 'DAUGHTER', label: 'Daughter' },
+                    { value: 'SIBLING', label: 'Sibling' }, { value: 'OTHER', label: 'Other' },
+                  ]} {...register('nomineeRelationship')} />
                 </div>
               </Section>
               {/* §9 FATCA */}
@@ -424,9 +487,10 @@ export default function AccountOpeningPage() {
                 <div className="cbs-surface-body space-y-2 text-xs">
                   {!cifCustomer && <p className="text-cbs-steel-600">Fetch CIF to populate risk assessment.</p>}
                   <div className="border-t border-cbs-steel-100 pt-2 space-y-1.5">
-                    <div className="flex justify-between"><span className="text-cbs-steel-600">KYC Status</span><span className={clsx('font-medium', cifCustomer?.kycStatus === 'VERIFIED' ? 'text-cbs-olive-700' : cifCustomer ? 'text-cbs-gold-700' : 'text-cbs-ink')}>{cifCustomer?.kycStatus || '—'}</span></div>
+                    <div className="flex justify-between"><span className="text-cbs-steel-600">KYC Status</span><span className={clsx('font-medium', cifCustomer?.kycStatus === 'VERIFIED' ? 'text-cbs-olive-700' : cifCustomer?.kycStatus === 'EXPIRED' ? 'text-cbs-crimson-700' : cifCustomer ? 'text-cbs-gold-700' : 'text-cbs-ink')}>{cifCustomer?.kycStatus || '—'}</span></div>
                     <div className="flex justify-between"><span className="text-cbs-steel-600">PEP Flag</span><span className={clsx('font-medium', cifCustomer?.pepFlag ? 'text-cbs-crimson-700' : 'text-cbs-ink')}>{cifCustomer ? (cifCustomer.pepFlag ? 'Yes ⚠' : 'No') : '—'}</span></div>
                     <div className="flex justify-between"><span className="text-cbs-steel-600">Risk Category</span><span className={clsx('font-medium', cifCustomer?.riskCategory === 'HIGH' ? 'text-cbs-crimson-700' : cifCustomer?.riskCategory === 'MEDIUM' ? 'text-cbs-gold-700' : 'text-cbs-ink')}>{cifCustomer?.riskCategory || '—'}</span></div>
+                    {cifCustomer?.rekycDue && <div className="flex justify-between"><span className="text-cbs-steel-600">Re-KYC</span><span className="text-cbs-crimson-700 font-medium">Due ⚠</span></div>}
                     <div className="flex justify-between"><span className="text-cbs-steel-600">Sanction Check</span><span className="text-cbs-ink font-medium">{cifCustomer ? 'Pending' : '—'}</span></div>
                   </div>
                 </div>

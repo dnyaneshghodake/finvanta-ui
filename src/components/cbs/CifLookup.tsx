@@ -18,22 +18,29 @@
  */
 'use client';
 
-import { useState, useCallback, useRef, useId } from 'react';
+import { useState, useCallback, useRef, useId, useEffect } from 'react';
 import { Search } from 'lucide-react';
 import { apiClient } from '@/services/api/apiClient';
 import { Badge } from '@/components/atoms';
 import { maskPan, maskAadhaar } from './primitives';
 
 /* ── Customer Shape ─────────────────────────────────────────────
- * Subset of the full CustomerDetail that CIF lookup returns.
- * Matches the Spring CustomerResponse per API_REFERENCE.md §3.
- * Consuming screens can cast to this or use individual fields. */
+ * Maps to Spring CifLookupResponse (30 fields) per CIF_API_CONTRACT.md §5.
+ * Field names match the backend DTO so no mapping is needed.
+ *
+ * Gender: backend sends M/F/T but CifLookupResponse maps to MALE/FEMALE/OTHER.
+ * kycStatus: computed as VERIFIED/PENDING/EXPIRED.
+ * status: computed as ACTIVE/INACTIVE.
+ *
+ * Consuming screens receive the full object via onCustomerFound
+ * and populate their own form fields. */
 export interface CifCustomer {
   id: number;
   customerNumber: string;
   firstName: string;
   lastName: string;
   fullName?: string;
+  middleName?: string;
   customerType?: string;
   status: string;
   kycStatus: string;
@@ -42,6 +49,9 @@ export interface CifCustomer {
   pan?: string;
   aadhaar?: string;
   ckycNumber?: string;
+  kycVerified?: boolean;
+  kycExpiryDate?: string;
+  rekycDue?: boolean;
   /* Contact */
   mobile?: string;
   email?: string;
@@ -50,7 +60,12 @@ export interface CifCustomer {
   gender?: string;
   nationality?: string;
   residentStatus?: string;
+  /** @deprecated Use fatherName/spouseName per CERSAI v2.0. */
   fatherOrSpouseName?: string;
+  /** CERSAI v2.0 §3.4: separate father/mother/spouse fields. */
+  fatherName?: string;
+  motherName?: string;
+  spouseName?: string;
   maritalStatus?: string;
   /* Occupation */
   occupation?: string;
@@ -60,7 +75,7 @@ export interface CifCustomer {
   riskCategory?: string;
   pepFlag?: boolean;
   fatcaCountry?: string;
-  /* Address */
+  /* Address — nested objects per §5 */
   permanentAddress?: {
     line1?: string;
     line2?: string;
@@ -79,7 +94,10 @@ export interface CifCustomer {
     pincode?: string;
     country?: string;
   };
-  /** Legacy single address fallback. */
+  /**
+   * @deprecated Legacy single address — use permanentAddress per §3.9.
+   * Retained only for backward compat with pre-v2.0 backends.
+   */
   address?: {
     street?: string;
     city?: string;
@@ -122,6 +140,8 @@ export function CifLookup({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  /** Tracks whether the initial auto-fetch for defaultValue has fired. */
+  const autoFetchedRef = useRef(false);
 
   const fetchCustomer = useCallback(async () => {
     const id = cifId.trim();
@@ -156,6 +176,18 @@ export function CifLookup({
       setLoading(false);
     }
   }, [cifId, requireActive, onCustomerFound, onCustomerCleared]);
+
+  /* ── Auto-fetch when defaultValue is pre-filled ──────────────
+   * Restores the UX for URL-driven navigation (e.g. clicking
+   * "Open Account" from a customer detail page with ?customerId=).
+   * Fires once on mount; the ref guard prevents re-fetching on
+   * subsequent renders or StrictMode double-invocations. */
+  useEffect(() => {
+    if (defaultValue && !autoFetchedRef.current) {
+      autoFetchedRef.current = true;
+      fetchCustomer();
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
@@ -214,7 +246,7 @@ export function CifLookup({
               {customer.firstName} {customer.lastName}
             </span>
             <div className="flex items-center gap-2">
-              <Badge variant={customer.kycStatus === 'VERIFIED' ? 'success' : 'warning'}>
+              <Badge variant={customer.kycStatus === 'VERIFIED' ? 'success' : customer.kycStatus === 'EXPIRED' ? 'danger' : 'warning'}>
                 KYC: {customer.kycStatus}
               </Badge>
               <Badge variant={customer.riskCategory === 'HIGH' ? 'danger' : 'default'}>
@@ -253,6 +285,9 @@ export function CifLookup({
             )}
             {customer.pepFlag && (
               <span className="text-cbs-crimson-700 font-semibold">⚠ PEP</span>
+            )}
+            {customer.rekycDue && (
+              <span className="text-cbs-gold-700 font-semibold">⚠ Re-KYC Due</span>
             )}
           </div>
         </div>
