@@ -164,6 +164,20 @@ export default function AccountOpeningPage() {
     return next;
   });
 
+  /* ── CIF Clear Handler ──────────────────────────────────────
+   * Wrapped in useCallback to avoid recreating CifLookup's
+   * fetchCustomer on every parent render (it's in the dep array). */
+  const handleCustomerCleared = useCallback(() => {
+    setCifCustomer(null);
+    const cifFields = [
+      'customerId', 'fullName', 'panNumber', 'aadhaarNumber', 'mobileNumber',
+      'email', 'dateOfBirth', 'gender', 'nationality', 'fatherSpouseName',
+      'occupation', 'annualIncome', 'sourceOfFunds', 'pepFlag', 'usTaxResident',
+      'kycStatus', 'addressLine1', 'addressLine2', 'city', 'state', 'pinCode',
+    ] as const;
+    cifFields.forEach((f) => setValue(f, ''));
+  }, [setValue]);
+
   const {
     register,
     handleSubmit,
@@ -249,7 +263,7 @@ export default function AccountOpeningPage() {
         productCode: data.accountType,
         nomineeName: data.nomineeName || undefined,
         nomineeRelationship: data.nomineeRelationship || undefined,
-        initialDeposit: data.initialDeposit ? Number(data.initialDeposit) : undefined,
+        initialDeposit: data.initialDeposit ? Number(data.initialDeposit.replace(/,/g, '')) : undefined,
       });
       if (result.success && result.data) {
         router.push(`/accounts/${result.data.accountNumber}`);
@@ -293,17 +307,7 @@ export default function AccountOpeningPage() {
       <CifLookup
         defaultValue={prefilledCustomerId}
         onCustomerFound={handleCustomerFound}
-        onCustomerCleared={() => {
-          setCifCustomer(null);
-          // Reset all CIF-populated fields to prevent stale data from a previous customer
-          const cifFields = [
-            'customerId', 'fullName', 'panNumber', 'aadhaarNumber', 'mobileNumber',
-            'email', 'dateOfBirth', 'gender', 'nationality', 'fatherSpouseName',
-            'occupation', 'annualIncome', 'sourceOfFunds', 'pepFlag', 'usTaxResident',
-            'kycStatus', 'addressLine1', 'addressLine2', 'city', 'state', 'pinCode',
-          ] as const;
-          cifFields.forEach((f) => setValue(f, ''));
-        }}
+        onCustomerCleared={handleCustomerCleared}
         className="shrink-0 mb-4"
       />
 

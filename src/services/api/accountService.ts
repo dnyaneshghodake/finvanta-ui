@@ -452,7 +452,11 @@ class AccountService {
       '/accounts/open',
       data,
     );
-    return adapt(response.data, mapAccount);
+    const result = adapt(response.data, mapAccount);
+    // Propagate correlation ID from response headers for error diagnostics
+    const corrId = response.headers?.['x-correlation-id'] as string | undefined;
+    if (corrId) result.correlationId = corrId;
+    return result;
   }
 
   /**

@@ -96,10 +96,20 @@ export const AmountInr = forwardRef<HTMLInputElement, BaseProps>(
     const handleBlur = useCallback(
       (e: FocusEvent<HTMLInputElement>) => {
         const raw = e.target.value.replace(/,/g, '');
+        // Sync the comma-free value to react-hook-form FIRST so the
+        // form state always holds a Zod-valid number (no commas).
+        // Then format the display value with Indian grouping.
         if (raw && /^\d+(\.\d{0,2})?$/.test(raw)) {
+          // Normalise to 2-decimal raw value for form state
+          const parts = raw.split('.');
+          const normalised = parts[0] + '.' + (parts[1] ?? '').slice(0, 2).padEnd(2, '0');
+          e.target.value = normalised;
+          onBlur?.(e);
+          // Now format for display (commas) — this does NOT re-trigger RHF
           e.target.value = formatAmountInr(raw);
+        } else {
+          onBlur?.(e);
         }
-        onBlur?.(e);
       },
       [onBlur],
     );
