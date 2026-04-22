@@ -8,6 +8,7 @@ export {
   ValueDate,
   maskPan,
   maskAadhaar,
+  maskMobile,
   maskAccountNo,
 } from './primitives';
 
@@ -28,6 +29,7 @@ export { CbsTextarea } from './Textarea';
 export { CbsModal, type CbsModalProps } from './Modal';
 export { CbsSkeleton, CbsTableSkeleton, CbsFormSkeleton } from './Skeleton';
 export { CbsFieldset, type CbsFieldsetProps } from './Fieldset';
+export { CifLookup, type CifCustomer, type CifLookupProps } from './CifLookup';
 export { CbsToastContainer } from './ToastContainer';
 export {
   CbsDataGrid,

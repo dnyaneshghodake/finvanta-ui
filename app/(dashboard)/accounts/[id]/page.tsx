@@ -10,7 +10,9 @@ import { Button, Spinner } from '@/components/atoms';
 import { StatusRibbon, KeyValue } from '@/components/cbs/feedback';
 import { Breadcrumb, CbsTabs, CbsTabPanel, CbsFormSkeleton } from '@/components/cbs';
 import { AuditTrailViewer } from '@/components/cbs/AuditTrailViewer';
-import { formatCurrency, formatAccountNumber, formatDate, formatAccountType, formatCbsDate } from '@/utils/formatters';
+import { formatCurrency, formatAccountNumber, formatAccountType, formatCbsDate } from '@/utils/formatters';
+import { R, resolvePath, buildUrl } from '@/config/routes';
+import type { RouteEntry } from '@/config/routes';
 import type { Account } from '@/types/entities';
 
 /**
@@ -96,8 +98,8 @@ export default function AccountDetailsPage() {
     return (
       <div className="space-y-4">
         <Breadcrumb items={[
-          { label: 'Dashboard', href: '/dashboard' },
-          { label: 'Accounts', href: '/accounts' },
+          { label: R.dashboard.home.label, href: R.dashboard.home.path as string },
+          { label: R.accounts.list.label, href: R.accounts.list.path as string },
           { label: '...' },
         ]} />
         <CbsFormSkeleton fields={6} />
@@ -109,14 +111,14 @@ export default function AccountDetailsPage() {
     return (
       <div className="space-y-4">
         <Breadcrumb items={[
-          { label: 'Dashboard', href: '/dashboard' },
-          { label: 'Accounts', href: '/accounts' },
+          { label: R.dashboard.home.label, href: R.dashboard.home.path as string },
+          { label: R.accounts.list.label, href: R.accounts.list.path as string },
         ]} />
         <div className="cbs-surface text-center py-10">
           <div className="space-y-3">
             <h3 className="text-sm font-semibold text-cbs-ink">Account Not Found</h3>
             <p className="text-xs text-cbs-steel-600">The account you&apos;re looking for doesn&apos;t exist.</p>
-            <Link href="/accounts">
+            <Link href={R.accounts.list.path as string}>
               <Button size="sm">Back to Accounts</Button>
             </Link>
           </div>
@@ -136,8 +138,8 @@ export default function AccountDetailsPage() {
     <div className="space-y-4">
       {/* Breadcrumb — mandatory CBS navigation trail */}
       <Breadcrumb items={[
-        { label: 'Dashboard', href: '/dashboard' },
-        { label: 'Accounts', href: '/accounts' },
+        { label: R.dashboard.home.label, href: R.dashboard.home.path as string },
+        { label: R.accounts.list.label, href: R.accounts.list.path as string },
         { label: formatAccountNumber(account.accountNumber) },
       ]} />
 
@@ -150,7 +152,7 @@ export default function AccountDetailsPage() {
         <div className="flex items-center gap-2">
           <StatusRibbon status={account.status} />
           {account.status === 'ACTIVE' && (
-            <Link href={`/transfers?fromAccountId=${account.id}`}>
+            <Link href={buildUrl(R.transfers.internal.path as string, { fromAccountId: account.id })}>
               <Button size="sm" variant="primary">Transfer</Button>
             </Link>
           )}
@@ -184,13 +186,13 @@ export default function AccountDetailsPage() {
         {/* Quick Actions */}
         {account.status === 'ACTIVE' && (
           <div className="flex flex-wrap gap-2">
-            <Link href={`/transfers?fromAccountId=${account.id}`}>
+            <Link href={buildUrl(R.transfers.internal.path as string, { fromAccountId: account.id })}>
               <Button size="sm" variant="primary">Transfer</Button>
             </Link>
-            <Link href={`/beneficiaries?accountId=${account.id}`}>
+            <Link href={buildUrl(R.beneficiaries.list.path as string, { accountId: account.id })}>
               <Button size="sm" variant="secondary">Add Beneficiary</Button>
             </Link>
-            <Link href={`/accounts/${account.id}/statement`}>
+            <Link href={resolvePath(R.accounts.statement as RouteEntry, account.id)}>
               <Button size="sm" variant="secondary">Statement</Button>
             </Link>
           </div>

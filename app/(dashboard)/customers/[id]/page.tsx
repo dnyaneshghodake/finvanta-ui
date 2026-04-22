@@ -22,12 +22,13 @@ import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { apiClient } from '@/services/api/apiClient';
 import {
-  StatusRibbon, KeyValue, ApprovalTrail, CorrelationRefBadge,
+  StatusRibbon, KeyValue, ApprovalTrail,
   maskPan, maskAadhaar, maskAccountNo, Breadcrumb,
   type ApprovalTrailEntry,
 } from '@/components/cbs';
 import { Button, Spinner } from '@/components/atoms';
 import { formatCbsDate } from '@/utils/formatters';
+import { R, buildUrl, resolvePath } from '@/config/routes';
 
 /** Full CIF record — matches the creation schema for 360° view. */
 interface CustomerDetail {
@@ -98,24 +99,6 @@ interface LinkedAccount {
   currencyCode?: string;
 }
 
-/** Fixed deposit linked to this CIF. */
-interface LinkedFD {
-  fdNumber: string;
-  principal: number;
-  rate: number;
-  maturityDate: string;
-  status: string;
-}
-
-/** Loan linked to this CIF. */
-interface LinkedLoan {
-  loanAccountNumber: string;
-  loanType: string;
-  sanctionedAmount: number;
-  outstandingAmount: number;
-  emiAmount?: number;
-  status: string;
-}
 
 export default function CustomerDetailPage() {
   const params = useParams();
@@ -171,7 +154,7 @@ export default function CustomerDetailPage() {
         <div className="space-y-3">
           <h3 className="text-sm font-semibold text-cbs-ink">Customer Not Found</h3>
           <p className="text-xs text-cbs-steel-600">{error || 'The customer record does not exist.'}</p>
-          <Link href="/customers">
+          <Link href={R.customers.search.path as string}>
             <Button size="sm">Back to Search</Button>
           </Link>
         </div>
@@ -187,7 +170,7 @@ export default function CustomerDetailPage() {
 
   return (
     <div className="space-y-4">
-      <Breadcrumb items={[{ label: 'Dashboard', href: '/dashboard' }, { label: 'Customers', href: '/customers' }, { label: `CIF: ${customer.customerNumber}` }]} />
+      <Breadcrumb items={[{ label: R.dashboard.home.label, href: R.dashboard.home.path as string }, { label: R.customers.search.label, href: R.customers.search.path as string }, { label: `CIF: ${customer.customerNumber}` }]} />
 
       {/* CIF Header */}
       <div className="flex items-center justify-between">
@@ -205,11 +188,11 @@ export default function CustomerDetailPage() {
         </div>
         <div className="flex gap-2">
           {customer.kycStatus !== 'VERIFIED' && (
-            <Link href={`/customers/kyc?id=${customer.id}`} className="cbs-btn cbs-btn-primary">
+            <Link href={buildUrl(R.customers.kyc.path as string, { id: String(customer.id) }, `/customers/${customerId}`)} className="cbs-btn cbs-btn-primary">
               Verify KYC
             </Link>
           )}
-          <Link href="/customers" className="cbs-btn cbs-btn-secondary">
+          <Link href={R.customers.search.path as string} className="cbs-btn cbs-btn-secondary">
             Back to Search
           </Link>
         </div>
@@ -331,7 +314,7 @@ export default function CustomerDetailPage() {
         {accounts.length === 0 ? (
           <div className="cbs-surface-body text-center py-4">
             <p className="text-sm text-cbs-steel-500">No accounts linked to this CIF.</p>
-            <Link href={`/accounts/new?customerId=${customer.id}`} className="cbs-btn cbs-btn-secondary mt-2">
+            <Link href={buildUrl(R.accounts.create.path as string, { customerId: String(customer.id) }, `/customers/${customerId}`)} className="cbs-btn cbs-btn-secondary mt-2">
               Open Account
             </Link>
           </div>
@@ -351,7 +334,7 @@ export default function CustomerDetailPage() {
                   <tr key={a.accountNumber}>
                     <td>
                       <Link
-                        href={`/accounts/${a.accountNumber}`}
+                        href={resolvePath(R.accounts.view as import('@/config/routes').RouteEntry, a.accountNumber)}
                         className="cbs-tabular font-semibold text-cbs-navy-700 hover:underline"
                       >
                         {maskAccountNo(a.accountNumber)}
