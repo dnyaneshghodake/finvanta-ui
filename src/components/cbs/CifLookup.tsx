@@ -18,7 +18,7 @@
  */
 'use client';
 
-import { useState, useCallback, useRef, useId } from 'react';
+import { useState, useCallback, useRef, useId, useEffect } from 'react';
 import { Search } from 'lucide-react';
 import { apiClient } from '@/services/api/apiClient';
 import { Badge } from '@/components/atoms';
@@ -122,6 +122,8 @@ export function CifLookup({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  /** Tracks whether the initial auto-fetch for defaultValue has fired. */
+  const autoFetchedRef = useRef(false);
 
   const fetchCustomer = useCallback(async () => {
     const id = cifId.trim();
@@ -156,6 +158,18 @@ export function CifLookup({
       setLoading(false);
     }
   }, [cifId, requireActive, onCustomerFound, onCustomerCleared]);
+
+  /* ── Auto-fetch when defaultValue is pre-filled ──────────────
+   * Restores the UX for URL-driven navigation (e.g. clicking
+   * "Open Account" from a customer detail page with ?customerId=).
+   * Fires once on mount; the ref guard prevents re-fetching on
+   * subsequent renders or StrictMode double-invocations. */
+  useEffect(() => {
+    if (defaultValue && !autoFetchedRef.current) {
+      autoFetchedRef.current = true;
+      fetchCustomer();
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {

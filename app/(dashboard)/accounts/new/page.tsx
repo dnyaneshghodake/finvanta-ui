@@ -115,6 +115,7 @@ function Section({ id, title, isOpen, onToggle, children }: {
   id: string; title: string; isOpen: boolean;
   onToggle: () => void; children: React.ReactNode;
 }) {
+  const panelId = `section-${id}`;
   return (
     <fieldset className="cbs-fieldset overflow-hidden">
       <button
@@ -122,7 +123,7 @@ function Section({ id, title, isOpen, onToggle, children }: {
         onClick={onToggle}
         className="cbs-fieldset-legend flex items-center gap-2 w-full text-left cursor-pointer hover:bg-cbs-steel-50 transition-colors"
         aria-expanded={isOpen}
-        aria-controls={`section-${id}`}
+        aria-controls={panelId}
       >
         <ChevronRight
           size={14} strokeWidth={2}
@@ -131,11 +132,12 @@ function Section({ id, title, isOpen, onToggle, children }: {
         />
         <span className="flex-1">{title}</span>
       </button>
-      {isOpen && (
-        <div id={`section-${id}`} className="cbs-fieldset-body">
-          {children}
-        </div>
-      )}
+      {/* Always render the panel div so aria-controls references a valid
+       * DOM element (WCAG 1.3.1). Use hidden attribute when collapsed
+       * to keep fields registered with react-hook-form. */}
+      <div id={panelId} className="cbs-fieldset-body" hidden={!isOpen}>
+        {children}
+      </div>
     </fieldset>
   );
 }
@@ -352,6 +354,7 @@ export default function AccountOpeningPage() {
                   <FormField label="Father / Spouse" htmlFor="fatherSpouseName">
                     <input id="fatherSpouseName" className="cbs-input" {...register('fatherSpouseName')} />
                   </FormField>
+                  <CbsSelect label="Nationality" options={[{ value: '', label: '— Select —' }, { value: 'INDIAN', label: 'Indian' }, { value: 'NRI', label: 'NRI' }]} {...register('nationality')} />
                 </div>
               </Section>
               {/* §5 Contact */}
@@ -380,9 +383,24 @@ export default function AccountOpeningPage() {
               {/* §7 Occupation */}
               <Section id="occupation" title="Occupation & Financial Profile" isOpen={openSections.has('occupation')} onToggle={() => toggle('occupation')}>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <CbsSelect label="Occupation" options={[{ value: '', label: '— Select —' }, { value: 'SALARIED', label: 'Salaried' }, { value: 'BUSINESS', label: 'Business' }, { value: 'RETIRED', label: 'Retired' }]} {...register('occupation')} />
-                  <CbsSelect label="Annual Income" options={[{ value: '', label: '— Select —' }, { value: 'BELOW_1L', label: 'Below ₹1L' }, { value: '1L_5L', label: '₹1–5L' }, { value: '5L_10L', label: '₹5–10L' }]} {...register('annualIncome')} />
-                  <CbsSelect label="Source of Funds" options={[{ value: '', label: '— Select —' }, { value: 'SALARY', label: 'Salary' }, { value: 'BUSINESS', label: 'Business' }]} {...register('sourceOfFunds')} />
+                  <CbsSelect label="Occupation" options={[
+                    { value: '', label: '— Select —' }, { value: 'SALARIED', label: 'Salaried' },
+                    { value: 'SELF_EMPLOYED', label: 'Self Employed' }, { value: 'BUSINESS', label: 'Business' },
+                    { value: 'PROFESSIONAL', label: 'Professional' }, { value: 'RETIRED', label: 'Retired' },
+                    { value: 'STUDENT', label: 'Student' }, { value: 'HOMEMAKER', label: 'Homemaker' },
+                  ]} {...register('occupation')} />
+                  <CbsSelect label="Annual Income" options={[
+                    { value: '', label: '— Select —' }, { value: 'BELOW_1L', label: 'Below ₹1L' },
+                    { value: '1L_5L', label: '₹1–5L' }, { value: '5L_10L', label: '₹5–10L' },
+                    { value: '10L_25L', label: '₹10–25L' }, { value: '25L_50L', label: '₹25–50L' },
+                    { value: 'ABOVE_50L', label: 'Above ₹50L' },
+                  ]} {...register('annualIncome')} />
+                  <CbsSelect label="Source of Funds" options={[
+                    { value: '', label: '— Select —' }, { value: 'SALARY', label: 'Salary' },
+                    { value: 'BUSINESS', label: 'Business' }, { value: 'INVESTMENT', label: 'Investment' },
+                    { value: 'AGRICULTURE', label: 'Agriculture' }, { value: 'PENSION', label: 'Pension' },
+                    { value: 'OTHER', label: 'Other' },
+                  ]} {...register('sourceOfFunds')} />
                 </div>
               </Section>
               {/* §8 Nominee */}
