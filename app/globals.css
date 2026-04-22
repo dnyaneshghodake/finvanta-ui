@@ -124,6 +124,18 @@
   --layout-content-max-width: 1320px;
   --layout-content-padding:   24px;
 
+  /* ── Interaction State Tokens ─────────────────────────────────
+   * Extracted from component classes so hover, focus, active, and
+   * disabled states are consistent across all CBS components.
+   * Components reference these via var() — no inline state values. */
+  --state-hover-bg:          rgba(20, 24, 35, 0.04);
+  --state-active-bg:         rgba(20, 24, 35, 0.08);
+  --state-focus-ring:        0 0 0 2px var(--color-cbs-navy-100);
+  --state-focus-border:      var(--color-cbs-navy-500);
+  --state-error-focus-ring:  0 0 0 2px var(--color-cbs-crimson-100);
+  --state-error-focus-border: var(--color-cbs-crimson-600);
+  --state-disabled-opacity:  0.55;
+
   /* ── Component Dimension Tokens ──────────────────────────────
    * Extracted from the CSS class definitions below so they are
    * discoverable, documentable, and overridable per-tenant.
@@ -612,8 +624,8 @@ body {
 }
 
 .cbs-input:focus {
-  border-color: var(--color-cbs-navy-500);
-  box-shadow: 0 0 0 2px var(--color-cbs-navy-100);
+  border-color: var(--state-focus-border);
+  box-shadow: var(--state-focus-ring);
 }
 
 /* Error state: border + background tint for discoverability in
@@ -625,9 +637,9 @@ body {
 }
 
 .cbs-input[aria-invalid="true"]:focus {
-  border-color: var(--color-cbs-crimson-600);
+  border-color: var(--state-error-focus-border);
   background: var(--color-cbs-paper);
-  box-shadow: 0 0 0 2px var(--color-cbs-crimson-100);
+  box-shadow: var(--state-error-focus-ring);
 }
 
 .cbs-input[disabled],
@@ -672,7 +684,7 @@ body {
 }
 
 .cbs-btn[disabled] {
-  opacity: 0.55;
+  opacity: var(--state-disabled-opacity);
   cursor: not-allowed;
 }
 
@@ -752,8 +764,8 @@ body {
 }
 
 .cbs-textarea:focus {
-  border-color: var(--color-cbs-navy-500);
-  box-shadow: 0 0 0 2px var(--color-cbs-navy-100);
+  border-color: var(--state-focus-border);
+  box-shadow: var(--state-focus-ring);
 }
 
 .cbs-textarea[aria-invalid="true"] {
@@ -762,9 +774,9 @@ body {
 }
 
 .cbs-textarea[aria-invalid="true"]:focus {
-  border-color: var(--color-cbs-crimson-600);
+  border-color: var(--state-error-focus-border);
   background: var(--color-cbs-paper);
-  box-shadow: 0 0 0 2px var(--color-cbs-crimson-100);
+  box-shadow: var(--state-error-focus-ring);
 }
 
 .cbs-textarea[disabled],
@@ -797,8 +809,8 @@ body {
 }
 
 .cbs-select:focus {
-  border-color: var(--color-cbs-navy-500);
-  box-shadow: 0 0 0 2px var(--color-cbs-navy-100);
+  border-color: var(--state-focus-border);
+  box-shadow: var(--state-focus-ring);
 }
 
 .cbs-select[aria-invalid="true"] {

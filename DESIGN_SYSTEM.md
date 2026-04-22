@@ -254,6 +254,45 @@ in olive.
 
 ---
 
+## 8b. Interaction State Tokens
+
+| Token | Value | Usage |
+|-------|-------|-------|
+| `--state-hover-bg` | `rgba(20,24,35,0.04)` | Row hover, button hover overlay |
+| `--state-active-bg` | `rgba(20,24,35,0.08)` | Button :active press |
+| `--state-focus-ring` | `0 0 0 2px navy-100` | Focus ring on inputs, selects, textareas |
+| `--state-focus-border` | `navy-500` | Border colour on focus |
+| `--state-error-focus-ring` | `0 0 0 2px crimson-100` | Focus ring on invalid fields |
+| `--state-error-focus-border` | `crimson-600` | Border colour on invalid focus |
+| `--state-disabled-opacity` | `0.55` | Disabled buttons, inputs |
+
+All component `:focus`, `:hover`, `[disabled]` states reference these
+tokens. No inline `rgba()` or `opacity` values in component classes.
+
+---
+
+## 8c. CSS Architecture Layers
+
+The stylesheet follows a strict 6-layer pipeline:
+
+```
+Layer 1: Tokens       → @theme inline block (Core → Semantic → Component → State)
+Layer 2: Base         → body, html, :focus-visible, @media queries
+Layer 3: Utilities    → Tailwind CSS (atomic) + .cbs-tabular, .cbs-amount, .cbs-no-print
+Layer 4: Components   → .cbs-input, .cbs-btn, .cbs-surface, .cbs-grid-table, .cbs-modal
+Layer 5: Layout       → React components (Sidebar, Header, DashboardShell) with Tailwind
+Layer 6: Screens      → app/(dashboard)/*/page.tsx — composition only, no new CSS
+```
+
+**Enforcement rules:**
+- No raw hex values in component code — always reference a token
+- No inline `style={{}}` in React — always use CSS classes
+- No `!important` — specificity is controlled by layer ordering
+- Tailwind utilities for one-off layout; `.cbs-*` classes for multi-property components
+- ARIA attributes as CSS state selectors (not custom `is-*` classes)
+
+---
+
 ## 9. Critical Rules
 
 - ❌ No pixel drift between components on the same row
