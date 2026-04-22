@@ -136,7 +136,7 @@ const Header: FC<HeaderProps> = ({ className }) => {
         <div className="hidden md:flex items-center gap-4 text-xs">
           {user?.branchCode && (
             <div className="flex items-center gap-1.5">
-              <span className="text-cbs-navy-300 uppercase tracking-wider text-[10px] font-semibold">Branch</span>
+              <span className="text-cbs-navy-200 uppercase tracking-wider text-[10px] font-semibold">Branch</span>
               <span className="cbs-tabular font-semibold text-white">
                 {user.branchCode}
                 {user.branchName ? ` — ${user.branchName}` : ''}
@@ -145,7 +145,7 @@ const Header: FC<HeaderProps> = ({ className }) => {
           )}
           <div className="w-px h-4 bg-cbs-navy-600" />
           <div className="flex items-center gap-1.5">
-            <span className="text-cbs-navy-300 uppercase tracking-wider text-[10px] font-semibold">Biz Date</span>
+            <span className="text-cbs-navy-200 uppercase tracking-wider text-[10px] font-semibold">Biz Date</span>
             <span className="cbs-tabular font-semibold text-white">{bizDate}</span>
           </div>
           {dayStatus && (
