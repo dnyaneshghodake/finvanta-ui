@@ -28,6 +28,7 @@ import {
 } from '@/components/cbs';
 import { Button, Spinner } from '@/components/atoms';
 import { formatCbsDate } from '@/utils/formatters';
+import { R, buildUrl, resolvePath } from '@/config/routes';
 
 /** Full CIF record — matches the creation schema for 360° view. */
 interface CustomerDetail {

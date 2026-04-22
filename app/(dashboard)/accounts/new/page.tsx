@@ -39,6 +39,7 @@ import { Button, Checkbox, Badge, RoleGate } from '@/components/atoms';
 import { FormField } from '@/components/molecules/FormField';
 import { useAuthStore } from '@/store/authStore';
 import { useDayStatus } from '@/contexts/DayStatusContext';
+import { R, resolvePath, getReturnTo } from '@/config/routes';
 import Link from 'next/link';
 
 /* ── Zod Schema ─────────────────────────────────────────────────
@@ -310,7 +311,7 @@ export default function AccountOpeningPage() {
         smsAlerts: data.smsAlerts ?? true,
       });
       if (result.success && result.data) {
-        router.push(`/accounts/${result.data.accountNumber}`);
+        router.push(resolvePath(R.accounts.view as import('@/config/routes').RouteEntry, result.data.accountNumber));
       } else {
         setError(result.error?.message || result.message || 'Account opening failed');
         setCorrelationId(result.correlationId || null);
@@ -324,7 +325,7 @@ export default function AccountOpeningPage() {
     <div className="flex flex-col h-full">
       {/* ── Page Header ──────────────────────────────────────── */}
       <div className="shrink-0 space-y-2 mb-4">
-        <Breadcrumb items={[{ label: 'Dashboard', href: '/dashboard' }, { label: 'Accounts', href: '/accounts' }, { label: 'Open New Account' }]} />
+        <Breadcrumb items={[{ label: R.dashboard.home.label, href: R.dashboard.home.path as string }, { label: R.accounts.list.label, href: R.accounts.list.path as string }, { label: R.accounts.create.label }]} />
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-lg font-semibold text-cbs-ink">Open New Account</h1>
@@ -505,7 +506,7 @@ export default function AccountOpeningPage() {
 
         {/* ── Sticky Footer ──────────────────────────────── */}
         <div className="shrink-0 flex items-center justify-between gap-2 border-t border-cbs-steel-200 bg-cbs-paper pt-3 mt-4">
-          <Link href="/accounts" className="cbs-btn cbs-btn-secondary">Cancel</Link>
+          <Link href={getReturnTo(search, R.accounts.list.path as string)} className="cbs-btn cbs-btn-secondary">Cancel</Link>
           <div className="flex gap-2">
             <RoleGate
               roles={['MAKER', 'ADMIN']}
