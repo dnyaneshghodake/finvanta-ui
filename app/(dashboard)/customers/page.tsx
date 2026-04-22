@@ -16,7 +16,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import Link from 'next/link';
 import { apiClient } from '@/services/api/apiClient';
-import { StatusRibbon, KeyValue, maskPan, maskAadhaar, Breadcrumb } from '@/components/cbs';
+import { StatusRibbon, maskPan, Breadcrumb } from '@/components/cbs';
 import { Button, Spinner } from '@/components/atoms';
 import { R, resolvePath } from '@/config/routes';
 
