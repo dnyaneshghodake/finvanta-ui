@@ -29,10 +29,10 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { ChevronRight } from 'lucide-react';
 import clsx from 'clsx';
-import { apiClient } from '@/services/api/apiClient';
+import { accountService } from '@/services/api/accountService';
 import {
   AmountInr, Pan, Aadhaar, ValueDate,
-  Breadcrumb, CbsFieldset, CbsSelect,
+  Breadcrumb, CbsSelect,
 } from '@/components/cbs';
 import { Button, Checkbox, Badge } from '@/components/atoms';
 import { FormField } from '@/components/molecules/FormField';
@@ -158,25 +158,24 @@ export default function AccountOpeningPage() {
   const onSubmit = async (data: AccountForm) => {
     setError(null);
     try {
-      const res = await apiClient.post('/accounts/open', {
+      /* Per API_REFERENCE.md §4: POST /accounts/open creates account
+       * in PENDING_ACTIVATION status. Checker activates via
+       * POST /accounts/{accountNumber}/activate. The workflow engine
+       * (§15) routes the approval to the checker queue automatically. */
+      const result = await accountService.createAccount({
         customerId: Number(data.customerId),
         branchId: user?.branchId || 1,
         accountType: data.accountType,
         productCode: data.accountType,
-        fullName: data.fullName,
         nomineeName: data.nomineeName || undefined,
+        nomineeRelationship: data.nomineeRelationship || undefined,
         initialDeposit: data.initialDeposit ? Number(data.initialDeposit) : undefined,
-        panNumber: data.panNumber || undefined,
-        mobileNumber: data.mobileNumber || undefined,
-        email: data.email || undefined,
-        chequeBookRequired: data.chequeBookRequired,
-        debitCardRequired: data.debitCardRequired,
-        smsAlerts: data.smsAlerts,
       });
-      const corr = res.headers?.['x-correlation-id'] as string | undefined;
-      setCorrelationId(corr || null);
-      if (res.data?.status === 'SUCCESS' && res.data?.data?.accountNumber) {
-        router.push(`/accounts/${res.data.data.accountNumber}`);
+      if (result.success && result.data) {
+        router.push(`/accounts/${result.data.accountNumber}`);
+      } else {
+        setError(result.error?.message || result.message || 'Account opening failed');
+        setCorrelationId(result.correlationId || null);
       }
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Account opening failed');
