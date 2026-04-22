@@ -136,7 +136,7 @@ export default function KycVerificationPage() {
     <div className="space-y-4">
       <Breadcrumb items={[{ label: 'Dashboard', href: '/dashboard' }, { label: 'Customers', href: '/customers' }, { label: 'KYC Verification' }]} />
       <div>
-        <h1 className="text-xl font-semibold text-cbs-ink">KYC Verification</h1>
+        <h1 className="text-lg font-semibold text-cbs-ink">KYC Verification</h1>
         <p className="text-xs text-cbs-steel-600 mt-0.5">
           Checker action — review and verify customer KYC documents.
           Rejection requires mandatory remarks per RBI compliance.
@@ -157,11 +157,10 @@ export default function KycVerificationPage() {
       </div>
 
       {success && (
-        <div className="border border-cbs-olive-600 bg-cbs-olive-50 text-cbs-olive-700 p-3 text-sm">
+        <div className="cbs-alert cbs-alert-success">
           <div className="font-semibold">KYC verification complete</div>
           <div>{success}</div>
-          <div className="flex items-center gap-2 mt-2">
-            {correlationId && <CorrelationRefBadge value={correlationId} />}
+          <div className="mt-2">
             <Link href={`/customers/${customer.id}`} className="cbs-link text-xs">
               View customer →
             </Link>
