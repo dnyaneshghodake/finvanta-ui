@@ -247,12 +247,13 @@ export default function AccountOpeningPage() {
       if (addr.state) setValue('state', addr.state);
       if ('pincode' in addr && addr.pincode) setValue('pinCode', addr.pincode);
     }
-    // Expand populated sections
-    setOpenSections(new Set(['product', 'kyc', 'personal', 'contact', 'address', 'occupation']));
+    // Expand populated sections (merge, don't replace — preserves user-opened sections)
+    setOpenSections((prev) => new Set([...prev, 'product', 'kyc', 'personal', 'contact', 'address', 'occupation']));
   }, [setValue]);
 
   const onSubmit = async (data: AccountForm) => {
     setError(null);
+    setCorrelationId(null);
     try {
       /* Per API_REFERENCE.md §4 and ACCOUNT_OPENING_API_CONTRACT.md:
        * POST /accounts/open creates account in PENDING_ACTIVATION status.
