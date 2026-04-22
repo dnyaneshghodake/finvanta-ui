@@ -126,9 +126,20 @@ export default function AccountOpeningPage() {
   const router = useRouter();
   const search = useSearchParams();
   const prefilledCustomerId = search.get('customerId') || '';
+  const user = useAuthStore((s) => s.user);
+  const { isPostingAllowed, blockReason } = useDayStatus();
 
   const [error, setError] = useState<string | null>(null);
   const [correlationId, setCorrelationId] = useState<string | null>(null);
+  const [openSections, setOpenSections] = useState<Set<string>>(
+    new Set(['product', 'personal']),
+  );
+
+  const toggle = (id: string) => setOpenSections((prev) => {
+    const next = new Set(prev);
+    if (next.has(id)) next.delete(id); else next.add(id);
+    return next;
+  });
 
   const {
     register,
@@ -137,27 +148,30 @@ export default function AccountOpeningPage() {
   } = useForm<AccountForm>({
     resolver: zodResolver(accountSchema),
     defaultValues: {
-      customerId: prefilledCustomerId,
-      accountType: 'SAVINGS',
-      currencyCode: 'INR',
-      nomineeName: '',
-      initialDeposit: '',
+      customerId: prefilledCustomerId, accountType: 'SAVINGS', currencyCode: 'INR',
+      fullName: '', nomineeName: '', initialDeposit: '',
+      chequeBookRequired: false, debitCardRequired: false, smsAlerts: true,
+      dueDiligenceConfirmed: false, documentsVerified: false, customerConsentObtained: false,
     },
   });
 
   const onSubmit = async (data: AccountForm) => {
     setError(null);
     try {
-      // Map form fields → Spring REST_API_COMPLETE_CATALOGUE §CASA.
-      // Spring requires `branchId` (positive Long) and uses
-      // `productCode` (optional, defaults to accountType).
       const res = await apiClient.post('/accounts/open', {
         customerId: Number(data.customerId),
-        branchId: 1, // TODO: read from session user's branch
+        branchId: user?.branchId || 1,
         accountType: data.accountType,
-        productCode: data.accountType, // Default product code to account type
+        productCode: data.accountType,
+        fullName: data.fullName,
         nomineeName: data.nomineeName || undefined,
         initialDeposit: data.initialDeposit ? Number(data.initialDeposit) : undefined,
+        panNumber: data.panNumber || undefined,
+        mobileNumber: data.mobileNumber || undefined,
+        email: data.email || undefined,
+        chequeBookRequired: data.chequeBookRequired,
+        debitCardRequired: data.debitCardRequired,
+        smsAlerts: data.smsAlerts,
       });
       const corr = res.headers?.['x-correlation-id'] as string | undefined;
       setCorrelationId(corr || null);
@@ -170,85 +184,161 @@ export default function AccountOpeningPage() {
   };
 
   return (
-    <div className="space-y-4">
-      {/* Breadcrumb — mandatory CBS navigation trail */}
-      <Breadcrumb items={[
-        { label: 'Dashboard', href: '/dashboard' },
-        { label: 'Accounts', href: '/accounts' },
-        { label: 'Open New Account' },
-      ]} />
-
-      <div>
-        <h1 className="text-xl font-semibold text-cbs-ink">Open New Account</h1>
-        <p className="text-xs text-cbs-steel-600 mt-0.5">
-          CASA account opening — maker action. Requires active CIF with
-          verified KYC. Account enters pending approval until checker authorises.
-        </p>
+    <div className="flex flex-col h-full">
+      {/* ── Page Header ──────────────────────────────────────── */}
+      <div className="shrink-0 space-y-2 mb-4">
+        <Breadcrumb items={[{ label: 'Dashboard', href: '/dashboard' }, { label: 'Accounts', href: '/accounts' }, { label: 'Open New Account' }]} />
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-lg font-semibold text-cbs-ink">Open New Account</h1>
+            <p className="text-xs text-cbs-steel-600 mt-0.5">CASA account opening — maker action. Account enters pending approval until checker authorises.</p>
+          </div>
+          {user?.branchCode && (
+            <div className="text-right hidden sm:block">
+              <div className="cbs-field-label">Branch</div>
+              <div className="text-sm font-semibold text-cbs-ink cbs-tabular">{user.branchCode}{user.branchName ? ` — ${user.branchName}` : ''}</div>
+            </div>
+          )}
+        </div>
+        {!isPostingAllowed && <div className="cbs-alert cbs-alert-warning"><span className="font-semibold">Posting Blocked:</span> {blockReason}</div>}
+        {error && (
+          <div className="cbs-alert cbs-alert-error">
+            <div className="font-semibold">Account opening failed</div>
+            <div>{error}</div>
+            {correlationId && <div className="mt-1 text-xs cbs-tabular">Ref: {correlationId}</div>}
+          </div>
+        )}
       </div>
 
-      {error && (
-        <div className="border border-cbs-crimson-600 bg-cbs-crimson-50 text-cbs-crimson-700 p-3 text-sm">
-          <div className="font-semibold">Account opening failed</div>
-          <div>{error}</div>
-          {correlationId && <div className="mt-1 text-xs cbs-tabular">Ref: {correlationId}</div>}
+      {/* ── Form: 8+4 Grid ─────────────────────────────────── */}
+      <form onSubmit={handleSubmit(onSubmit)} className="flex-1 min-h-0 flex flex-col">
+        <div className="flex-1 overflow-y-auto">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+            {/* ── Left: Sectioned Form (8 cols) ────────────── */}
+            <div className="lg:col-span-8 space-y-3">
+              {/* §1 Product Selection */}
+              <Section id="product" title="Product Selection" isOpen={openSections.has('product')} onToggle={() => toggle('product')}>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <FormField label="Customer ID (CIF)" required htmlFor="customerId" error={errors.customerId?.message}>
+                    <input id="customerId" className="cbs-input cbs-tabular" inputMode="numeric" placeholder="e.g. 1001" {...register('customerId')} />
+                  </FormField>
+                  <CbsSelect label="Account Type" options={[
+                    { value: 'SAVINGS', label: 'Savings (SB)' }, { value: 'CURRENT', label: 'Current (CA)' },
+                    { value: 'SAVINGS_NRI', label: 'NRI Savings' }, { value: 'SALARY', label: 'Salary' },
+                  ]} {...register('accountType')} />
+                  <CbsSelect label="Currency" options={[{ value: 'INR', label: 'INR — Indian Rupee' }]} {...register('currencyCode')} />
+                  <AmountInr label="Initial Deposit" hint="Optional. Min balance per product." {...register('initialDeposit')} error={errors.initialDeposit?.message} />
+                </div>
+              </Section>
+              {/* §3 KYC */}
+              <Section id="kyc" title="KYC & Regulatory" isOpen={openSections.has('kyc')} onToggle={() => toggle('kyc')}>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <Pan label="PAN" {...register('panNumber')} error={errors.panNumber?.message} />
+                  <Aadhaar label="Aadhaar" hint="Masked in display." {...register('aadhaarNumber')} error={errors.aadhaarNumber?.message} />
+                  <CbsSelect label="KYC Status" options={[{ value: '', label: '— Select —' }, { value: 'FULL_KYC', label: 'Full KYC' }, { value: 'MIN_KYC', label: 'Min KYC' }]} {...register('kycStatus')} />
+                  <CbsSelect label="PEP" options={[{ value: '', label: '— Select —' }, { value: 'NO', label: 'No' }, { value: 'YES', label: 'Yes' }]} {...register('pepFlag')} />
+                </div>
+              </Section>
+              {/* §4 Personal */}
+              <Section id="personal" title="Personal Details" isOpen={openSections.has('personal')} onToggle={() => toggle('personal')}>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <FormField label="Full Name" required htmlFor="fullName" error={errors.fullName?.message}>
+                    <input id="fullName" className="cbs-input" placeholder="As per PAN" {...register('fullName')} />
+                  </FormField>
+                  <ValueDate label="Date of Birth" {...register('dateOfBirth')} />
+                  <CbsSelect label="Gender" options={[{ value: '', label: '— Select —' }, { value: 'MALE', label: 'Male' }, { value: 'FEMALE', label: 'Female' }]} {...register('gender')} />
+                  <FormField label="Father / Spouse" htmlFor="fatherSpouseName">
+                    <input id="fatherSpouseName" className="cbs-input" {...register('fatherSpouseName')} />
+                  </FormField>
+                </div>
+              </Section>
+              {/* §5 Contact */}
+              <Section id="contact" title="Contact Details" isOpen={openSections.has('contact')} onToggle={() => toggle('contact')}>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <FormField label="Mobile" htmlFor="mobileNumber" error={errors.mobileNumber?.message}>
+                    <input id="mobileNumber" className="cbs-input cbs-tabular" inputMode="tel" maxLength={10} placeholder="9876543210" {...register('mobileNumber')} />
+                  </FormField>
+                  <FormField label="Email" htmlFor="email" error={errors.email?.message}>
+                    <input id="email" className="cbs-input" type="email" {...register('email')} />
+                  </FormField>
+                </div>
+              </Section>
+              {/* §6 Address */}
+              <Section id="address" title="Address" isOpen={openSections.has('address')} onToggle={() => toggle('address')}>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <FormField label="Address Line 1" htmlFor="al1"><input id="al1" className="cbs-input" {...register('addressLine1')} /></FormField>
+                  <FormField label="Address Line 2" htmlFor="al2"><input id="al2" className="cbs-input" {...register('addressLine2')} /></FormField>
+                  <FormField label="City" htmlFor="city"><input id="city" className="cbs-input" {...register('city')} /></FormField>
+                  <FormField label="State" htmlFor="state"><input id="state" className="cbs-input" {...register('state')} /></FormField>
+                  <FormField label="PIN Code" htmlFor="pinCode" error={errors.pinCode?.message}>
+                    <input id="pinCode" className="cbs-input cbs-tabular" inputMode="numeric" maxLength={6} {...register('pinCode')} />
+                  </FormField>
+                </div>
+              </Section>
+              {/* §7 Occupation */}
+              <Section id="occupation" title="Occupation & Financial Profile" isOpen={openSections.has('occupation')} onToggle={() => toggle('occupation')}>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <CbsSelect label="Occupation" options={[{ value: '', label: '— Select —' }, { value: 'SALARIED', label: 'Salaried' }, { value: 'BUSINESS', label: 'Business' }, { value: 'RETIRED', label: 'Retired' }]} {...register('occupation')} />
+                  <CbsSelect label="Annual Income" options={[{ value: '', label: '— Select —' }, { value: 'BELOW_1L', label: 'Below ₹1L' }, { value: '1L_5L', label: '₹1–5L' }, { value: '5L_10L', label: '₹5–10L' }]} {...register('annualIncome')} />
+                  <CbsSelect label="Source of Funds" options={[{ value: '', label: '— Select —' }, { value: 'SALARY', label: 'Salary' }, { value: 'BUSINESS', label: 'Business' }]} {...register('sourceOfFunds')} />
+                </div>
+              </Section>
+              {/* §8 Nominee */}
+              <Section id="nominee" title="Nominee Details" isOpen={openSections.has('nominee')} onToggle={() => toggle('nominee')}>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <FormField label="Nominee Name" htmlFor="nomineeName"><input id="nomineeName" className="cbs-input" {...register('nomineeName')} /></FormField>
+                  <CbsSelect label="Relationship" options={[{ value: '', label: '— Select —' }, { value: 'SPOUSE', label: 'Spouse' }, { value: 'FATHER', label: 'Father' }, { value: 'MOTHER', label: 'Mother' }]} {...register('nomineeRelationship')} />
+                </div>
+              </Section>
+              {/* §9 FATCA */}
+              <Section id="fatca" title="FATCA / CRS" isOpen={openSections.has('fatca')} onToggle={() => toggle('fatca')}>
+                <CbsSelect label="US Tax Resident" options={[{ value: '', label: '— Select —' }, { value: 'NO', label: 'No' }, { value: 'YES', label: 'Yes' }]} {...register('usTaxResident')} />
+              </Section>
+              {/* §10 Config */}
+              <Section id="config" title="Account Configuration" isOpen={openSections.has('config')} onToggle={() => toggle('config')}>
+                <div className="space-y-3">
+                  <Checkbox label="Cheque Book Required" {...register('chequeBookRequired')} />
+                  <Checkbox label="Debit Card Required" {...register('debitCardRequired')} />
+                  <Checkbox label="SMS Alerts" {...register('smsAlerts')} />
+                </div>
+              </Section>
+              {/* §14 Declarations */}
+              <Section id="declarations" title="Declarations & Consent" isOpen={openSections.has('declarations')} onToggle={() => toggle('declarations')}>
+                <div className="space-y-3">
+                  <Checkbox label="I confirm customer due diligence has been completed" {...register('dueDiligenceConfirmed')} />
+                  <Checkbox label="Documents have been verified physically" {...register('documentsVerified')} />
+                  <Checkbox label="Customer consent has been obtained" {...register('customerConsentObtained')} />
+                </div>
+              </Section>
+            </div>
+
+            {/* ── Right: Risk Panel (4 cols) ──────────────── */}
+            <div className="lg:col-span-4">
+              <div className="cbs-surface sticky top-0">
+                <div className="cbs-surface-header">
+                  <span className="cbs-field-label">Risk Assessment</span>
+                  <Badge variant="default">Pending</Badge>
+                </div>
+                <div className="cbs-surface-body space-y-2 text-xs">
+                  <p className="text-cbs-steel-600">Risk scoring on submission. Complete all KYC fields.</p>
+                  <div className="border-t border-cbs-steel-100 pt-2 space-y-1.5">
+                    <div className="flex justify-between"><span className="text-cbs-steel-600">KYC Status</span><span className="text-cbs-ink font-medium">—</span></div>
+                    <div className="flex justify-between"><span className="text-cbs-steel-600">PEP Flag</span><span className="text-cbs-ink font-medium">—</span></div>
+                    <div className="flex justify-between"><span className="text-cbs-steel-600">Sanction Check</span><span className="text-cbs-ink font-medium">—</span></div>
+                    <div className="flex justify-between"><span className="text-cbs-steel-600">Risk Score</span><span className="text-cbs-ink font-medium">—</span></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
-      )}
 
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-        <CbsFieldset legend="Customer & Product">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div>
-              <label htmlFor="customerId" className="cbs-field-label block mb-1">
-                Customer ID (CIF)<span className="text-cbs-crimson-700 ml-0.5">*</span>
-              </label>
-              <input id="customerId" className="cbs-input cbs-tabular" inputMode="numeric" placeholder="e.g. 1" {...register('customerId')} />
-              {errors.customerId && <p className="text-xs text-cbs-crimson-700 mt-1">{errors.customerId.message}</p>}
-              {prefilledCustomerId && (
-                <p className="text-[10px] text-cbs-olive-700 mt-0.5">Pre-filled from customer record</p>
-              )}
-            </div>
-            <CbsSelect
-              label="Account Type"
-              options={[
-                { value: 'SAVINGS', label: 'Savings Account (SB)' },
-                { value: 'CURRENT', label: 'Current Account (CA)' },
-                { value: 'SALARY', label: 'Salary Account' },
-              ]}
-              {...register('accountType')}
-            />
-            <CbsSelect
-              label="Currency"
-              options={[
-                { value: 'INR', label: 'INR — Indian Rupee' },
-              ]}
-              {...register('currencyCode')}
-            />
+        {/* ── Sticky Footer ──────────────────────────────── */}
+        <div className="shrink-0 flex items-center justify-between gap-2 border-t border-cbs-steel-200 bg-cbs-paper pt-3 mt-4">
+          <Link href="/accounts" className="cbs-btn cbs-btn-secondary">Cancel</Link>
+          <div className="flex gap-2">
+            <Button type="submit" isLoading={isSubmitting} disabled={!isPostingAllowed}>Submit for Approval</Button>
           </div>
-        </CbsFieldset>
-
-        <CbsFieldset legend="Account Details">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div>
-              <label htmlFor="nomineeName" className="cbs-field-label block mb-1">Nominee Name</label>
-              <input id="nomineeName" className="cbs-input" placeholder="Optional" {...register('nomineeName')} />
-            </div>
-            <AmountInr
-              label="Initial Deposit"
-              hint="Optional. Minimum balance as per product."
-              {...register('initialDeposit')}
-              error={errors.initialDeposit?.message}
-            />
-          </div>
-        </CbsFieldset>
-
-        {/* Submit */}
-        <div className="flex gap-2 justify-end border-t border-cbs-steel-200 pt-3">
-          <Link href="/accounts" className="cbs-btn cbs-btn-secondary">
-            Cancel
-          </Link>
-          <Button type="submit" isLoading={isSubmitting}>
-            Submit for Approval
-          </Button>
         </div>
       </form>
     </div>
