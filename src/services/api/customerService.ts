@@ -78,7 +78,10 @@ function adapt<TSpring, TUi>(
   if (body.status === 'SUCCESS' && body.data != null) {
     return okEnvelope(mapper(body.data));
   }
-  return errEnvelope(body.errorCode || 'UNKNOWN', body.message || 'Request failed', 400);
+  // Read from `message` first (Spring's descriptive error), then `error`
+  // (HTTP reason phrase like "Bad Request"), then fallback. Some backend
+  // endpoints put the meaningful text in `error` instead of `message`.
+  return errEnvelope(body.errorCode || 'UNKNOWN', body.message || body.error || 'Request failed', 400);
 }
 
 /**

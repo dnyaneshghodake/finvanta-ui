@@ -247,8 +247,8 @@ function mapTxn(t: SpringTxn, accountNumber: string): Transaction {
     debitCredit: (t.debitCredit === 'DR' || t.debitCredit === 'D') ? 'DR' : 'CR',
     status: t.reversed ? 'REVERSED' : 'COMPLETED',
     description: t.narration || t.transactionType,
-    valueDate: toDateOrNow(t.valueDate),
-    postingDate: toDateOrNow(t.postingDate),
+    valueDate: toDateString(t.valueDate),
+    postingDate: toDateString(t.postingDate),
     referenceNumber: t.transactionRef,
     // Amount context (per API §5 Response — Amount)
     balanceBefore: t.balanceBefore != null ? toNumber(t.balanceBefore) : undefined,
@@ -264,8 +264,8 @@ function mapTxn(t: SpringTxn, accountNumber: string): Transaction {
     reversed: t.reversed ?? false,
     reversedByRef: t.reversedByRef || undefined,
     idempotencyKey: t.idempotencyKey || undefined,
-    createdAt: toDateOrNow(t.postingDate),
-    updatedAt: toDateOrNow(t.postingDate),
+    createdAt: toDateString(t.postingDate),
+    updatedAt: toDateString(t.postingDate),
   };
 }
 
