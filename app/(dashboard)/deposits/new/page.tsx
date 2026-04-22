@@ -66,7 +66,7 @@ export default function BookFdPage() {
       // and requires `branchId` + `interestRate`.
       const res = await apiClient.post('/fixed-deposits/book', {
         customerId: Number(data.customerId),
-        branchId: 1, // TODO: read from session user's branch
+        branchId: user?.branchId || 1,
         linkedAccountNumber: data.linkedAccountNumber.toUpperCase(),
         principalAmount: Number(data.depositAmount),
         interestRate: 0, // Server determines from product + tenure slab
