@@ -203,6 +203,20 @@
   --ease-cbs-out:      ease-out;
   --ease-cbs-in-out:   ease-in-out;
 
+  /* ── Data Visualization Tokens ────────────────────────────────
+   * CBS dashboards include charts, risk indicators, and trend lines.
+   * These tokens ensure consistent colours across all BI visuals.
+   * Derived from the core palette but named by data intent. */
+  --chart-credit:     var(--color-cbs-olive-600);
+  --chart-debit:      var(--color-cbs-crimson-600);
+  --chart-neutral:    var(--color-cbs-steel-400);
+  --chart-primary:    var(--color-cbs-navy-500);
+  --chart-secondary:  var(--color-cbs-navy-300);
+  --chart-warning:    var(--color-cbs-gold-600);
+  --chart-grid:       var(--color-cbs-steel-200);
+  --chart-axis:       var(--color-cbs-steel-500);
+  --chart-label:      var(--color-cbs-steel-600);
+
   /* ── Semantic Status Aliases ────────────────────────────────
    * Map CBS semantic intents to palette tokens so components
    * reference intent (status-success) not palette (olive-700).

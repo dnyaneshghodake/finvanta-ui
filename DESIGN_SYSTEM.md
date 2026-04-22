@@ -322,3 +322,126 @@ certificates, and audit reports must print cleanly.
 - Signature lines for posting confirmations
 
 See `app/globals.css` `@media print` block for full rules.
+
+---
+
+## 11. Token Governance
+
+### Ownership
+
+All token changes must be reviewed by the **Design Authority** (lead
+frontend engineer or UX lead). No silent token changes in feature PRs.
+
+### Versioning
+
+Tokens are versioned implicitly via git history. Breaking changes
+(any value change to a `--comp-*` or `--state-*` token) require:
+
+1. PR title prefixed with `[DESIGN]`
+2. Visual regression check on: Dashboard, Account Opening, Transfer,
+   Workflow Queue, and Login screens
+3. Dark mode verification (all 5 screens)
+
+### Impact Analysis
+
+Before changing any core token (`--color-cbs-*`):
+- Verify all semantic tokens that reference it via `var()`
+- Check both light and dark theme overrides
+- Run the full Playwright E2E suite (visual assertions)
+
+---
+
+## 12. Accessibility Standards
+
+All token choices are validated against **WCAG 2.1 AA** (minimum)
+with AAA targets for critical financial data.
+
+### Implemented in `globals.css`:
+
+| Feature | Implementation | Reference |
+|---------|---------------|-----------|
+| Focus ring | `:focus-visible` with 2px navy-500 outline | `globals.css:368-371` |
+| Reduced motion | `prefers-reduced-motion: reduce` kills all animation | `globals.css:374-383` |
+| High contrast | `prefers-contrast: high` doubles border widths | `globals.css:390-420` |
+| Forced colors | `forced-colors: active` maps to system colours | `globals.css:426-469` |
+| Skip link | `.cbs-skip-link` visible on keyboard Tab | `globals.css:320-351` |
+| Screen reader | `.sr-only` clip pattern | `globals.css:354-364` |
+| Contrast | steel-400 bumped to 4.8:1 (AA compliant) | `globals.css:38-40` |
+
+### Rules:
+
+- All text/background combinations must pass **4.5:1** contrast (AA)
+- Interactive elements must have **3:1** contrast against adjacent colours
+- Focus indicators must be visible on both light and dark themes
+- Error states must use **border + background tint** (not colour alone)
+  for colour-blind operators
+- Touch targets must be ≥ 32px (`--icon-cbs-touch`)
+- All form fields must have associated `<label>` elements
+- ARIA attributes are the CSS state selectors (not custom `is-*` classes)
+
+---
+
+## 13. Data Visualization Tokens
+
+| Token | Colour | Usage |
+|-------|--------|-------|
+| `--chart-credit` | olive-600 | Credit flows, deposits, inflows |
+| `--chart-debit` | crimson-600 | Debit flows, withdrawals, outflows |
+| `--chart-neutral` | steel-400 | Neutral/baseline indicators |
+| `--chart-primary` | navy-500 | Primary series, trend lines |
+| `--chart-secondary` | navy-300 | Secondary series, comparisons |
+| `--chart-warning` | gold-600 | Threshold breaches, SLA warnings |
+| `--chart-grid` | steel-200 | Grid lines, axis ticks |
+| `--chart-axis` | steel-500 | Axis labels |
+| `--chart-label` | steel-600 | Data labels, legends |
+
+### Rules:
+
+- Credit = olive (green family), Debit = crimson (red family) — always
+- Never use red/green alone to distinguish data — add pattern/shape
+- Chart backgrounds must be `--color-cbs-paper` (not transparent)
+- Amounts in chart tooltips must use `tabular-nums` monospace
+
+---
+
+## 14. Role-Based UI Density
+
+CBS operators have different workflows requiring different UI density:
+
+| Role | Density | Characteristics |
+|------|---------|----------------|
+| **TELLER** | Dense | Compact tables, minimal whitespace, keyboard-optimised, high transaction throughput |
+| **OFFICER/MAKER** | Standard | Balanced forms + tables, accordion sections, CIF lookup integration |
+| **MANAGER/CHECKER** | Summary | KPI cards, approval queues, risk panels, graph-heavy dashboards |
+| **AUDITOR** | Read-only | Audit trail emphasis, field-level change history, export-heavy |
+| **ADMIN** | Configuration | Wide tables, bulk operations, settings forms |
+
+### Implementation:
+
+- Role gating is handled by `RoleGate` component and route-level `roles` arrays
+- Screen layout (8+4 split, full-width table, KPI grid) is chosen per screen type
+- The base component dimensions (34px inputs, 36px table rows) are shared across all roles
+- Role-specific density is achieved through **layout composition**, not component variants
+
+---
+
+## 15. Performance Budget
+
+| Metric | Target | Rationale |
+|--------|--------|-----------|
+| CSS bundle size | < 80KB (gzipped) | Single `globals.css` + Tailwind tree-shaking |
+| First Contentful Paint | < 1.5s | Internal bank network (low latency, high bandwidth) |
+| Time to Interactive | < 2.5s | Operator must be able to type within 2.5s of navigation |
+| Cumulative Layout Shift | 0 | Financial data must never shift after render |
+| Table render (1000 rows) | < 100ms | Virtualized via `CbsDataGrid` |
+| Bundle size (JS) | < 300KB (gzipped) | Next.js standalone + tree-shaking |
+| Session hydration | < 500ms | `loadSession()` from BFF `/auth/me` |
+
+### Rules:
+
+- No layout shift on financial data (amounts, balances, dates)
+- Tables with > 50 rows must use virtualization or pagination
+- Images are not used in operational screens (icons only via Lucide)
+- No client-side date/number formatting libraries — use native
+  `Intl.NumberFormat` and the `formatters.ts` utility functions
+- Skeleton loading states for all async data (`.cbs-skeleton-*`)
