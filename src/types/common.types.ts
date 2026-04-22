@@ -35,6 +35,34 @@ export interface DashboardSummary {
   alerts: Alert[];
 }
 
+/**
+ * Business day context from Spring `data.businessDay`.
+ *
+ * Shared across authStore, authService, and the server-side session.
+ * Previously duplicated in three files — consolidated here as the
+ * single source of truth per CBS domain-bounded module pattern.
+ */
+export interface BusinessDay {
+  businessDate: string;
+  dayStatus: string;
+  isHoliday: boolean;
+  previousBusinessDate?: string;
+  nextBusinessDate?: string;
+}
+
+/**
+ * Operational config from Spring `data.operationalConfig`.
+ *
+ * Shared across authStore, authService, and the server-side session.
+ */
+export interface OperationalConfig {
+  baseCurrency: string;
+  decimalPrecision: number;
+  roundingMode: string;
+  fiscalYearStartMonth: number;
+  businessDayPolicy: string;
+}
+
 export interface Beneficiary {
   id: string;
   customerId: string;

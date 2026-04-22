@@ -24,7 +24,7 @@ export type {
 export type { Account, AccountType, AccountStatus, FreezeType, Transaction } from './deposits.types';
 
 // Common / shared types
-export type { Address, KYCStatus, AMLStatus, Alert, DashboardSummary, Beneficiary } from './common.types';
+export type { Address, KYCStatus, AMLStatus, Alert, DashboardSummary, Beneficiary, BusinessDay, OperationalConfig } from './common.types';
 
 // Admin domain
 export type {

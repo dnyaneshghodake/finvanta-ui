@@ -167,10 +167,19 @@ function toNumber(v: number | string | null | undefined): number {
   return Number.isFinite(n) ? n : 0;
 }
 
-function toDateOrNow(v: string | null | undefined): Date {
-  if (!v) return new Date();
+/**
+ * Coerce a nullable date string to a guaranteed ISO-8601 string.
+ * Spring returns dates as ISO strings (e.g. "2024-01-15T10:30:00Z").
+ * When the value is missing or unparseable, falls back to the current
+ * timestamp so downstream code always has a valid date string.
+ *
+ * Returns `string` (not `Date`) to match the wire format and the
+ * Account/Transaction type definitions.
+ */
+function toDateString(v: string | null | undefined): string {
+  if (!v) return new Date().toISOString();
   const d = new Date(v);
-  return Number.isNaN(d.getTime()) ? new Date() : d;
+  return Number.isNaN(d.getTime()) ? new Date().toISOString() : v;
 }
 
 function mapAccount(a: SpringAccount): Account {
@@ -200,10 +209,10 @@ function mapAccount(a: SpringAccount): Account {
     branchCode: a.branchCode || undefined,
     ifscCode: a.ifscCode || undefined,
     // Lifecycle
-    openedDate: toDateOrNow(a.openedDate),
-    closedDate: a.closedDate ? toDateOrNow(a.closedDate) : null,
+    openedDate: toDateString(a.openedDate),
+    closedDate: a.closedDate ? toDateString(a.closedDate) : null,
     closureReason: a.closureReason || undefined,
-    lastTransactionDate: a.lastTransactionDate ? toDateOrNow(a.lastTransactionDate) : undefined,
+    lastTransactionDate: a.lastTransactionDate ? toDateString(a.lastTransactionDate) : undefined,
     // Freeze
     freezeType: a.freezeType as Account['freezeType'],
     freezeReason: a.freezeReason || undefined,
@@ -218,8 +227,8 @@ function mapAccount(a: SpringAccount): Account {
     dailyTransferLimit: a.dailyTransferLimit != null ? toNumber(a.dailyTransferLimit) : undefined,
     // Legacy compat
     linkedAccounts: [],
-    createdAt: toDateOrNow(a.openedDate),
-    updatedAt: toDateOrNow(a.lastTransactionDate || a.openedDate),
+    createdAt: toDateString(a.openedDate),
+    updatedAt: toDateString(a.lastTransactionDate || a.openedDate),
   };
 }
 
