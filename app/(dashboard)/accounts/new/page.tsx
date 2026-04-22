@@ -22,14 +22,15 @@
  *   - Business day must be DAY_OPEN
  */
 
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { ChevronRight } from 'lucide-react';
+import { ChevronRight, Search } from 'lucide-react';
 import clsx from 'clsx';
 import { accountService } from '@/services/api/accountService';
+import { apiClient } from '@/services/api/apiClient';
 import {
   AmountInr, Pan, Aadhaar, ValueDate,
   Breadcrumb, CbsSelect,
@@ -135,6 +136,23 @@ export default function AccountOpeningPage() {
     new Set(['product', 'personal']),
   );
 
+  /* ── CIF Lookup State ──────────────────────────────────────
+   * Per Tier-1 CBS convention: operator enters CIF ID, system
+   * fetches customer master and auto-populates 13+ fields.
+   * PAN/Aadhaar are read-only (immutable after CIF creation). */
+  const [cifCustomer, setCifCustomer] = useState<{
+    id: number; customerNumber: string; firstName: string; lastName: string;
+    status: string; kycStatus: string; pan?: string; aadhaar?: string;
+    mobile?: string; email?: string; dob?: string; gender?: string;
+    nationality?: string; fatherOrSpouseName?: string;
+    occupation?: string; annualIncomeRange?: string; sourceOfFunds?: string;
+    riskCategory?: string; pepFlag?: boolean; fatcaCountry?: string;
+    permanentAddress?: { line1?: string; line2?: string; city?: string; state?: string; pincode?: string };
+    address?: { street?: string; city?: string; state?: string; pincode?: string };
+  } | null>(null);
+  const [cifLoading, setCifLoading] = useState(false);
+  const [cifError, setCifError] = useState<string | null>(null);
+
   const toggle = (id: string) => setOpenSections((prev) => {
     const next = new Set(prev);
     if (next.has(id)) next.delete(id); else next.add(id);
@@ -144,6 +162,8 @@ export default function AccountOpeningPage() {
   const {
     register,
     handleSubmit,
+    setValue,
+    getValues,
     formState: { errors, isSubmitting },
   } = useForm<AccountForm>({
     resolver: zodResolver(accountSchema),
@@ -154,6 +174,68 @@ export default function AccountOpeningPage() {
       dueDiligenceConfirmed: false, documentsVerified: false, customerConsentObtained: false,
     },
   });
+
+  /* ── CIF Lookup & Auto-Populate ──────────────────────────────
+   * Fetches GET /customers/{id} and populates 13 form fields.
+   * PAN/Aadhaar come masked from backend — stored as-is for display.
+   * KYC status mapped: VERIFIED→FULL_KYC, PENDING→MIN_KYC. */
+  const fetchCif = useCallback(async () => {
+    const cifId = getValues('customerId')?.trim();
+    if (!cifId) return;
+    setCifLoading(true);
+    setCifError(null);
+    setCifCustomer(null);
+    try {
+      const res = await apiClient.get<{ status: string; data?: Record<string, unknown> }>(`/customers/${cifId}`);
+      if (res.data?.status !== 'SUCCESS' || !res.data?.data) {
+        setCifError('Customer not found');
+        return;
+      }
+      const c = res.data.data as Record<string, unknown>;
+      if (c.status !== 'ACTIVE') {
+        setCifError(`Customer status is ${String(c.status)} — must be ACTIVE`);
+        return;
+      }
+      // Store customer for snapshot + risk panel
+      setCifCustomer(c as typeof cifCustomer);
+      // Auto-populate form fields from CIF
+      const fn = String(c.firstName || '');
+      const ln = String(c.lastName || '');
+      setValue('fullName', [fn, ln].filter(Boolean).join(' '), { shouldValidate: true });
+      if (c.pan) setValue('panNumber', String(c.pan));
+      if (c.aadhaar) setValue('aadhaarNumber', String(c.aadhaar));
+      if (c.mobile) setValue('mobileNumber', String(c.mobile));
+      if (c.email) setValue('email', String(c.email));
+      if (c.dob) setValue('dateOfBirth', String(c.dob));
+      if (c.gender) setValue('gender', String(c.gender));
+      if (c.nationality) setValue('nationality', String(c.nationality));
+      if (c.fatherOrSpouseName) setValue('fatherSpouseName', String(c.fatherOrSpouseName));
+      if (c.occupation) setValue('occupation', String(c.occupation));
+      if (c.annualIncomeRange) setValue('annualIncome', String(c.annualIncomeRange));
+      if (c.sourceOfFunds) setValue('sourceOfFunds', String(c.sourceOfFunds));
+      if (c.pepFlag) setValue('pepFlag', 'YES');
+      if (c.fatcaCountry && c.fatcaCountry !== 'IN') setValue('usTaxResident', 'YES');
+      // KYC status mapping
+      const kyc = String(c.kycStatus || '');
+      if (kyc === 'VERIFIED' || kyc === 'APPROVED') setValue('kycStatus', 'FULL_KYC');
+      else if (kyc === 'PENDING') setValue('kycStatus', 'MIN_KYC');
+      // Address — prefer permanentAddress, fallback to legacy address
+      const addr = (c.permanentAddress || c.address) as Record<string, string> | undefined;
+      if (addr) {
+        setValue('addressLine1', addr.line1 || addr.street || '');
+        if (addr.line2) setValue('addressLine2', addr.line2);
+        if (addr.city) setValue('city', addr.city);
+        if (addr.state) setValue('state', addr.state);
+        if (addr.pincode) setValue('pinCode', addr.pincode);
+      }
+      // Expand sections that got populated
+      setOpenSections(new Set(['product', 'kyc', 'personal', 'contact', 'address', 'occupation']));
+    } catch {
+      setCifError('Failed to fetch customer');
+    } finally {
+      setCifLoading(false);
+    }
+  }, [getValues, setValue]);
 
   const onSubmit = async (data: AccountForm) => {
     setError(null);
@@ -209,17 +291,46 @@ export default function AccountOpeningPage() {
         )}
       </div>
 
+      {/* ── Customer Snapshot (visible after CIF fetch) ────── */}
+      {cifCustomer && (
+        <div className="shrink-0 cbs-surface mb-4">
+          <div className="cbs-surface-header">
+            <span className="text-sm font-semibold text-cbs-ink">{cifCustomer.firstName} {cifCustomer.lastName}</span>
+            <div className="flex items-center gap-2">
+              <Badge variant={cifCustomer.kycStatus === 'VERIFIED' ? 'success' : 'warning'}>
+                KYC: {cifCustomer.kycStatus}
+              </Badge>
+              <Badge variant={cifCustomer.riskCategory === 'HIGH' ? 'danger' : 'default'}>
+                Risk: {cifCustomer.riskCategory || 'LOW'}
+              </Badge>
+            </div>
+          </div>
+          <div className="cbs-surface-body flex flex-wrap gap-x-6 gap-y-1 text-xs">
+            <span className="text-cbs-steel-600">CIF: <span className="text-cbs-ink font-medium cbs-tabular">{cifCustomer.customerNumber}</span></span>
+            {cifCustomer.mobile && <span className="text-cbs-steel-600">Mobile: <span className="text-cbs-ink cbs-tabular">{cifCustomer.mobile}</span></span>}
+            {cifCustomer.email && <span className="text-cbs-steel-600">Email: <span className="text-cbs-ink">{cifCustomer.email}</span></span>}
+            {cifCustomer.pan && <span className="text-cbs-steel-600">PAN: <span className="text-cbs-ink cbs-tabular">{cifCustomer.pan}</span></span>}
+            {cifCustomer.pepFlag && <span className="text-cbs-crimson-700 font-semibold">⚠ PEP</span>}
+          </div>
+        </div>
+      )}
+
       {/* ── Form: 8+4 Grid ─────────────────────────────────── */}
       <form onSubmit={handleSubmit(onSubmit)} className="flex-1 min-h-0 flex flex-col">
         <div className="flex-1 overflow-y-auto">
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
             {/* ── Left: Sectioned Form (8 cols) ────────────── */}
             <div className="lg:col-span-8 space-y-3">
-              {/* §1 Product Selection */}
+              {/* §1 Product Selection + CIF Lookup */}
               <Section id="product" title="Product Selection" isOpen={openSections.has('product')} onToggle={() => toggle('product')}>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <FormField label="Customer ID (CIF)" required htmlFor="customerId" error={errors.customerId?.message}>
-                    <input id="customerId" className="cbs-input cbs-tabular" inputMode="numeric" placeholder="e.g. 1001" {...register('customerId')} />
+                  <FormField label="Customer ID (CIF)" required htmlFor="customerId" error={errors.customerId?.message || cifError || undefined}>
+                    <div className="flex gap-1.5">
+                      <input id="customerId" className="cbs-input cbs-tabular flex-1" inputMode="numeric" placeholder="e.g. 1001" {...register('customerId')} />
+                      <button type="button" onClick={fetchCif} disabled={cifLoading} className="cbs-btn cbs-btn-secondary h-[34px] px-3 shrink-0" aria-label="Fetch customer">
+                        {cifLoading ? <span className="text-xs">Loading…</span> : <Search size={14} strokeWidth={1.75} />}
+                      </button>
+                    </div>
                   </FormField>
                   <CbsSelect label="Account Type" options={[
                     { value: 'SAVINGS', label: 'Savings (SB)' }, { value: 'CURRENT', label: 'Current (CA)' },
@@ -319,12 +430,12 @@ export default function AccountOpeningPage() {
                   <Badge variant="default">Pending</Badge>
                 </div>
                 <div className="cbs-surface-body space-y-2 text-xs">
-                  <p className="text-cbs-steel-600">Risk scoring on submission. Complete all KYC fields.</p>
+                  {!cifCustomer && <p className="text-cbs-steel-600">Fetch CIF to populate risk assessment.</p>}
                   <div className="border-t border-cbs-steel-100 pt-2 space-y-1.5">
-                    <div className="flex justify-between"><span className="text-cbs-steel-600">KYC Status</span><span className="text-cbs-ink font-medium">—</span></div>
-                    <div className="flex justify-between"><span className="text-cbs-steel-600">PEP Flag</span><span className="text-cbs-ink font-medium">—</span></div>
-                    <div className="flex justify-between"><span className="text-cbs-steel-600">Sanction Check</span><span className="text-cbs-ink font-medium">—</span></div>
-                    <div className="flex justify-between"><span className="text-cbs-steel-600">Risk Score</span><span className="text-cbs-ink font-medium">—</span></div>
+                    <div className="flex justify-between"><span className="text-cbs-steel-600">KYC Status</span><span className={clsx('font-medium', cifCustomer?.kycStatus === 'VERIFIED' ? 'text-cbs-olive-700' : cifCustomer ? 'text-cbs-gold-700' : 'text-cbs-ink')}>{cifCustomer?.kycStatus || '—'}</span></div>
+                    <div className="flex justify-between"><span className="text-cbs-steel-600">PEP Flag</span><span className={clsx('font-medium', cifCustomer?.pepFlag ? 'text-cbs-crimson-700' : 'text-cbs-ink')}>{cifCustomer ? (cifCustomer.pepFlag ? 'Yes ⚠' : 'No') : '—'}</span></div>
+                    <div className="flex justify-between"><span className="text-cbs-steel-600">Risk Category</span><span className={clsx('font-medium', cifCustomer?.riskCategory === 'HIGH' ? 'text-cbs-crimson-700' : cifCustomer?.riskCategory === 'MEDIUM' ? 'text-cbs-gold-700' : 'text-cbs-ink')}>{cifCustomer?.riskCategory || '—'}</span></div>
+                    <div className="flex justify-between"><span className="text-cbs-steel-600">Sanction Check</span><span className="text-cbs-ink font-medium">{cifCustomer ? 'Pending' : '—'}</span></div>
                   </div>
                 </div>
               </div>
