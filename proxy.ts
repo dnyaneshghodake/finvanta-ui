@@ -245,7 +245,6 @@ const PUBLIC_PREFIXES = [
  *  visitors who never had a session. */
 const SELF_REDIRECTING_PATHS = new Set(["/"]);
 
-
 function isPublicPath(pathname: string): boolean {
   return PUBLIC_PREFIXES.some((prefix) => pathname.startsWith(prefix));
 }
