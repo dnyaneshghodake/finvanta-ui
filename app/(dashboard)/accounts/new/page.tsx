@@ -219,11 +219,13 @@ export default function AccountOpeningPage() {
     setCifCustomer(c);
     setValue('customerId', String(c.id), { shouldValidate: true });
     setValue('fullName', [c.firstName, c.lastName].filter(Boolean).join(' '), { shouldValidate: true });
-    // PAN/Aadhaar from CIF may be masked (e.g. "ABCD***34F", "**** **** 1234").
+    // PAN/Aadhaar from CIF may be masked (e.g. "XXXXXX234F", "XXXXXXXX9012") per v2.0 §4.
     // Only populate if the value is unmasked (raw), otherwise it will fail Zod regex.
     if (c.pan && /^[A-Z]{5}[0-9]{4}[A-Z]$/.test(c.pan)) setValue('panNumber', c.pan);
     if (c.aadhaar && /^\d{12}$/.test(c.aadhaar)) setValue('aadhaarNumber', c.aadhaar);
-    if (c.mobile) setValue('mobileNumber', c.mobile);
+    // Mobile from CIF may be masked (e.g. "XXXXXX3210") per v2.0 §4.
+    // Only populate if the value is unmasked (raw), otherwise it will fail Zod regex.
+    if (c.mobile && /^[6-9]\d{9}$/.test(c.mobile)) setValue('mobileNumber', c.mobile);
     if (c.email) setValue('email', c.email);
     if (c.dob) setValue('dateOfBirth', c.dob);
     if (c.gender) setValue('gender', c.gender);

@@ -25,7 +25,7 @@ import { Badge } from '@/components/atoms';
 import { maskPan, maskAadhaar, maskMobile } from './primitives';
 
 /* ── Customer Shape ─────────────────────────────────────────────
- * Maps to Spring CifLookupResponse (30 fields) per CIF_API_CONTRACT.md §5.
+ * Maps to Spring CifLookupResponse (36+ fields) per API_CUSTOMER_CONTRACT.md §5.
  * Field names match the backend DTO so no mapping is needed.
  *
  * Gender: backend sends M/F/T but CifLookupResponse maps to MALE/FEMALE/OTHER.

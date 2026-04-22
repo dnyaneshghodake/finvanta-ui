@@ -60,7 +60,7 @@ All fields are **flat** (not nested). Optional fields accept `null` or can be ab
 | 11 | `dateOfBirth` | `LocalDate` | No | Must be past date; age ≥ 18 (≥ 10 for SAVINGS_MINOR) | Frontend sends `YYYY-MM-DD` |
 | 12 | `gender` | `String` | No | | `MALE`, `FEMALE`, `OTHER` |
 | 13 | `fatherSpouseName` | `String` | No | `@Size(max=200)` | Required for minor accounts |
-| 14 | `nationality` | `String` | No | | `INDIAN`, `NRI` |
+| 14 | `nationality` | `String` | No | | `INDIAN`, `NRI`, `PIO`, `OCI`, `FOREIGN` |
 
 ### §5 Contact Details
 
@@ -83,8 +83,8 @@ All fields are **flat** (not nested). Optional fields accept `null` or can be ab
 
 | # | Field | Java Type | Required | Validation | Enum Values |
 |---|-------|-----------|----------|------------|-------------|
-| 22 | `occupation` | `String` | No | | `SALARIED`, `SELF_EMPLOYED`, `BUSINESS`, `PROFESSIONAL`, `RETIRED`, `STUDENT`, `HOMEMAKER` |
-| 23 | `annualIncome` | `String` | No | | `BELOW_1L`, `1L_5L`, `5L_10L`, `10L_25L`, `25L_50L`, `ABOVE_50L` |
+| 22 | `occupation` | `String` | No | | `SALARIED_PRIVATE`, `SALARIED_GOVT`, `SELF_EMPLOYED`, `BUSINESS`, `PROFESSIONAL`, `RETIRED`, `HOUSEWIFE`, `STUDENT`, `AGRICULTURIST`, `OTHER` |
+| 23 | `annualIncome` | `String` | No | | `BELOW_1L`, `1L_TO_5L`, `5L_TO_10L`, `10L_TO_25L`, `25L_TO_1CR`, `ABOVE_1CR` |
 | 24 | `sourceOfFunds` | `String` | No | | `SALARY`, `BUSINESS`, `INVESTMENT`, `AGRICULTURE`, `PENSION`, `OTHER` |
 
 ### §8 Nominee
@@ -132,8 +132,8 @@ No changes to the existing 32-field `AccountResponse` per API_REFERENCE.md §4. 
 
 | Field | Java Type | Notes |
 |-------|-----------|-------|
-| `panNumber` | `String` | **Masked**: return `ABCD***34F` (first 4 + *** + last 3). Never return raw. |
-| `aadhaarNumber` | `String` | **Masked**: return `**** **** 1234` (last 4 only). Never return raw. |
+| `panNumber` | `String` | **Masked**: return `XXXXXX234F` (last 4 only). Never return raw. Per §4 `PiiMaskingUtil.maskPan()` |
+| `aadhaarNumber` | `String` | **Masked**: return `XXXXXXXX9012` (last 4 only). Never return raw. Per §4 `PiiMaskingUtil.maskAadhaar()` |
 | `kycStatus` | `String` | `FULL_KYC` / `MIN_KYC` / `RE_KYC` |
 | `pepFlag` | `Boolean` | — |
 | `fullName` | `String` | Already exists as `customerName` — keep both for backward compat |
@@ -200,8 +200,8 @@ No changes to the existing 32-field `AccountResponse` per API_REFERENCE.md §4. 
   "city": "Mumbai",
   "state": "Maharashtra",
   "pinCode": "400069",
-  "occupation": "SALARIED",
-  "annualIncome": "5L_10L",
+  "occupation": "SALARIED_PRIVATE",
+  "annualIncome": "5L_TO_10L",
   "sourceOfFunds": "SALARY",
   "nomineeName": "Priya Kumar",
   "nomineeRelationship": "SPOUSE",
@@ -219,8 +219,8 @@ No changes to the existing 32-field `AccountResponse` per API_REFERENCE.md §4. 
 - [ ] Add 22 new fields to `AccountOpenRequest` DTO (all `@Nullable` except `fullName`)
 - [ ] Add `@JsonIgnoreProperties(ignoreUnknown = true)` to DTO class
 - [ ] Extend `DepositAccount` entity with new columns (nullable)
-- [ ] PAN/Aadhaar: reuse `@Convert(converter = EncryptedStringConverter.class)`
-- [ ] PAN/Aadhaar in response: mask via `@JsonSerialize(using = MaskedPanSerializer.class)`
+- [ ] PAN/Aadhaar: reuse `@Convert(converter = PiiEncryptionConverter.class)` AES-256-GCM
+- [ ] PAN/Aadhaar in response: mask via `PiiMaskingUtil.maskPan()` / `maskAadhaar()` (XXXXXX format, last 4 visible)
 - [ ] Add new fields to `AccountResponse` (masked PAN/Aadhaar, KYC, personal, contact)
 - [ ] Validate age from `dateOfBirth` (≥18 regular, ≥10 minor)
 - [ ] Validate `pepFlag` triggers risk scoring flag

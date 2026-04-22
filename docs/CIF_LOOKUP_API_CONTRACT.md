@@ -1,6 +1,6 @@
 # Finvanta CBS — CIF Lookup API Contract
 
-> **Version:** 1.0 · **Endpoint:** `GET /api/v1/customers/{id}` · **Roles:** MAKER, CHECKER, ADMIN
+> **Version:** 2.0 · **Endpoint:** `GET /api/v1/customers/{id}` · **Roles:** MAKER, CHECKER, ADMIN
 > **Frontend Component:** `src/components/cbs/CifLookup.tsx` · **Type:** `CifCustomer`
 > **Used By:** 12+ screens (Account Opening, Transfers, FD, Loans, KYC, Freeze, Statements, etc.)
 
@@ -8,7 +8,7 @@
 
 ## 1. Overview
 
-The `CifLookup` component is a shared reusable widget used across the entire CBS application. It calls `GET /customers/{id}` and expects a single flat response with 30 fields covering identity, KYC, contact, address, occupation, risk, and compliance.
+The `CifLookup` component is a shared reusable widget used across the entire CBS application. It calls `GET /customers/{id}` and expects a `CifLookupResponse` (per `API_CUSTOMER_CONTRACT.md` §5) with 36+ fields covering identity, KYC, contact, address, occupation, risk, and compliance. PII fields (PAN, Aadhaar, mobile) are returned masked per RBI IT Governance §8.5.
 
 ---
 
