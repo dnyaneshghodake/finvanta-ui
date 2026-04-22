@@ -18,7 +18,7 @@
  */
 'use client';
 
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useId } from 'react';
 import { Search } from 'lucide-react';
 import { apiClient } from '@/services/api/apiClient';
 import { Badge } from '@/components/atoms';
@@ -114,6 +114,9 @@ export function CifLookup({
   label = 'Customer ID (CIF)',
   className,
 }: CifLookupProps) {
+  const reactId = useId();
+  const inputId = `cif-lookup-${reactId}`;
+  const errorId = `${inputId}-error`;
   const [cifId, setCifId] = useState(defaultValue);
   const [customer, setCustomer] = useState<CifCustomer | null>(null);
   const [loading, setLoading] = useState(false);

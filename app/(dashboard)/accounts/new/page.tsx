@@ -83,10 +83,10 @@ const accountSchema = z.object({
   smsAlerts: z.boolean().optional(),
   // §11 Initial Deposit
   initialDeposit: z.string().regex(/^\d+(\.\d{1,2})?$/, 'Enter a valid amount').optional().or(z.literal('')),
-  // §14 Declarations
-  dueDiligenceConfirmed: z.boolean().optional(),
-  documentsVerified: z.boolean().optional(),
-  customerConsentObtained: z.boolean().optional(),
+  // §14 Declarations — RBI CDD mandates: maker must confirm all three before submission
+  dueDiligenceConfirmed: z.literal(true, { errorMap: () => ({ message: 'Due diligence confirmation is required' }) }),
+  documentsVerified: z.literal(true, { errorMap: () => ({ message: 'Document verification confirmation is required' }) }),
+  customerConsentObtained: z.literal(true, { errorMap: () => ({ message: 'Customer consent confirmation is required' }) }),
 });
 
 type AccountForm = z.infer<typeof accountSchema>;
@@ -169,8 +169,10 @@ export default function AccountOpeningPage() {
     setCifCustomer(c);
     setValue('customerId', String(c.id), { shouldValidate: true });
     setValue('fullName', [c.firstName, c.lastName].filter(Boolean).join(' '), { shouldValidate: true });
-    if (c.pan) setValue('panNumber', c.pan);
-    if (c.aadhaar) setValue('aadhaarNumber', c.aadhaar);
+    // PAN/Aadhaar from CIF may be masked (e.g. "ABCD***34F", "**** **** 1234").
+    // Only populate if the value is unmasked (raw), otherwise it will fail Zod regex.
+    if (c.pan && /^[A-Z]{5}[0-9]{4}[A-Z]$/.test(c.pan)) setValue('panNumber', c.pan);
+    if (c.aadhaar && /^\d{12}$/.test(c.aadhaar)) setValue('aadhaarNumber', c.aadhaar);
     if (c.mobile) setValue('mobileNumber', c.mobile);
     if (c.email) setValue('email', c.email);
     if (c.dob) setValue('dateOfBirth', c.dob);
@@ -180,7 +182,7 @@ export default function AccountOpeningPage() {
     if (c.occupation) setValue('occupation', c.occupation);
     if (c.annualIncomeRange) setValue('annualIncome', c.annualIncomeRange);
     if (c.sourceOfFunds) setValue('sourceOfFunds', c.sourceOfFunds);
-    if (c.pepFlag) setValue('pepFlag', 'YES');
+    if (c.pepFlag !== undefined && c.pepFlag !== null) setValue('pepFlag', c.pepFlag ? 'YES' : 'NO');
     if (c.fatcaCountry && c.fatcaCountry !== 'IN') setValue('usTaxResident', 'YES');
     // KYC mapping
     const kyc = c.kycStatus || '';
@@ -257,7 +259,17 @@ export default function AccountOpeningPage() {
       <CifLookup
         defaultValue={prefilledCustomerId}
         onCustomerFound={handleCustomerFound}
-        onCustomerCleared={() => setCifCustomer(null)}
+        onCustomerCleared={() => {
+          setCifCustomer(null);
+          // Reset all CIF-populated fields to prevent stale data from a previous customer
+          const cifFields = [
+            'customerId', 'fullName', 'panNumber', 'aadhaarNumber', 'mobileNumber',
+            'email', 'dateOfBirth', 'gender', 'nationality', 'fatherSpouseName',
+            'occupation', 'annualIncome', 'sourceOfFunds', 'pepFlag', 'usTaxResident',
+            'kycStatus', 'addressLine1', 'addressLine2', 'city', 'state', 'pinCode',
+          ] as const;
+          cifFields.forEach((f) => setValue(f, ''));
+        }}
         className="shrink-0 mb-4"
       />
 
@@ -274,7 +286,9 @@ export default function AccountOpeningPage() {
                   <input type="hidden" {...register('customerId')} />
                   <CbsSelect label="Account Type" options={[
                     { value: 'SAVINGS', label: 'Savings (SB)' }, { value: 'CURRENT', label: 'Current (CA)' },
-                    { value: 'SAVINGS_NRI', label: 'NRI Savings' }, { value: 'SALARY', label: 'Salary' },
+                    { value: 'CURRENT_OD', label: 'Current OD' }, { value: 'SAVINGS_NRI', label: 'NRI Savings' },
+                    { value: 'SAVINGS_MINOR', label: 'Minor Savings' }, { value: 'SAVINGS_JOINT', label: 'Joint Savings' },
+                    { value: 'SAVINGS_PMJDY', label: 'PMJDY Savings' }, { value: 'SALARY', label: 'Salary' },
                   ]} {...register('accountType')} />
                   <CbsSelect label="Currency" options={[{ value: 'INR', label: 'INR — Indian Rupee' }]} {...register('currencyCode')} />
                   <AmountInr label="Initial Deposit" hint="Optional. Min balance per product." {...register('initialDeposit')} error={errors.initialDeposit?.message} />
@@ -296,7 +310,7 @@ export default function AccountOpeningPage() {
                     <input id="fullName" className="cbs-input" placeholder="As per PAN" {...register('fullName')} />
                   </FormField>
                   <ValueDate label="Date of Birth" {...register('dateOfBirth')} />
-                  <CbsSelect label="Gender" options={[{ value: '', label: '— Select —' }, { value: 'MALE', label: 'Male' }, { value: 'FEMALE', label: 'Female' }]} {...register('gender')} />
+                  <CbsSelect label="Gender" options={[{ value: '', label: '— Select —' }, { value: 'MALE', label: 'Male' }, { value: 'FEMALE', label: 'Female' }, { value: 'OTHER', label: 'Other' }]} {...register('gender')} />
                   <FormField label="Father / Spouse" htmlFor="fatherSpouseName">
                     <input id="fatherSpouseName" className="cbs-input" {...register('fatherSpouseName')} />
                   </FormField>
@@ -355,9 +369,9 @@ export default function AccountOpeningPage() {
               {/* §14 Declarations */}
               <Section id="declarations" title="Declarations & Consent" isOpen={openSections.has('declarations')} onToggle={() => toggle('declarations')}>
                 <div className="space-y-3">
-                  <Checkbox label="I confirm customer due diligence has been completed" {...register('dueDiligenceConfirmed')} />
-                  <Checkbox label="Documents have been verified physically" {...register('documentsVerified')} />
-                  <Checkbox label="Customer consent has been obtained" {...register('customerConsentObtained')} />
+                  <Checkbox label="I confirm customer due diligence has been completed" {...register('dueDiligenceConfirmed')} error={errors.dueDiligenceConfirmed?.message} />
+                  <Checkbox label="Documents have been verified physically" {...register('documentsVerified')} error={errors.documentsVerified?.message} />
+                  <Checkbox label="Customer consent has been obtained" {...register('customerConsentObtained')} error={errors.customerConsentObtained?.message} />
                 </div>
               </Section>
             </div>
