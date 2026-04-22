@@ -97,15 +97,33 @@ function resolveScreenCode(pathname: string): { screenCode: string; label: strin
  * with the response interceptor and to ensure the audit call
  * does not trigger its own audit recursion.
  */
+/**
+ * Read the CSRF token from the fv_csrf cookie.
+ * Duplicated from apiClient.ts readCsrfFromCookie() to avoid
+ * importing apiClient (which would trigger audit recursion via
+ * the response interceptor).
+ */
+function readCsrf(): string | null {
+  if (typeof document === 'undefined') return null;
+  const match = document.cookie.match(/(?:^|;\s*)fv_csrf=([^;]+)/);
+  return match ? decodeURIComponent(match[1]) : null;
+}
+
 async function emitScreenAccess(
   screenCode: string,
   screenLabel: string,
   pathname: string,
 ): Promise<void> {
   try {
-    await fetch('/api/cbs/audit/screen-access', {
+    const csrf = readCsrf();
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    };
+    if (csrf) headers['X-CSRF-Token'] = csrf;
+
+    const res = await fetch('/api/cbs/audit/screen-access', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       credentials: 'include',
       body: JSON.stringify({
         screenCode,
@@ -114,6 +132,10 @@ async function emitScreenAccess(
         timestamp: new Date().toISOString(),
       }),
     });
+    // fetch() does not throw on HTTP errors — check status explicitly.
+    if (!res.ok) {
+      logger.debug(`[SCREEN_AUDIT] HTTP ${res.status} for ${screenCode}`);
+    }
   } catch {
     // Fire-and-forget: audit failures must never block the operator.
     // The server-side BFF proxy will also log the request via
