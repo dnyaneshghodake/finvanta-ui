@@ -200,13 +200,32 @@ const Sidebar: React.FC<SidebarProps> = ({ className }) => {
   const [searchHighlight, setSearchHighlight] = useState(0);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
-  const collapsed = isSidebarCollapsed;
+  /* Per uiStore §9: isSidebarCollapsed is irrelevant on mobile —
+   * the drawer is always full-width. Track desktop state to ensure
+   * collapsed rail never renders in the mobile overlay drawer.
+   * Initial setState call is intentional — subscribes to matchMedia
+   * external system and sets initial value after hydration. */
+  const [isDesktop, setIsDesktop] = useState(false);
+  /* eslint-disable react-hooks/set-state-in-effect */
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const mql = window.matchMedia('(min-width: 1024px)');
+    const handler = (e: MediaQueryListEvent | MediaQueryList) => setIsDesktop(e.matches);
+    handler(mql);
+    mql.addEventListener('change', handler);
+    return () => mql.removeEventListener('change', handler);
+  }, []);
+  /* eslint-enable react-hooks/set-state-in-effect */
+  const collapsed = isSidebarCollapsed && isDesktop;
 
-  /** Hydration-safe platform detection for keyboard shortcut hints. */
+  /** Hydration-safe platform detection for keyboard shortcut hints.
+   *  setState is intentional — must run after hydration to avoid mismatch. */
   const [isMac, setIsMac] = useState(false);
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     setIsMac(/Mac|iPod|iPhone|iPad/.test(navigator.platform));
   }, []);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   const hasAccess = useCallback(
     (roles?: UserRole[]) => !roles || roles.length === 0 || roles.some((r) => userRoles.includes(r)),
@@ -267,7 +286,7 @@ const Sidebar: React.FC<SidebarProps> = ({ className }) => {
     setIsSearchOpen(false);
     setSearchQuery('');
     setSearchHighlight(0);
-    if (typeof window !== 'undefined' && window.innerWidth < AUTO_COLLAPSE_BREAKPOINT) {
+    if (typeof window !== 'undefined' && window.innerWidth >= 1024 && window.innerWidth < AUTO_COLLAPSE_BREAKPOINT) {
       setSidebarCollapsed(true);
     }
   }, [pathname, setSidebarCollapsed]);
@@ -275,10 +294,13 @@ const Sidebar: React.FC<SidebarProps> = ({ className }) => {
 
   /* ── Auto-collapse on narrow desktops (§15) ──────────────────
    * Per Blueprint §15: below 1280px → auto collapse to rail.
-   * Uses resize observer for efficiency over resize event. */
+   * Per uiStore §9: isSidebarCollapsed is irrelevant on mobile
+   * (< 1024px) — the drawer is always full-width. The media query
+   * must only target the desktop range (1024px–1279px) to avoid
+   * setting collapsed=true on mobile viewports. */
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    const mql = window.matchMedia(`(max-width: ${AUTO_COLLAPSE_BREAKPOINT - 1}px)`);
+    const mql = window.matchMedia(`(min-width: 1024px) and (max-width: ${AUTO_COLLAPSE_BREAKPOINT - 1}px)`);
     const handler = (e: MediaQueryListEvent | MediaQueryList) => {
       setSidebarCollapsed(e.matches);
     };
