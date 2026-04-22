@@ -15,6 +15,7 @@ import { workflowService, type WorkflowItem, type DecisionRequest } from '@/serv
 import { canApprove } from '@/security/roleGuard';
 import { useCbsKeyboard } from '@/hooks/useCbsKeyboard';
 import { formatCbsTimestamp } from '@/utils/formatters';
+import { R } from '@/config/routes';
 import { CheckCircle, XCircle, Clock, ChevronRight, Search, Loader2, X } from 'lucide-react';
 
 const STATUS_TONE: Record<string, string> = {
@@ -80,7 +81,7 @@ export default function WorkflowPage() {
 
   return (
     <div className="space-y-4">
-      <Breadcrumb items={[{ label: 'Dashboard', href: '/dashboard' }, { label: 'Workflow Queue' }]} />
+      <Breadcrumb items={[{ label: R.dashboard.home.label, href: R.dashboard.home.path as string }, { label: R.workflow.queue.label }]} />
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-xl font-semibold text-cbs-ink">Maker-Checker Approval Queue</h1>
