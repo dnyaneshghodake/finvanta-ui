@@ -22,7 +22,7 @@ import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { apiClient } from '@/services/api/apiClient';
 import {
-  StatusRibbon, KeyValue, ApprovalTrail, CorrelationRefBadge,
+  StatusRibbon, KeyValue, ApprovalTrail,
   maskPan, maskAadhaar, maskAccountNo, Breadcrumb,
   type ApprovalTrailEntry,
 } from '@/components/cbs';
@@ -99,24 +99,6 @@ interface LinkedAccount {
   currencyCode?: string;
 }
 
-/** Fixed deposit linked to this CIF. */
-interface LinkedFD {
-  fdNumber: string;
-  principal: number;
-  rate: number;
-  maturityDate: string;
-  status: string;
-}
-
-/** Loan linked to this CIF. */
-interface LinkedLoan {
-  loanAccountNumber: string;
-  loanType: string;
-  sanctionedAmount: number;
-  outstandingAmount: number;
-  emiAmount?: number;
-  status: string;
-}
 
 export default function CustomerDetailPage() {
   const params = useParams();

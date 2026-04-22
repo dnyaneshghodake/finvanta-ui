@@ -10,7 +10,7 @@ import { Button, Spinner } from '@/components/atoms';
 import { StatusRibbon, KeyValue } from '@/components/cbs/feedback';
 import { Breadcrumb, CbsTabs, CbsTabPanel, CbsFormSkeleton } from '@/components/cbs';
 import { AuditTrailViewer } from '@/components/cbs/AuditTrailViewer';
-import { formatCurrency, formatAccountNumber, formatDate, formatAccountType, formatCbsDate } from '@/utils/formatters';
+import { formatCurrency, formatAccountNumber, formatAccountType, formatCbsDate } from '@/utils/formatters';
 import { R, resolvePath, buildUrl } from '@/config/routes';
 import type { RouteEntry } from '@/config/routes';
 import type { Account } from '@/types/entities';
