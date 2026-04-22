@@ -18,6 +18,7 @@ import Link from 'next/link';
 import { apiClient } from '@/services/api/apiClient';
 import { StatusRibbon, KeyValue, maskPan, maskAadhaar, Breadcrumb } from '@/components/cbs';
 import { Button, Spinner } from '@/components/atoms';
+import { R, resolvePath } from '@/config/routes';
 
 const searchSchema = z.object({
   query: z.string().min(2, 'Enter at least 2 characters'),
@@ -68,7 +69,7 @@ export default function CustomerSearchPage() {
 
   return (
     <div className="space-y-4">
-      <Breadcrumb items={[{ label: 'Dashboard', href: '/dashboard' }, { label: 'Customers' }]} />
+      <Breadcrumb items={[{ label: R.dashboard.home.label, href: R.dashboard.home.path as string }, { label: R.customers.search.label }]} />
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-semibold text-cbs-ink">Customer Search</h1>
@@ -77,8 +78,8 @@ export default function CustomerSearchPage() {
           </p>
         </div>
         <div className="flex gap-2">
-          <Link href="/customers/kyc" className="cbs-btn cbs-btn-secondary">KYC Verification</Link>
-          <Link href="/customers/new" className="cbs-btn cbs-btn-primary">+ New Customer</Link>
+          <Link href={R.customers.kyc.path as string} className="cbs-btn cbs-btn-secondary">KYC Verification</Link>
+          <Link href={R.customers.create.path as string} className="cbs-btn cbs-btn-primary">+ New Customer</Link>
         </div>
       </div>
 
@@ -163,7 +164,7 @@ export default function CustomerSearchPage() {
                   <tr key={c.id}>
                     <td>
                       <Link
-                        href={`/customers/${c.id}`}
+                        href={resolvePath(R.customers.view as import('@/config/routes').RouteEntry, String(c.id))}
                         className="cbs-tabular font-semibold text-cbs-navy-700 hover:underline"
                       >
                         {c.customerNumber}
