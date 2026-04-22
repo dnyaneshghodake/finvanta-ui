@@ -24,7 +24,7 @@
 
 import { useState, useCallback } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useForm } from 'react-hook-form';
+import { useForm, type FieldErrors } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { ChevronRight } from 'lucide-react';
@@ -175,13 +175,15 @@ export default function AccountOpeningPage() {
       customerId: prefilledCustomerId, accountType: 'SAVINGS', currencyCode: 'INR',
       fullName: '', nomineeName: '', initialDeposit: '',
       chequeBookRequired: false, debitCardRequired: false, smsAlerts: true,
-      dueDiligenceConfirmed: false, documentsVerified: false, customerConsentObtained: false,
+      dueDiligenceConfirmed: false as unknown as true,
+      documentsVerified: false as unknown as true,
+      customerConsentObtained: false as unknown as true,
     },
   });
 
   /* Auto-expand sections containing validation errors so users can see them.
    * react-hook-form's onInvalid callback receives the FieldErrors object. */
-  const expandErrorSections = useCallback((fieldErrors: Record<string, unknown>) => {
+  const expandErrorSections = useCallback((fieldErrors: FieldErrors<AccountForm>) => {
     const errorFields = Object.keys(fieldErrors);
     if (errorFields.length === 0) return;
     setOpenSections((prev) => {
