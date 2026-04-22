@@ -162,6 +162,13 @@ export const ENDPOINT_ALLOWLIST: ReadonlyArray<EndpointRule> = [
   { method: "GET", pathPattern: "/reports/*" },
   { method: "POST", pathPattern: "/reports/*" },
 
+  // ── Audit (screen-access logging) ────────────────────────────
+  // Per RBI IT Governance 2023 §8.5: every screen access must be
+  // logged with operator ID, branch code, screen code, timestamp.
+  // The BFF proxy injects operator/branch context from the session;
+  // the browser sends screenCode + pathname + client timestamp.
+  { method: "POST", pathPattern: "/audit/screen-access" },
+
   // ── Operator / limits / permissions (read-only) ─────────────
   { method: "GET", pathPattern: "/operator/context" },
   { method: "GET", pathPattern: "/operator/limits" },

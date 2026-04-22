@@ -228,8 +228,33 @@ apiClient.interceptors.response.use(
       ));
     }
 
-    // Handle 429 Too Many Requests - Exponential backoff with max retries
+    // Handle 429 Too Many Requests - Exponential backoff with max retries.
+    //
+    // FINANCIAL SAFETY: only retry safe (idempotent) methods automatically.
+    // Retrying a POST/PUT/PATCH/DELETE after rate-limiting could double-post
+    // a financial transaction if the caller did not set an idempotency key.
+    // The BFF proxy generates a server-side fallback key for POSTs that
+    // arrive without one (src/lib/server/proxy.ts:306-308), but that key
+    // is per-request — a retry from the client would mint a NEW request
+    // with a NEW fallback key, bypassing server-side dedup. Only retry
+    // mutating calls when the caller explicitly provided X-Idempotency-Key
+    // (proving they intended retry-safety). Safe methods (GET/HEAD/OPTIONS)
+    // are always retryable.
+    //
+    // Per RBI IT Governance 2023 §8.2: financial operations must never
+    // double-post due to automatic retry mechanisms.
     if (error.response?.status === 429) {
+      const method = (config?.method || 'get').toLowerCase();
+      const isSafeMethod = SAFE_METHODS.has(method);
+      const hasIdempotencyKey = !!config?.headers?.['X-Idempotency-Key'];
+
+      if (!isSafeMethod && !hasIdempotencyKey) {
+        logger.warn(
+          `Rate limited on mutating ${method.toUpperCase()} without X-Idempotency-Key — not retrying to prevent double-post`,
+        );
+        return Promise.reject(appError);
+      }
+
       const retryCount = (config._retryCount || 0) + 1;
       if (retryCount > MAX_RATE_LIMIT_RETRIES) {
         logger.error('Max rate-limit retries exceeded');

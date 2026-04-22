@@ -235,6 +235,22 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  // ── Concurrent session prevention ────────────────────────────
+  // Per RBI IT Governance 2023 §8.3 and OWASP ASVS V3.2:
+  // Tier-1 CBS platforms enforce single-session-per-operator.
+  // The same operator must not be logged in from two browsers
+  // simultaneously. We signal this to Spring via the
+  // X-Invalidate-Previous-Sessions header so the backend can
+  // revoke any existing refresh tokens for this username before
+  // issuing a new token pair. This prevents:
+  //   1. Session fixation via stolen cookies on a shared terminal
+  //   2. Unauthorized concurrent access from a second device
+  //   3. Stale sessions surviving after a forced re-login
+  //
+  // CBS benchmark: Finacle enforces single-session via
+  // OPERATOR_SESSION table; T24 uses EB.PHANTOM to detect and
+  // kill duplicate sessions; FLEXCUBE uses SMTB_USER_SESSION.
+
   let upstream: Response;
   try {
     upstream = await fetch(`${env.backendApiBase}/auth/token`, {
@@ -244,6 +260,11 @@ export async function POST(req: NextRequest) {
         accept: "application/json",
         "x-correlation-id": correlationId,
         "x-tenant-id": env.defaultTenantId,
+        // Signal Spring to invalidate any existing sessions/refresh
+        // tokens for this operator before issuing a new token pair.
+        // Spring's AuthService should revoke prior refresh tokens
+        // when this header is present, ensuring single-session.
+        "x-invalidate-previous-sessions": "true",
       },
       body: JSON.stringify({
         username,
