@@ -26,7 +26,13 @@ GET /api/v1/customers/{id}
 
 ---
 
-## 3. Response — `CustomerResponse`
+## 3. Response — `CifLookupResponse`
+
+> Per CIF API Contract v2.0 §5: `GET /customers/{id}` returns `CifLookupResponse`,
+> an optimized DTO for the frontend `CifLookup.tsx` widget. Field names match
+> the `CifCustomer` TypeScript type. Gender mapped: `M`→`MALE`, `F`→`FEMALE`,
+> `T`→`OTHER`. `kycStatus` computed: `VERIFIED`/`PENDING`/`EXPIRED`.
+> `status` computed: `ACTIVE`/`INACTIVE`. Addresses as nested objects.
 
 ### Envelope
 
@@ -34,11 +40,14 @@ GET /api/v1/customers/{id}
 {
   "status": "SUCCESS",
   "data": { ... },
+  "errorCode": null,
+  "message": "...",
+  "error": null,
   "meta": { "apiVersion": "v1", "correlationId": "...", "timestamp": "..." }
 }
 ```
 
-### Identity (7 fields)
+### Identity (8 fields)
 
 | # | Field | Java Type | Required | Notes |
 |---|-------|-----------|----------|-------|
@@ -46,58 +55,65 @@ GET /api/v1/customers/{id}
 | 2 | `customerNumber` | `String` | **Yes** | Human-readable CIF (e.g. `CIF-BR001-000042`) |
 | 3 | `firstName` | `String` | **Yes** | |
 | 4 | `lastName` | `String` | **Yes** | |
-| 5 | `fullName` | `String` | No | Computed convenience field |
-| 6 | `customerType` | `String` | No | `INDIVIDUAL`, `CORPORATE` |
-| 7 | `status` | `String` | **Yes** | `ACTIVE`, `INACTIVE`, `DECEASED`, `BLACKLISTED` |
+| 5 | `middleName` | `String` | No | CKYC identity matching (§3.1 field #3) |
+| 6 | `fullName` | `String` | No | Computed convenience field |
+| 7 | `customerType` | `String` | No | `INDIVIDUAL`, `JOINT`, `HUF`, `PARTNERSHIP`, `COMPANY`, `TRUST`, `NRI`, `MINOR`, `GOVERNMENT` |
+| 8 | `status` | `String` | **Yes** | `ACTIVE`, `INACTIVE`, `DECEASED`, `BLACKLISTED` |
 
-### KYC & Compliance (4 fields)
+### KYC & Compliance (7 fields)
 
 | # | Field | Java Type | Required | Masking | Notes |
 |---|-------|-----------|----------|---------|-------|
-| 8 | `kycStatus` | `String` | **Yes** | — | `VERIFIED`, `PENDING`, `REJECTED`, `EXPIRED` |
-| 9 | `pan` | `String` | No | **Masked**: `ABCD***34F` | Encrypted at rest |
-| 10 | `aadhaar` | `String` | No | **Masked**: `**** **** 1234` | Encrypted at rest |
-| 11 | `ckycNumber` | `String` | No | — | 14-digit CKYC registry number |
+| 9 | `kycStatus` | `String` | **Yes** | — | `VERIFIED`, `PENDING`, `REJECTED`, `EXPIRED` |
+| 10 | `pan` | `String` | No | **Masked**: `XXXXXX234F` (last 4) | Encrypted at rest |
+| 11 | `aadhaar` | `String` | No | **Masked**: `XXXXXXXX9012` (last 4) | Encrypted at rest |
+| 12 | `ckycNumber` | `String` | No | — | 14-digit CKYC registry number |
+| 13 | `kycVerified` | `boolean` | No | — | Set by `verifyKyc()` endpoint |
+| 14 | `kycExpiryDate` | `String` | No | — | Computed from verified date + risk period |
+| 15 | `rekycDue` | `boolean` | No | — | EOD batch flag. Shown as warning in snapshot |
 
 ### Contact (2 fields)
 
+| # | Field | Java Type | Required | Masking | Notes |
+|---|-------|-----------|----------|---------|-------|
+| 16 | `mobile` | `String` | No | **Masked**: `XXXXXX3210` (last 4) per §4 | 10-digit Indian mobile |
+| 17 | `email` | `String` | No | — | |
+
+### Personal (8 fields)
+
 | # | Field | Java Type | Required | Notes |
 |---|-------|-----------|----------|-------|
-| 12 | `mobile` | `String` | No | 10-digit Indian mobile |
-| 13 | `email` | `String` | No | |
-
-### Personal (6 fields)
-
-| # | Field | Java Type | Required | Notes |
-|---|-------|-----------|----------|-------|
-| 14 | `dob` | `String` | No | `YYYY-MM-DD` |
-| 15 | `gender` | `String` | No | `MALE`, `FEMALE`, `OTHER` |
-| 16 | `nationality` | `String` | No | `INDIAN`, `NRI` |
-| 17 | `residentStatus` | `String` | No | `RESIDENT`, `NRI`, `PIO` |
-| 18 | `fatherOrSpouseName` | `String` | No | |
-| 19 | `maritalStatus` | `String` | No | `SINGLE`, `MARRIED`, `WIDOWED`, `DIVORCED` |
+| 18 | `dob` | `String` | No | `YYYY-MM-DD`. CKYC mandatory for INDIVIDUAL |
+| 19 | `gender` | `String` | No | `MALE`, `FEMALE`, `OTHER` (mapped from backend `M`/`F`/`T` per NALSA 2014) |
+| 20 | `nationality` | `String` | No | `INDIAN`, `NRI`, `PIO`, `OCI`, `FOREIGN` |
+| 21 | `residentStatus` | `String` | No | `RESIDENT`, `NRI`, `PIO`, `OCI`, `FOREIGN_NATIONAL` |
+| 22 | `fatherOrSpouseName` | `String` | No | **Deprecated** — use `fatherName`/`spouseName` per CERSAI v2.0 §3.4 |
+| 23 | `fatherName` | `String` | No | CERSAI v2.0 §3.4: separate father field. CKYC mandatory for INDIVIDUAL |
+| 24 | `motherName` | `String` | No | CERSAI v2.0 §3.4: separate mother field. CKYC mandatory for INDIVIDUAL |
+| 25 | `spouseName` | `String` | No | CERSAI v2.0 §3.4: if married |
+| 26 | `maritalStatus` | `String` | No | `SINGLE`, `MARRIED`, `DIVORCED`, `WIDOWED`, `SEPARATED` |
 
 ### Occupation & Financial (3 fields)
 
 | # | Field | Java Type | Required | Enum Values |
 |---|-------|-----------|----------|-------------|
-| 20 | `occupation` | `String` | No | `SALARIED`, `SELF_EMPLOYED`, `BUSINESS`, `PROFESSIONAL`, `RETIRED`, `STUDENT`, `HOMEMAKER` |
-| 21 | `annualIncomeRange` | `String` | No | `BELOW_1L`, `1L_5L`, `5L_10L`, `10L_25L`, `25L_50L`, `ABOVE_50L` |
-| 22 | `sourceOfFunds` | `String` | No | `SALARY`, `BUSINESS`, `INVESTMENT`, `AGRICULTURE`, `PENSION`, `OTHER` |
+| 27 | `occupation` | `String` | No | `SALARIED_PRIVATE`, `SALARIED_GOVT`, `BUSINESS`, `PROFESSIONAL`, `SELF_EMPLOYED`, `RETIRED`, `HOUSEWIFE`, `STUDENT`, `AGRICULTURIST`, `OTHER` |
+| 28 | `annualIncomeRange` | `String` | No | `BELOW_1L`, `1L_TO_5L`, `5L_TO_10L`, `10L_TO_25L`, `25L_TO_1CR`, `ABOVE_1CR` |
+| 29 | `sourceOfFunds` | `String` | No | `SALARY`, `BUSINESS`, `INVESTMENT`, `AGRICULTURE`, `PENSION`, `OTHER` |
 
 ### Risk & Compliance (3 fields)
 
 | # | Field | Java Type | Required | Notes |
 |---|-------|-----------|----------|-------|
-| 23 | `riskCategory` | `String` | No | `LOW`, `MEDIUM`, `HIGH` |
-| 24 | `pepFlag` | `Boolean` | No | PEP indicator |
-| 25 | `fatcaCountry` | `String` | No | ISO country code for FATCA |
+| 30 | `riskCategory` | `String` | No | `LOW`, `MEDIUM`, `HIGH` |
+| 31 | `pepFlag` | `Boolean` | No | Wrapper type. `null` = not provided. `true` auto-sets HIGH risk |
+| 32 | `fatcaCountry` | `String` | No | ISO 3166 alpha-2. `null` = Indian tax resident |
 
 ### Branch (1 field)
 
 | # | Field | Java Type | Required | Notes |
 |---|-------|-----------|----------|-------|
-| 26 | `branchCode` | `String` | No | Home branch SOL code |
+| 33 | `branchCode` | `String` | No | Home branch SOL code |
 
 ### Permanent Address (nested object)
 
@@ -158,15 +174,16 @@ GET /api/v1/customers/{id}
 | Element | Source | Masking | Color |
 |---|---|---|---|
 | Name | `firstName` + `lastName` | None | `font-semibold` |
-| KYC badge | `kycStatus` | None | VERIFIED=green, else=gold |
+| KYC badge | `kycStatus` | None | VERIFIED=green, EXPIRED=red, else=gold |
 | Risk badge | `riskCategory` | None | HIGH=red, else=neutral |
 | CIF | `customerNumber` | None | Monospace |
-| Mobile | `mobile` | None | Monospace |
+| Mobile | `mobile` | `maskMobile()` if raw | Monospace |
 | Email | `email` | None | — |
-| PAN | `pan` | `maskPan()` | Monospace |
-| Aadhaar | `aadhaar` | `maskAadhaar()` | Monospace |
+| PAN | `pan` | `maskPan()` if raw | Monospace |
+| Aadhaar | `aadhaar` | `maskAadhaar()` if raw | Monospace |
 | Branch | `branchCode` | None | Monospace |
 | PEP | `pepFlag` | None | `⚠ PEP` in crimson if true |
+| Re-KYC Due | `rekycDue` | None | `⚠ Re-KYC Due` in gold if true |
 
 ---
 
@@ -187,11 +204,15 @@ GET /api/v1/customers/{id}
 
 | Requirement | Implementation |
 |---|---|
-| PAN never raw | Backend masks: `ABCD***34F`. Frontend masks via `maskPan()` |
-| Aadhaar never raw | Backend masks: `**** **** 1234`. Frontend masks via `maskAadhaar()` |
-| Encrypted at rest | `@Convert(converter = EncryptedStringConverter.class)` |
-| Branch-scoped | Non-HO users restricted to own branch customers |
-| Audit logged | Every lookup logged with operator, timestamp, correlation ID |
+| PAN never raw | Backend masks: `XXXXXX234F` (last 4). Frontend masks via `maskPan()`. Per §4 `PiiMaskingUtil.maskPan()` |
+| Aadhaar never raw | Backend masks: `XXXXXXXX9012` (last 4). Frontend masks via `maskAadhaar()`. Per §4 `PiiMaskingUtil.maskAadhaar()` |
+| Mobile never raw | Backend masks: `XXXXXX3210` (last 4). Frontend masks via `maskMobile()`. Per §4 `PiiMaskingUtil.maskMobile()` |
+| Encrypted at rest | `@Convert(converter = PiiEncryptionConverter.class)` AES-256-GCM |
+| PII hash for dedup | SHA-256 hash stored in `pan_hash` / `aadhaar_hash` columns |
+| PII immutability | PAN/Aadhaar immutable after CIF creation (triple enforcement: API + service + `@PreUpdate`) |
+| Branch-scoped | `BranchAccessValidator.validateAccess()` on every operation |
+| Tenant isolation | Hibernate `@Filter` on `tenant_id` + `TenantContext` |
+| Audit logged | `AuditService.logEvent()` on every lookup with operator, timestamp, correlation ID |
 
 ---
 
@@ -207,20 +228,30 @@ GET /api/v1/customers/{id}
 
 ## 9. Backend Checklist
 
-- [ ] Return all 30 fields listed in §3
-- [ ] PAN masked in response (`ABCD***34F`)
-- [ ] Aadhaar masked in response (`**** **** 1234`)
+- [ ] Return all 33+ fields listed in §3 (identity, KYC, contact, personal, occupation, risk, branch, addresses)
+- [ ] PAN masked in response (`XXXXXX234F` — last 4 only) per §4 `PiiMaskingUtil.maskPan()`
+- [ ] Aadhaar masked in response (`XXXXXXXX9012` — last 4 only) per §4 `PiiMaskingUtil.maskAadhaar()`
+- [ ] Mobile masked in response (`XXXXXX3210` — last 4 only) per §4 `PiiMaskingUtil.maskMobile()`
+- [ ] OVD document numbers NOT returned (only `photoIdType`, `addressProofType`)
 - [ ] `permanentAddress` as nested object (not flattened)
 - [ ] `correspondenceAddress` as nested object
-- [ ] Legacy `address` for backward compat
+- [ ] Legacy `address` for backward compat with pre-v2.0 backends
 - [ ] `riskCategory` populated (`LOW`/`MEDIUM`/`HIGH`)
-- [ ] `pepFlag` boolean populated
-- [ ] `fatcaCountry` ISO code populated
-- [ ] `occupation`, `annualIncomeRange`, `sourceOfFunds` populated
-- [ ] `fatherOrSpouseName` populated
-- [ ] `branchCode` populated
-- [ ] Branch-scoped access enforced
-- [ ] Audit log on every lookup
+- [ ] `pepFlag` wrapper Boolean populated (`null` = not provided)
+- [ ] `fatcaCountry` ISO 3166 alpha-2 code populated
+- [ ] `occupation` uses `occupationCode` values per §3.4 (`SALARIED_PRIVATE`, `SALARIED_GOVT`, etc.)
+- [ ] `annualIncomeRange` uses `annualIncomeBand` values per §3.4 (`BELOW_1L`, `1L_TO_5L`, etc.)
+- [ ] `sourceOfFunds` populated per PMLA
+- [ ] CERSAI v2.0 separate fields: `fatherName`, `motherName`, `spouseName` (plus legacy `fatherOrSpouseName`)
+- [ ] `middleName` populated for CKYC identity matching
+- [ ] `kycVerified`, `kycExpiryDate`, `rekycDue` system fields populated
+- [ ] Gender mapped: `M`→`MALE`, `F`→`FEMALE`, `T`→`OTHER` in CifLookupResponse
+- [ ] `kycStatus` computed: `VERIFIED`/`PENDING`/`EXPIRED`
+- [ ] `status` computed: `ACTIVE`/`INACTIVE`
+- [ ] `branchCode` populated from Branch entity
+- [ ] Branch-scoped access enforced via `BranchAccessValidator`
+- [ ] Tenant isolation via Hibernate `@Filter`
+- [ ] Audit log on every lookup via `AuditService.logEvent()`
 - [ ] Response < 200ms (indexed query, no transaction joins)
 
 ---

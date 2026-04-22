@@ -22,7 +22,7 @@ import { useState, useCallback, useRef, useId, useEffect } from 'react';
 import { Search } from 'lucide-react';
 import { apiClient } from '@/services/api/apiClient';
 import { Badge } from '@/components/atoms';
-import { maskPan, maskAadhaar } from './primitives';
+import { maskPan, maskAadhaar, maskMobile } from './primitives';
 
 /* ── Customer Shape ─────────────────────────────────────────────
  * Maps to Spring CifLookupResponse (30 fields) per CIF_API_CONTRACT.md §5.
@@ -260,7 +260,7 @@ export function CifLookup({
             </span>
             {customer.mobile && (
               <span className="text-cbs-steel-600">
-                Mobile: <span className="text-cbs-ink cbs-tabular">{customer.mobile}</span>
+                Mobile: <span className="text-cbs-ink cbs-tabular">{customer.mobile.includes('X') ? customer.mobile : maskMobile(customer.mobile)}</span>
               </span>
             )}
             {customer.email && (
@@ -270,12 +270,12 @@ export function CifLookup({
             )}
             {customer.pan && (
               <span className="text-cbs-steel-600">
-                PAN: <span className="text-cbs-ink cbs-tabular">{customer.pan.includes('*') ? customer.pan : maskPan(customer.pan)}</span>
+                PAN: <span className="text-cbs-ink cbs-tabular">{customer.pan.includes('X') || customer.pan.includes('*') ? customer.pan : maskPan(customer.pan)}</span>
               </span>
             )}
             {customer.aadhaar && (
               <span className="text-cbs-steel-600">
-                Aadhaar: <span className="text-cbs-ink cbs-tabular">{customer.aadhaar.includes('*') ? customer.aadhaar : maskAadhaar(customer.aadhaar)}</span>
+                Aadhaar: <span className="text-cbs-ink cbs-tabular">{customer.aadhaar.includes('X') || customer.aadhaar.includes('*') ? customer.aadhaar : maskAadhaar(customer.aadhaar)}</span>
               </span>
             )}
             {customer.branchCode && (

@@ -349,16 +349,31 @@ export function AmountDisplay({
   );
 }
 
-/** Mask a PAN for read-only display: ABCDE1234F -> ABCD***34F. */
+/**
+ * Mask a PAN for read-only display per RBI IT Governance §8.5.
+ * ABCDE1234F → XXXXXX234F (last 4 visible).
+ */
 export function maskPan(pan: string): string {
   if (!pan || pan.length !== 10) return '****';
-  return `${pan.slice(0, 4)}***${pan.slice(-3)}`;
+  return `XXXXXX${pan.slice(-4)}`;
 }
 
-/** Mask an Aadhaar for read-only display: last 4 only. */
+/**
+ * Mask an Aadhaar for read-only display per UIDAI guidelines.
+ * 123456789012 → XXXXXXXX9012 (last 4 visible).
+ */
 export function maskAadhaar(aadhaar: string): string {
   if (!aadhaar || aadhaar.length !== 12) return '**** **** ****';
-  return `**** **** ${aadhaar.slice(-4)}`;
+  return `XXXXXXXX${aadhaar.slice(-4)}`;
+}
+
+/**
+ * Mask a mobile number for read-only display per RBI IT Governance §8.5.
+ * 9876543210 → XXXXXX3210 (last 4 visible).
+ */
+export function maskMobile(mobile: string): string {
+  if (!mobile || mobile.length < 4) return '****';
+  return `XXXXXX${mobile.slice(-4)}`;
 }
 
 /** Mask an account number for read-only display: last 4 only. */
