@@ -15,7 +15,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import Link from 'next/link';
-import { Eye, UserPlus, ShieldCheck, MoreVertical } from 'lucide-react';
+import { Eye, UserPlus, ShieldCheck } from 'lucide-react';
 import { apiClient } from '@/services/api/apiClient';
 import { StatusRibbon, maskPan, Breadcrumb } from '@/components/cbs';
 import { Button, Spinner, RoleGate } from '@/components/atoms';
