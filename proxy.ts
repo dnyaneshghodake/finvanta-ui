@@ -220,9 +220,51 @@ function enforceBodyCeiling(req: NextRequest): NextResponse | null {
   return null;
 }
 
+// ── Session cookie presence check (defense-in-depth Layer 1) ──────
+// Per RBI IT Governance 2023 §8.3 and OWASP ASVS V3: the
+// authenticated boundary must be enforced at the earliest layer.
+// This is a PRESENCE check only — the cookie value is opaque here
+// (no Node.js crypto). Full decrypt + expiry validation happens in:
+//   Layer 2: Server Component layout → readSession()
+//   Layer 3: BFF proxy → readSession() + CSRF + JWT injection
+//
+// CBS benchmark: Finacle WAF rejects unauthenticated requests at
+// the reverse proxy before they reach the app server.
+const SESSION_COOKIE = process.env.CBS_SESSION_COOKIE || "fv_sid";
+
+const PUBLIC_PREFIXES = [
+  "/login",
+  "/api/cbs/auth/",
+  "/api/cbs/health",
+];
+
+function isPublicPath(pathname: string): boolean {
+  return PUBLIC_PREFIXES.some((prefix) => pathname.startsWith(prefix));
+}
+
+function enforceSession(req: NextRequest): NextResponse | null {
+  const { pathname } = req.nextUrl;
+  // Public paths (login, pre-auth BFF, health) skip the check.
+  if (isPublicPath(pathname)) return null;
+  // API routes are authenticated by the BFF proxy (Layer 3) — the
+  // session cookie is read and validated there. No redirect needed.
+  if (pathname.startsWith("/api/")) return null;
+  // Check for the encrypted session cookie.
+  const sid = req.cookies.get(SESSION_COOKIE);
+  if (sid?.value) return null;
+  // No session → redirect to login.
+  const loginUrl = req.nextUrl.clone();
+  loginUrl.pathname = "/login";
+  loginUrl.searchParams.set("reason", "session_expired");
+  return NextResponse.redirect(loginUrl);
+}
+
 export function proxy(req: NextRequest): NextResponse {
   const hostReject = enforceHostAllowList(req);
   if (hostReject) return hostReject;
+
+  const sessionReject = enforceSession(req);
+  if (sessionReject) return sessionReject;
 
   const bodyReject = enforceBodyCeiling(req);
   if (bodyReject) return bodyReject;
