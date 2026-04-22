@@ -263,9 +263,14 @@ function enforceSession(req: NextRequest): NextResponse | null {
   // Check for the encrypted session cookie.
   const sid = req.cookies.get(SESSION_COOKIE);
   if (sid?.value) return null;
-  // No session → redirect to login.
-  const loginUrl = req.nextUrl.clone();
-  loginUrl.pathname = "/login";
+  // No session → redirect to login with a clean URL.
+  // SECURITY: construct from origin only — do NOT clone req.nextUrl.
+  // Cloning preserves the original query parameters (e.g.
+  // ?customerId=1001&balance=50000), leaking sensitive financial data
+  // into the browser address bar, browser history, and server access
+  // logs. Per RBI IT Governance 2023 §8.4: PII and financial data
+  // must not appear in URLs visible to intermediaries or logs.
+  const loginUrl = new URL("/login", req.nextUrl.origin);
   loginUrl.searchParams.set("reason", "session_expired");
   return NextResponse.redirect(loginUrl);
 }
