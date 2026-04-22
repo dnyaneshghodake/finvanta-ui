@@ -115,34 +115,34 @@ GET /api/v1/customers/{id}
 |---|-------|-----------|----------|-------|
 | 33 | `branchCode` | `String` | No | Home branch SOL code |
 
-### Permanent Address (nested object)
+### Permanent Address — CKYC §3.9 (nested object)
 
 | # | Field | Java Type | Notes |
 |---|-------|-----------|-------|
-| 27 | `permanentAddress` | `Object` | Preferred address for auto-population |
-| 27a | `.line1` | `String` | → form `addressLine1` |
-| 27b | `.line2` | `String` | → form `addressLine2` |
-| 27c | `.city` | `String` | → form `city` |
-| 27d | `.district` | `String` | Display only |
-| 27e | `.state` | `String` | → form `state` |
-| 27f | `.pincode` | `String` | → form `pinCode` |
-| 27g | `.country` | `String` | Display only |
+| 34 | `permanentAddress` | `Object` | Preferred address for auto-population |
+| 34a | `.line1` | `String` | → form `addressLine1` |
+| 34b | `.line2` | `String` | → form `addressLine2` |
+| 34c | `.city` | `String` | → form `city` |
+| 34d | `.district` | `String` | CKYC mandatory (separate from city). Display only |
+| 34e | `.state` | `String` | → form `state` |
+| 34f | `.pincode` | `String` | → form `pinCode` |
+| 34g | `.country` | `String` | Default: `INDIA`. Display only |
 
-### Correspondence Address (nested, same structure)
+### Correspondence Address — CKYC §3.10 (nested, same structure)
 
 | # | Field | Notes |
 |---|-------|-------|
-| 28 | `correspondenceAddress` | Same sub-fields as `permanentAddress` |
+| 35 | `correspondenceAddress` | Same sub-fields as `permanentAddress` |
 
 ### Legacy Address Fallback (nested)
 
 | # | Field | Notes |
 |---|-------|-------|
-| 29 | `address` | Used only if `permanentAddress` is null |
-| 29a | `.street` | → form `addressLine1` |
-| 29b | `.city` | |
-| 29c | `.state` | |
-| 29d | `.pincode` | |
+| 36 | `address` | **Deprecated** — used only if `permanentAddress` is null (pre-v2.0 backends) |
+| 36a | `.street` | → form `addressLine1` |
+| 36b | `.city` | |
+| 36c | `.state` | |
+| 36d | `.pincode` | |
 
 ---
 
@@ -265,25 +265,32 @@ GET /api/v1/customers/{id}
     "id": 1001,
     "customerNumber": "CIF-BR001-000042",
     "firstName": "Rajesh",
+    "middleName": null,
     "lastName": "Kumar",
     "fullName": "Rajesh Kumar",
     "customerType": "INDIVIDUAL",
     "status": "ACTIVE",
     "kycStatus": "VERIFIED",
+    "kycVerified": true,
+    "kycExpiryDate": "2028-04-12",
+    "rekycDue": false,
     "branchCode": "BR001",
-    "pan": "ABCD***34F",
-    "aadhaar": "**** **** 1234",
+    "pan": "XXXXXX234F",
+    "aadhaar": "XXXXXXXX9012",
     "ckycNumber": "12345678901234",
-    "mobile": "9876543210",
+    "mobile": "XXXXXX3210",
     "email": "rajesh@example.com",
     "dob": "1990-04-12",
     "gender": "MALE",
     "nationality": "INDIAN",
     "residentStatus": "RESIDENT",
     "fatherOrSpouseName": "Suresh Kumar",
+    "fatherName": "Suresh Kumar",
+    "motherName": "Anita Kumar",
+    "spouseName": "Priya Kumar",
     "maritalStatus": "MARRIED",
-    "occupation": "SALARIED",
-    "annualIncomeRange": "5L_10L",
+    "occupation": "SALARIED_PRIVATE",
+    "annualIncomeRange": "5L_TO_10L",
     "sourceOfFunds": "SALARY",
     "riskCategory": "LOW",
     "pepFlag": false,
@@ -305,6 +312,9 @@ GET /api/v1/customers/{id}
       "pincode": "400069"
     }
   },
+  "errorCode": null,
+  "message": null,
+  "error": null,
   "meta": {
     "apiVersion": "v1",
     "correlationId": "550e8400-e29b-41d4-a716-446655440000",

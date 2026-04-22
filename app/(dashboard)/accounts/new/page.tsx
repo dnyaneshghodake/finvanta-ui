@@ -394,7 +394,7 @@ export default function AccountOpeningPage() {
                   <FormField label="Father / Spouse" htmlFor="fatherSpouseName">
                     <input id="fatherSpouseName" className="cbs-input" {...register('fatherSpouseName')} />
                   </FormField>
-                  <CbsSelect label="Nationality" options={[{ value: '', label: '— Select —' }, { value: 'INDIAN', label: 'Indian' }, { value: 'NRI', label: 'NRI' }]} {...register('nationality')} />
+                  <CbsSelect label="Nationality" options={[{ value: '', label: '— Select —' }, { value: 'INDIAN', label: 'Indian' }, { value: 'NRI', label: 'NRI' }, { value: 'PIO', label: 'PIO' }, { value: 'OCI', label: 'OCI' }, { value: 'FOREIGN', label: 'Foreign' }]} {...register('nationality')} />
                 </div>
               </Section>
               {/* §5 Contact */}
@@ -424,16 +424,18 @@ export default function AccountOpeningPage() {
               <Section id="occupation" title="Occupation & Financial Profile" isOpen={openSections.has('occupation')} onToggle={() => toggle('occupation')}>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <CbsSelect label="Occupation" options={[
-                    { value: '', label: '— Select —' }, { value: 'SALARIED', label: 'Salaried' },
-                    { value: 'SELF_EMPLOYED', label: 'Self Employed' }, { value: 'BUSINESS', label: 'Business' },
-                    { value: 'PROFESSIONAL', label: 'Professional' }, { value: 'RETIRED', label: 'Retired' },
-                    { value: 'STUDENT', label: 'Student' }, { value: 'HOMEMAKER', label: 'Homemaker' },
+                    { value: '', label: '— Select —' }, { value: 'SALARIED_PRIVATE', label: 'Salaried (Private)' },
+                    { value: 'SALARIED_GOVT', label: 'Salaried (Govt)' }, { value: 'SELF_EMPLOYED', label: 'Self Employed' },
+                    { value: 'BUSINESS', label: 'Business' }, { value: 'PROFESSIONAL', label: 'Professional' },
+                    { value: 'RETIRED', label: 'Retired' }, { value: 'HOUSEWIFE', label: 'Housewife' },
+                    { value: 'STUDENT', label: 'Student' }, { value: 'AGRICULTURIST', label: 'Agriculturist' },
+                    { value: 'OTHER', label: 'Other' },
                   ]} {...register('occupation')} />
                   <CbsSelect label="Annual Income" options={[
                     { value: '', label: '— Select —' }, { value: 'BELOW_1L', label: 'Below ₹1L' },
-                    { value: '1L_5L', label: '₹1–5L' }, { value: '5L_10L', label: '₹5–10L' },
-                    { value: '10L_25L', label: '₹10–25L' }, { value: '25L_50L', label: '₹25–50L' },
-                    { value: 'ABOVE_50L', label: 'Above ₹50L' },
+                    { value: '1L_TO_5L', label: '₹1–5L' }, { value: '5L_TO_10L', label: '₹5–10L' },
+                    { value: '10L_TO_25L', label: '₹10–25L' }, { value: '25L_TO_1CR', label: '₹25L–1Cr' },
+                    { value: 'ABOVE_1CR', label: 'Above ₹1Cr' },
                   ]} {...register('annualIncome')} />
                   <CbsSelect label="Source of Funds" options={[
                     { value: '', label: '— Select —' }, { value: 'SALARY', label: 'Salary' },

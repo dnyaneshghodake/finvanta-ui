@@ -8,10 +8,12 @@
  *     display, right-aligned, negative values rendered in red.
  *   - IFSC: 11-char [A-Z]{4}0[A-Z0-9]{6} pattern, forced uppercase.
  *   - PAN: 10-char [A-Z]{5}[0-9]{4}[A-Z] pattern, masked display
- *     (first 4 + *** + last 1) in read-only views per RBI KYC.
- *   - Aadhaar: 12-digit, displayed masked (last 4 visible) per
- *     UIDAI guideline; raw value never echoed into the DOM in read-
- *     only views.
+ *     XXXXXX + last 4 (e.g. XXXXXX234F) per RBI IT Governance §8.5.
+ *   - Aadhaar: 12-digit, displayed masked XXXXXXXX + last 4
+ *     (e.g. XXXXXXXX9012) per UIDAI guideline; raw value never
+ *     echoed into the DOM in read-only views.
+ *   - Mobile: 10-digit, displayed masked XXXXXX + last 4
+ *     (e.g. XXXXXX3210) per RBI IT Governance §8.5.
  *   - Account number: opaque masked display ("****1234"); the full
  *     value remains in state only for submit.
  *   - Value date: calendar-date text input (dd-MMM-yyyy), rendered

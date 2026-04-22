@@ -8,6 +8,7 @@ export {
   ValueDate,
   maskPan,
   maskAadhaar,
+  maskMobile,
   maskAccountNo,
 } from './primitives';
 
