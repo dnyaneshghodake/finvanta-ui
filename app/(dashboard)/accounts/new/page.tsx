@@ -228,24 +228,26 @@ export default function AccountOpeningPage() {
     if (c.dob) setValue('dateOfBirth', c.dob);
     if (c.gender) setValue('gender', c.gender);
     if (c.nationality) setValue('nationality', c.nationality);
-    if (c.fatherOrSpouseName) setValue('fatherSpouseName', c.fatherOrSpouseName);
+    // Per CIF_API_CONTRACT v2.0 §3.4: prefer CERSAI separate fields, fall back to legacy combined field.
+    const fatherOrSpouse = c.fatherName || c.spouseName || c.fatherOrSpouseName;
+    if (fatherOrSpouse) setValue('fatherSpouseName', fatherOrSpouse);
     if (c.occupation) setValue('occupation', c.occupation);
     if (c.annualIncomeRange) setValue('annualIncome', c.annualIncomeRange);
     if (c.sourceOfFunds) setValue('sourceOfFunds', c.sourceOfFunds);
     if (c.pepFlag !== undefined && c.pepFlag !== null) setValue('pepFlag', c.pepFlag ? 'YES' : 'NO');
     if (c.fatcaCountry) setValue('usTaxResident', c.fatcaCountry !== 'IN' ? 'YES' : 'NO');
-    // KYC mapping
+    // KYC mapping — per CIF_API_CONTRACT v2.0 §5: kycStatus is VERIFIED/PENDING/EXPIRED
     const kyc = c.kycStatus || '';
-    if (kyc === 'VERIFIED' || kyc === 'APPROVED') setValue('kycStatus', 'FULL_KYC');
-    else if (kyc === 'PENDING') setValue('kycStatus', 'MIN_KYC');
-    // Address
-    const addr = c.permanentAddress || c.address;
+    if (kyc === 'VERIFIED') setValue('kycStatus', 'FULL_KYC');
+    else if (kyc === 'PENDING' || kyc === 'EXPIRED') setValue('kycStatus', 'MIN_KYC');
+    // Address — per CIF_API_CONTRACT v2.0 §3.9: use permanentAddress (nested object)
+    const addr = c.permanentAddress;
     if (addr) {
-      setValue('addressLine1', ('line1' in addr ? addr.line1 : 'street' in addr ? addr.street : '') || '');
-      if ('line2' in addr && addr.line2) setValue('addressLine2', addr.line2);
+      if (addr.line1) setValue('addressLine1', addr.line1);
+      if (addr.line2) setValue('addressLine2', addr.line2);
       if (addr.city) setValue('city', addr.city);
       if (addr.state) setValue('state', addr.state);
-      if ('pincode' in addr && addr.pincode) setValue('pinCode', addr.pincode);
+      if (addr.pincode) setValue('pinCode', addr.pincode);
     }
     // Expand populated sections (merge, don't replace — preserves user-opened sections)
     setOpenSections((prev) => new Set([...prev, 'product', 'kyc', 'personal', 'contact', 'address', 'occupation']));
@@ -255,11 +257,10 @@ export default function AccountOpeningPage() {
     setError(null);
     setCorrelationId(null);
     try {
-      /* Per API_REFERENCE.md §4 and ACCOUNT_OPENING_API_CONTRACT.md:
+      /* Per ACCOUNT_OPENING_API_CONTRACT.md:
        * POST /accounts/open creates account in PENDING_ACTIVATION status.
        * Checker activates via POST /accounts/{accountNumber}/activate.
-       * The workflow engine (§15) routes the approval to the checker
-       * queue automatically.
+       * The workflow engine routes the approval to the checker queue.
        *
        * All 29 API fields are sent. The backend uses
        * @JsonIgnoreProperties(ignoreUnknown = true) so fields it doesn't
@@ -486,9 +487,10 @@ export default function AccountOpeningPage() {
                 <div className="cbs-surface-body space-y-2 text-xs">
                   {!cifCustomer && <p className="text-cbs-steel-600">Fetch CIF to populate risk assessment.</p>}
                   <div className="border-t border-cbs-steel-100 pt-2 space-y-1.5">
-                    <div className="flex justify-between"><span className="text-cbs-steel-600">KYC Status</span><span className={clsx('font-medium', cifCustomer?.kycStatus === 'VERIFIED' ? 'text-cbs-olive-700' : cifCustomer ? 'text-cbs-gold-700' : 'text-cbs-ink')}>{cifCustomer?.kycStatus || '—'}</span></div>
+                    <div className="flex justify-between"><span className="text-cbs-steel-600">KYC Status</span><span className={clsx('font-medium', cifCustomer?.kycStatus === 'VERIFIED' ? 'text-cbs-olive-700' : cifCustomer?.kycStatus === 'EXPIRED' ? 'text-cbs-crimson-700' : cifCustomer ? 'text-cbs-gold-700' : 'text-cbs-ink')}>{cifCustomer?.kycStatus || '—'}</span></div>
                     <div className="flex justify-between"><span className="text-cbs-steel-600">PEP Flag</span><span className={clsx('font-medium', cifCustomer?.pepFlag ? 'text-cbs-crimson-700' : 'text-cbs-ink')}>{cifCustomer ? (cifCustomer.pepFlag ? 'Yes ⚠' : 'No') : '—'}</span></div>
                     <div className="flex justify-between"><span className="text-cbs-steel-600">Risk Category</span><span className={clsx('font-medium', cifCustomer?.riskCategory === 'HIGH' ? 'text-cbs-crimson-700' : cifCustomer?.riskCategory === 'MEDIUM' ? 'text-cbs-gold-700' : 'text-cbs-ink')}>{cifCustomer?.riskCategory || '—'}</span></div>
+                    {cifCustomer?.rekycDue && <div className="flex justify-between"><span className="text-cbs-steel-600">Re-KYC</span><span className="text-cbs-crimson-700 font-medium">Due ⚠</span></div>}
                     <div className="flex justify-between"><span className="text-cbs-steel-600">Sanction Check</span><span className="text-cbs-ink font-medium">{cifCustomer ? 'Pending' : '—'}</span></div>
                   </div>
                 </div>

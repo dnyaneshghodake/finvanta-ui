@@ -60,8 +60,9 @@ export interface CifCustomer {
   gender?: string;
   nationality?: string;
   residentStatus?: string;
+  /** @deprecated Use fatherName/spouseName per CERSAI v2.0. */
   fatherOrSpouseName?: string;
-  /** CERSAI v2.0: separate father/mother fields */
+  /** CERSAI v2.0 §3.4: separate father/mother/spouse fields. */
   fatherName?: string;
   motherName?: string;
   spouseName?: string;
@@ -93,7 +94,10 @@ export interface CifCustomer {
     pincode?: string;
     country?: string;
   };
-  /** Legacy single address fallback. */
+  /**
+   * @deprecated Legacy single address — use permanentAddress per §3.9.
+   * Retained only for backward compat with pre-v2.0 backends.
+   */
   address?: {
     street?: string;
     city?: string;
