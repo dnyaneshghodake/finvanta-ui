@@ -171,20 +171,20 @@ export function CifLookup({
     <div className={className}>
       {/* ── Search Input ──────────────────────────────────── */}
       <div className="flex flex-col gap-1">
-        <label htmlFor="cif-lookup" className="cbs-field-label">
+        <label htmlFor={inputId} className="cbs-field-label">
           {label}<span className="text-cbs-crimson-700 ml-0.5" aria-hidden="true">*</span>
         </label>
         <div className="flex gap-1.5">
           <input
             ref={inputRef}
-            id="cif-lookup"
+            id={inputId}
             value={cifId}
             onChange={(e) => setCifId(e.target.value)}
             onKeyDown={handleKeyDown}
             className="cbs-input cbs-tabular flex-1"
             inputMode="numeric"
             placeholder="e.g. 1001"
-            aria-describedby={error ? 'cif-lookup-error' : undefined}
+            aria-describedby={error ? errorId : undefined}
             aria-invalid={!!error}
           />
           <button
@@ -200,7 +200,7 @@ export function CifLookup({
           </button>
         </div>
         {error && (
-          <p id="cif-lookup-error" className="text-xs text-cbs-crimson-700" role="alert">
+          <p id={errorId} className="text-xs text-cbs-crimson-700" role="alert">
             {error}
           </p>
         )}
@@ -238,12 +238,12 @@ export function CifLookup({
             )}
             {customer.pan && (
               <span className="text-cbs-steel-600">
-                PAN: <span className="text-cbs-ink cbs-tabular">{maskPan(customer.pan)}</span>
+                PAN: <span className="text-cbs-ink cbs-tabular">{customer.pan.includes('*') ? customer.pan : maskPan(customer.pan)}</span>
               </span>
             )}
             {customer.aadhaar && (
               <span className="text-cbs-steel-600">
-                Aadhaar: <span className="text-cbs-ink cbs-tabular">{maskAadhaar(customer.aadhaar)}</span>
+                Aadhaar: <span className="text-cbs-ink cbs-tabular">{customer.aadhaar.includes('*') ? customer.aadhaar : maskAadhaar(customer.aadhaar)}</span>
               </span>
             )}
             {customer.branchCode && (

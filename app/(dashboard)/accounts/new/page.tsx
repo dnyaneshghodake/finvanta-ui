@@ -35,7 +35,7 @@ import {
   Breadcrumb, CbsSelect,
   CifLookup, type CifCustomer,
 } from '@/components/cbs';
-import { Button, Checkbox, Badge } from '@/components/atoms';
+import { Button, Checkbox, Badge, RoleGate } from '@/components/atoms';
 import { FormField } from '@/components/molecules/FormField';
 import { useAuthStore } from '@/store/authStore';
 import { useDayStatus } from '@/contexts/DayStatusContext';
@@ -84,12 +84,29 @@ const accountSchema = z.object({
   // §11 Initial Deposit
   initialDeposit: z.string().regex(/^\d+(\.\d{1,2})?$/, 'Enter a valid amount').optional().or(z.literal('')),
   // §14 Declarations — RBI CDD mandates: maker must confirm all three before submission
-  dueDiligenceConfirmed: z.literal(true, { errorMap: () => ({ message: 'Due diligence confirmation is required' }) }),
-  documentsVerified: z.literal(true, { errorMap: () => ({ message: 'Document verification confirmation is required' }) }),
-  customerConsentObtained: z.literal(true, { errorMap: () => ({ message: 'Customer consent confirmation is required' }) }),
+  dueDiligenceConfirmed: z.literal(true, { message: 'Due diligence confirmation is required' }),
+  documentsVerified: z.literal(true, { message: 'Document verification confirmation is required' }),
+  customerConsentObtained: z.literal(true, { message: 'Customer consent confirmation is required' }),
 });
 
 type AccountForm = z.infer<typeof accountSchema>;
+
+/* ── Field → Section Mapping ─────────────────────────────────
+ * Static map used to auto-expand accordion sections containing
+ * validation errors on invalid submit. Declared outside the
+ * component to avoid recreation on each render. */
+const FIELD_SECTION_MAP: Record<string, string> = {
+  customerId: 'product', accountType: 'product', currencyCode: 'product', initialDeposit: 'product',
+  panNumber: 'kyc', aadhaarNumber: 'kyc', kycStatus: 'kyc', pepFlag: 'kyc',
+  fullName: 'personal', dateOfBirth: 'personal', gender: 'personal', fatherSpouseName: 'personal',
+  mobileNumber: 'contact', email: 'contact',
+  addressLine1: 'address', addressLine2: 'address', city: 'address', state: 'address', pinCode: 'address',
+  occupation: 'occupation', annualIncome: 'occupation', sourceOfFunds: 'occupation',
+  nomineeName: 'nominee', nomineeRelationship: 'nominee',
+  usTaxResident: 'fatca',
+  chequeBookRequired: 'config', debitCardRequired: 'config', smsAlerts: 'config',
+  dueDiligenceConfirmed: 'declarations', documentsVerified: 'declarations', customerConsentObtained: 'declarations',
+};
 
 /* ── Collapsible Section ────────────────────────────────────────
  * Accordion-style wrapper. Uses CbsFieldset visual pattern with
@@ -162,6 +179,21 @@ export default function AccountOpeningPage() {
     },
   });
 
+  /* Auto-expand sections containing validation errors so users can see them.
+   * react-hook-form's onInvalid callback receives the FieldErrors object. */
+  const expandErrorSections = useCallback((fieldErrors: Record<string, unknown>) => {
+    const errorFields = Object.keys(fieldErrors);
+    if (errorFields.length === 0) return;
+    setOpenSections((prev) => {
+      const next = new Set(prev);
+      errorFields.forEach((field) => {
+        const section = FIELD_SECTION_MAP[field];
+        if (section) next.add(section);
+      });
+      return next;
+    });
+  }, []);
+
   /* ── CIF Auto-Populate ───────────────────────────────────────
    * Called by CifLookup when a valid customer is fetched.
    * Maps 13+ CIF fields to form fields via setValue. */
@@ -183,7 +215,7 @@ export default function AccountOpeningPage() {
     if (c.annualIncomeRange) setValue('annualIncome', c.annualIncomeRange);
     if (c.sourceOfFunds) setValue('sourceOfFunds', c.sourceOfFunds);
     if (c.pepFlag !== undefined && c.pepFlag !== null) setValue('pepFlag', c.pepFlag ? 'YES' : 'NO');
-    if (c.fatcaCountry && c.fatcaCountry !== 'IN') setValue('usTaxResident', 'YES');
+    if (c.fatcaCountry) setValue('usTaxResident', c.fatcaCountry !== 'IN' ? 'YES' : 'NO');
     // KYC mapping
     const kyc = c.kycStatus || '';
     if (kyc === 'VERIFIED' || kyc === 'APPROVED') setValue('kycStatus', 'FULL_KYC');
@@ -274,7 +306,7 @@ export default function AccountOpeningPage() {
       />
 
       {/* ── Form: 8+4 Grid ─────────────────────────────────── */}
-      <form onSubmit={handleSubmit(onSubmit)} className="flex-1 min-h-0 flex flex-col">
+      <form onSubmit={handleSubmit(onSubmit, expandErrorSections)} className="flex-1 min-h-0 flex flex-col">
         <div className="flex-1 overflow-y-auto">
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
             {/* ── Left: Sectioned Form (8 cols) ────────────── */}
@@ -401,7 +433,12 @@ export default function AccountOpeningPage() {
         <div className="shrink-0 flex items-center justify-between gap-2 border-t border-cbs-steel-200 bg-cbs-paper pt-3 mt-4">
           <Link href="/accounts" className="cbs-btn cbs-btn-secondary">Cancel</Link>
           <div className="flex gap-2">
-            <Button type="submit" isLoading={isSubmitting} disabled={!isPostingAllowed}>Submit for Approval</Button>
+            <RoleGate
+              roles={['MAKER', 'ADMIN']}
+              fallback={<span className="text-xs text-cbs-steel-600">Insufficient privileges — MAKER role required</span>}
+            >
+              <Button type="submit" isLoading={isSubmitting} disabled={!isPostingAllowed}>Submit for Approval</Button>
+            </RoleGate>
           </div>
         </div>
       </form>
