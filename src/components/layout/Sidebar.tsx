@@ -177,15 +177,19 @@ function resolveEnvironment(): CbsEnvironment {
 /** Resolved once at module load — env never changes at runtime. */
 const CBS_ENV = resolveEnvironment();
 
-/* Badge uses the tinted-badge pattern (-50 bg + -700 text) — the same
- * pattern as cbs-alert-*, cbs-toast-*, and Header day-status badges.
- * This works in BOTH light and dark themes because the -50/-700 pair
- * is designed to invert together:
- *   Light: dark text on light tint  (e.g. #741313 on #fbecec = 10.3:1)
- *   Dark:  light text on dark tint  (e.g. #ff7b72 on #2d0b0b = 6.3:1)
- * Added border for visual weight at the tiny 8–9px badge size. */
+/* PROD uses a filled crimson badge — the most alarming visual treatment
+ * in the palette — because production mistakes are irreversible. The
+ * filled style is intentionally different from tinted status badges so
+ * operators can distinguish "I am in PROD" from "this record is rejected"
+ * at a glance. Uses crimson-600 bg + cbs-paper text:
+ *   Light: #9a1d1d bg + #ffffff text = 7.8:1 ✓
+ *   Dark:  #f85149 bg + #161b22 text = 5.2:1 ✓ (AA)
+ *
+ * UAT/SIT/DEV use the tinted-badge pattern (-50 bg + -700 text) which
+ * works in both light and dark themes because the -50/-700 pair inverts
+ * together. */
 const ENV_TONE: Record<CbsEnvironment, string> = {
-  PROD: 'bg-cbs-crimson-50 text-cbs-crimson-700 border border-cbs-crimson-600',
+  PROD: 'bg-cbs-crimson-600 text-cbs-paper border border-cbs-crimson-700',
   UAT: 'bg-cbs-gold-50 text-cbs-gold-700 border border-cbs-gold-600',
   SIT: 'bg-cbs-violet-50 text-cbs-violet-700 border border-cbs-violet-600',
   DEV: 'bg-cbs-olive-50 text-cbs-olive-700 border border-cbs-olive-600',
