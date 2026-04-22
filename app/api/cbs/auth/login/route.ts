@@ -687,6 +687,20 @@ export async function POST(req: NextRequest) {
     passwordExpiryDate: bUser?.passwordExpiryDate || sessionUser.passwordExpiryDate,
   };
 
+  // ── Session nonce — concurrent session tracking ──────────────
+  // Per RBI IT Governance 2023 §8.3: each login generates a unique
+  // session nonce that is embedded in the encrypted session blob and
+  // propagated to Spring via X-Session-Nonce on every proxied request.
+  // This serves two purposes:
+  //   1. When the same operator logs in from a second browser, the old
+  //      session's refresh token is revoked (X-Invalidate-Previous-Sessions).
+  //      The old browser's next proactive refresh fails with 401, and the
+  //      apiClient redirector sends them to /login?reason=session_compromised.
+  //   2. All requests within a single login session share the same nonce,
+  //      making it trivial to correlate activity to a specific login event
+  //      in the backend audit trail.
+  const sessionNonce = crypto.randomUUID();
+
   const session = await writeSession({
     accessToken,
     refreshToken: refreshTokenRaw,
@@ -695,6 +709,7 @@ export async function POST(req: NextRequest) {
     jwtExpiresAt,
     user: enrichedUser,
     correlationId,
+    sessionNonce,
     businessDate: bootstrapBusinessDate,
     businessDay: bootstrapBizDay ? {
       businessDate: bootstrapBizDay.businessDate || bootstrapBusinessDate,
