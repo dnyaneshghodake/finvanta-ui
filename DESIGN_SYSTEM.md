@@ -445,3 +445,64 @@ CBS operators have different workflows requiring different UI density:
 - No client-side date/number formatting libraries — use native
   `Intl.NumberFormat` and the `formatters.ts` utility functions
 - Skeleton loading states for all async data (`.cbs-skeleton-*`)
+
+---
+
+## 16. Error Severity Hierarchy
+
+CBS errors follow a strict 4-tier severity model. Each tier has
+distinct visual treatment and UX behaviour:
+
+| Severity | Tokens | Visual | UX Behaviour |
+|----------|--------|--------|-------------|
+| **INFO** | `--color-status-info-*` | Navy tint | Non-blocking banner or toast. Auto-dismisses after 5s. |
+| **WARNING** | `--color-status-warning-*` | Gold tint | Persistent banner (e.g., day-status, password expiry). Operator can continue. |
+| **ERROR** | `--color-status-error-*` | Crimson tint | Field-level: border + background tint + message below field. Form-level: alert block. Blocks submission until resolved. |
+| **CRITICAL** | `--color-status-critical-*` | Dark crimson | **Blocking modal.** Operator cannot proceed. Used for: fraud alerts, system failures, "transaction may have been submitted" scenarios. |
+
+### Implementation mapping:
+
+| Severity | Components |
+|----------|-----------|
+| INFO | `.cbs-alert-info`, `.cbs-toast-info` |
+| WARNING | `.cbs-alert-warning`, `.cbs-toast-warning`, `DayStatusBanner`, `PasswordExpiryBanner` |
+| ERROR | `.cbs-alert-error`, `.cbs-toast-error`, `[aria-invalid="true"]` field states |
+| CRITICAL | `TransactionErrorBoundary` ("transaction may have been submitted"), `SessionTimeoutWarning` (blocking modal) |
+
+### Rules:
+
+- CRITICAL errors **MUST** block transaction progression
+- ERROR states **MUST** include border + background tint (not colour alone)
+- WARNING banners **MUST** persist until the condition resolves
+- INFO toasts **MUST** auto-dismiss (never accumulate)
+- All severity levels use the semantic `--color-status-*` tokens
+
+---
+
+## 17. Future Considerations
+
+### Design System Versioning (when micro-frontends are adopted)
+
+When the architecture evolves to multiple independently deployed
+frontends, the design system must be versioned explicitly:
+
+```
+PATCH → non-breaking (spacing tuning, colour adjustment)
+MINOR → additive (new tokens, new components)
+MAJOR → breaking (component size changes, layout restructure)
+```
+
+Each micro-frontend would declare a compatible version range.
+Currently unnecessary — the single Next.js app ships all tokens,
+components, and screens in one build.
+
+### Cross-Channel Token Portability (when mobile/reports channels launch)
+
+The CSS custom property architecture is already portable:
+- Token values can be extracted to JSON via a build step
+- React Native / Flutter can consume the same JSON
+- PDF report generators can reference the same colour values
+
+The principle: **one token definition, multiple channel consumers**.
+Build the extraction pipeline when the second channel launches, not
+before.

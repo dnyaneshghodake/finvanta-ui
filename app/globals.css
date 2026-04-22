@@ -240,6 +240,10 @@
   --color-status-workflow-bg:    var(--color-cbs-violet-50);
   --color-status-workflow-border: var(--color-cbs-violet-600);
   --color-status-workflow-text:  var(--color-cbs-violet-700);
+
+  --color-status-critical-bg:    var(--color-cbs-crimson-100);
+  --color-status-critical-border: var(--color-cbs-crimson-700);
+  --color-status-critical-text:  var(--color-cbs-crimson-800);
 }
 
 :root {
