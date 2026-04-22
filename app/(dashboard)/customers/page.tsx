@@ -79,7 +79,7 @@ export default function CustomerSearchPage() {
       <Breadcrumb items={[{ label: R.dashboard.home.label, href: R.dashboard.home.path as string }, { label: R.customers.search.label }]} />
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-semibold text-cbs-ink">Customer Search</h1>
+          <h1 className="text-lg font-semibold text-cbs-ink">Customer Search</h1>
           <p className="text-xs text-cbs-steel-600 mt-0.5">
             Search by CIF number, PAN, Aadhaar, name, or mobile number.
           </p>
