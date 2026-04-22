@@ -9,7 +9,8 @@
  *   - Active sub-item auto-expands its parent module
  *   - Icons: 18px stroke on module headers only
  *   - Sub-items: indent + text only (CBS density convention)
- *   - User context block: operator, role, branch, biz date
+ *   - Collapsed rail identity: initials avatar + hover tooltip (§6)
+ *   - Expanded mode: no user block (Header is single source of truth)
  *   - Environment badge: PROD/UAT/SIT/DEV (prevents env mistakes)
  *   - 3px left border on active items (CBS active state convention)
  *   - aria-expanded on expandable modules (WCAG 2.1 AA)
@@ -32,7 +33,7 @@ import clsx from 'clsx';
 import {
   LayoutDashboard, Landmark, ArrowLeftRight, ClipboardCheck,
   Users, UserPlus, Banknote, CreditCard, BarChart3, Settings, Monitor,
-  ChevronRight, Building2, Calendar, Search, ChevronsLeft, ChevronsRight,
+  ChevronRight, Search, ChevronsLeft, ChevronsRight,
 } from 'lucide-react';
 import type { UserRole } from '@/types/entities';
 
@@ -191,7 +192,6 @@ const Sidebar: React.FC<SidebarProps> = ({ className }) => {
   const { isSidebarOpen, setSidebarOpen, isSidebarCollapsed, setSidebarCollapsed, toggleSidebarCollapse } = useUIStore();
   const user = useAuthStore((s) => s.user);
   const userRoles = user?.roles ?? [];
-  const businessDay = useAuthStore((s) => s.businessDay);
   const businessDate = useAuthStore((s) => s.businessDate);
 
   const [expanded, setExpanded] = useState<string | null>(null);
@@ -349,17 +349,17 @@ const Sidebar: React.FC<SidebarProps> = ({ className }) => {
         )}
         style={{ width: collapsed ? SIDEBAR_WIDTH_COLLAPSED : SIDEBAR_WIDTH_EXPANDED }}
       >
-        {/* ── User Context Block (§6) ──────────────────────────
-         * Per Tier-1 Sidebar Blueprint §6: operator context must
-         * always be visible in the sidebar for 8-12hr shift awareness.
-         * In collapsed mode: show only the initials avatar as a
-         * compact identity indicator with a tooltip. */}
-        <div className={clsx(
-          'border-b border-cbs-steel-200 bg-cbs-mist shrink-0',
-          collapsed ? 'px-2 py-3 flex justify-center' : 'px-3 py-3',
-        )}>
-          {collapsed ? (
-            /* Collapsed: initials avatar only with tooltip */
+        {/* ── Collapsed Rail Identity (§6) ─────────────────────
+         * Per Tier-1 CBS convention: the Header chrome bar is the
+         * single source of truth for operator context (branch, date,
+         * identity, role). The sidebar is exclusively for navigation.
+         *
+         * In collapsed rail mode only: show initials avatar with a
+         * hover tooltip so the operator can confirm identity without
+         * expanding the sidebar. In expanded mode: nothing — the
+         * Header already provides complete context. */}
+        {collapsed && (
+          <div className="border-b border-cbs-steel-200 bg-cbs-mist shrink-0 px-2 py-3 flex justify-center">
             <div className="relative group">
               <div className="h-8 w-8 bg-cbs-navy-700 rounded-sm flex items-center justify-center text-xs font-bold text-white shrink-0">
                 {(user?.firstName?.[0]?.toUpperCase() || user?.username?.[0]?.toUpperCase() || '?')}
@@ -384,47 +384,8 @@ const Sidebar: React.FC<SidebarProps> = ({ className }) => {
                 )}
               </div>
             </div>
-          ) : (
-            /* Expanded: full context block */
-            <>
-              <div className="flex items-center gap-2 mb-2">
-                <div className="h-8 w-8 bg-cbs-navy-700 rounded-sm flex items-center justify-center text-xs font-bold text-white shrink-0">
-                  {(user?.firstName?.[0]?.toUpperCase() || user?.username?.[0]?.toUpperCase() || '?')}
-                  {(user?.lastName?.[0]?.toUpperCase() || user?.username?.[1]?.toUpperCase() || '')}
-                </div>
-                <div className="min-w-0">
-                  <div className="text-xs font-semibold text-cbs-ink truncate">
-                    {user?.displayName || user?.firstName || user?.username || 'Operator'}
-                  </div>
-                  <div className="text-[10px] text-cbs-steel-500 uppercase tracking-wider">
-                    {userRoles[0] || 'No Role'}
-                  </div>
-                </div>
-              </div>
-              <div className="space-y-1">
-                {user?.branchCode && (
-                  <div className="flex items-center gap-1.5 text-[10px]">
-                    <Building2 size={11} strokeWidth={1.75} className="text-cbs-steel-400 shrink-0" aria-hidden="true" />
-                    <span className="text-cbs-steel-600 cbs-tabular truncate">
-                      {user.branchCode}{user.branchName ? ` — ${user.branchName}` : ''}
-                    </span>
-                  </div>
-                )}
-                {businessDate && (
-                  <div className="flex items-center gap-1.5 text-[10px]">
-                    <Calendar size={11} strokeWidth={1.75} className="text-cbs-steel-400 shrink-0" aria-hidden="true" />
-                    <span className="text-cbs-steel-600 cbs-tabular">{businessDate}</span>
-                    {businessDay?.dayStatus && businessDay.dayStatus !== 'DAY_OPEN' && (
-                      <span className="text-[9px] font-bold text-cbs-gold-700 uppercase">
-                        {businessDay.dayStatus.replace(/_/g, ' ')}
-                      </span>
-                    )}
-                  </div>
-                )}
-              </div>
-            </>
-          )}
-        </div>
+          </div>
+        )}
 
         {/* ── Navigation Search (§7) ────────────────────────────
          * Per Blueprint §7: Ctrl+K fuzzy search across all screens.
