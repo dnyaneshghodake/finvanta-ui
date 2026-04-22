@@ -4,10 +4,10 @@
  * FINVANTA CBS — Account Inquiry (CASA Portfolio).
  * @file app/(dashboard)/accounts/page.tsx
  *
- * Per Tier-1 CBS convention (Finacle HACLI, FLEXCUBE STDCUSAC):
- * the account inquiry screen is a dense sortable TABLE, not a card
- * grid. Operators scan 20–50 accounts, sort by balance/status, and
- * act directly from the row (View, Statement, Freeze).
+ * Per Tier-1 CBS convention: the account inquiry screen is a dense
+ * sortable TABLE, not a card grid. Operators scan 20–50 accounts,
+ * sort by balance/status, and act directly from the row (View,
+ * Statement, Freeze).
  *
  * Card grids are appropriate for dashboard KPI widgets — not for
  * inquiry screens where data density and scanability are paramount.

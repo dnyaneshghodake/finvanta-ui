@@ -118,8 +118,8 @@ export interface CbsSession {
    * all requests within a single login session share the same nonce,
    * making it easy to correlate activity to a specific login event.
    *
-   * CBS benchmark: Finacle OPERATOR_SESSION.SESSION_ID,
-   * T24 EB.PHANTOM session token, FLEXCUBE SMTB_USER_SESSION.SESSION_REF.
+   * CBS benchmark: Tier-1 CBS platforms maintain an operator-session
+   * registry keyed by a unique session identifier per login event.
    */
   sessionNonce?: string;
   /**

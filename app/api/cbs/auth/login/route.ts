@@ -247,9 +247,9 @@ export async function POST(req: NextRequest) {
   //   2. Unauthorized concurrent access from a second device
   //   3. Stale sessions surviving after a forced re-login
   //
-  // CBS benchmark: Finacle enforces single-session via
-  // OPERATOR_SESSION table; T24 uses EB.PHANTOM to detect and
-  // kill duplicate sessions; FLEXCUBE uses SMTB_USER_SESSION.
+  // CBS benchmark: Tier-1 CBS platforms enforce single-session
+  // via an operator-session registry that detects and kills
+  // duplicate sessions on new login.
 
   let upstream: Response;
   try {

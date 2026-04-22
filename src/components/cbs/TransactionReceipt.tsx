@@ -10,10 +10,9 @@
  * Operators at bank counters print this for the customer as proof
  * of transaction.
  *
- * CBS benchmark:
- *   Finacle:  HFINLOG voucher print — shows txn ref, amount, branch
- *   T24:      STMT.ENTRY print — transaction slip with audit trail
- *   FLEXCUBE: CSTB_TXN_RECEIPT — printable receipt with QR code
+ * CBS benchmark: Tier-1 CBS platforms provide a printable voucher
+ * for every financial posting — showing txn ref, amount, branch,
+ * operator, timestamp, and audit hash.
  *
  * Usage:
  *   <TransactionReceipt

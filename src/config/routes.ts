@@ -40,8 +40,7 @@ const ADMIN: UserRole[] = ['ADMIN', 'ADMIN_HO', 'BRANCH_ADMIN'];
  *  nostro/vostro account reconciliation. Per RBI Master Circular on
  *  Reconciliation of Transactions: reconcilers need read access to
  *  GL, statements, and reports, plus write access to the reconciliation
- *  module. CBS benchmark: Finacle RECONCILER profile, FLEXCUBE
- *  RCTB_RECON_USER. */
+ *  module. */
 const RECONCILER: UserRole[] = ['RECONCILER'];
 
 export type ScreenType = 'inquiry' | 'transaction' | 'admin' | 'report';

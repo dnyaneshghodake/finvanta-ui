@@ -228,8 +228,8 @@ function enforceBodyCeiling(req: NextRequest): NextResponse | null {
 //   Layer 2: Server Component layout → readSession()
 //   Layer 3: BFF proxy → readSession() + CSRF + JWT injection
 //
-// CBS benchmark: Finacle WAF rejects unauthenticated requests at
-// the reverse proxy before they reach the app server.
+// CBS benchmark: Tier-1 CBS platforms reject unauthenticated
+// requests at the reverse proxy before they reach the app server.
 const SESSION_COOKIE = process.env.CBS_SESSION_COOKIE || "fv_sid";
 
 const PUBLIC_PREFIXES = [
