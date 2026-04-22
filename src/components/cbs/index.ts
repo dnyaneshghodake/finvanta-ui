@@ -45,3 +45,8 @@ export {
   type TransactionConfirmDialogProps,
   type ConfirmField,
 } from './TransactionConfirmDialog';
+export {
+  TransactionReceipt,
+  type TransactionReceiptProps,
+  type TransactionReceiptField,
+} from './TransactionReceipt';

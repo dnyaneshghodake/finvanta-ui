@@ -42,10 +42,16 @@ const ICON_SIZE = 18;
 const ICON_STROKE = 1.75;
 
 /* ── Helper: extract href/label/roles from a RouteEntry ─────────
- * Only works for static routes (string paths). Dynamic routes
- * (functions) are not sidebar-navigable and are excluded. */
-function s(entry: { path: string | ((...a: string[]) => string); label: string; roles?: readonly UserRole[] }): { label: string; href: string; roles?: UserRole[] } {
-  return { label: entry.label, href: entry.path as string, roles: entry.roles as UserRole[] | undefined };
+ * Type-narrowed to accept ONLY static routes (string paths).
+ * Dynamic routes (functions like `(id) => /accounts/${id}`) are
+ * not sidebar-navigable and are rejected at compile time.
+ *
+ * The previous signature accepted the full `string | Function` union
+ * and cast with `as string`, which would silently produce a broken
+ * link if a dynamic route were accidentally passed. This narrowed
+ * signature makes that a compile-time error instead. */
+function s(entry: { path: string; label: string; roles?: readonly UserRole[] }): { label: string; href: string; roles?: UserRole[] } {
+  return { label: entry.label, href: entry.path, roles: entry.roles as UserRole[] | undefined };
 }
 
 interface SubItem { label: string; href: string; roles?: UserRole[]; }
