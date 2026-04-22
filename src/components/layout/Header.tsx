@@ -28,7 +28,7 @@ export interface HeaderProps {
 
 const Header: FC<HeaderProps> = ({ className }) => {
   const { user, logout } = useAuthStore();
-  const { toggleSidebar } = useUIStore();
+  const { toggleSidebar, toggleSidebarCollapse } = useUIStore();
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -70,8 +70,8 @@ const Header: FC<HeaderProps> = ({ className }) => {
   })();
 
   const initials =
-    (user?.firstName?.[0] || user?.username?.[0]?.toUpperCase() || '?') +
-    (user?.lastName?.[0] || user?.username?.[1]?.toUpperCase() || '');
+    (user?.firstName?.[0]?.toUpperCase() || user?.username?.[0]?.toUpperCase() || '?') +
+    (user?.lastName?.[0]?.toUpperCase() || user?.username?.[1]?.toUpperCase() || '');
 
   const displayName = user?.displayName || user?.firstName || user?.username || 'Operator';
   const primaryRole = user?.roles?.[0] || '';
@@ -111,6 +111,13 @@ const Header: FC<HeaderProps> = ({ className }) => {
             onClick={toggleSidebar}
             className="p-1.5 rounded hover:bg-cbs-navy-700 lg:hidden"
             aria-label="Toggle sidebar"
+          >
+            <Menu size={18} strokeWidth={1.75} aria-hidden="true" />
+          </button>
+          <button
+            onClick={toggleSidebarCollapse}
+            className="p-1.5 rounded hover:bg-cbs-navy-700 hidden lg:inline-flex"
+            aria-label="Toggle sidebar collapse"
           >
             <Menu size={18} strokeWidth={1.75} aria-hidden="true" />
           </button>
