@@ -160,7 +160,8 @@ export default function KycVerificationPage() {
         <div className="cbs-alert cbs-alert-success">
           <div className="font-semibold">KYC verification complete</div>
           <div>{success}</div>
-          <div className="mt-2">
+          <div className="flex items-center gap-2 mt-2">
+            {correlationId && <CorrelationRefBadge value={correlationId} />}
             <Link href={`/customers/${customer.id}`} className="cbs-link text-xs">
               View customer →
             </Link>
