@@ -36,78 +36,85 @@ import {
   ChevronRight, Search, ChevronsLeft, ChevronsRight,
 } from 'lucide-react';
 import type { UserRole } from '@/types/entities';
+import { R } from '@/config/routes';
 
 const ICON_SIZE = 18;
 const ICON_STROKE = 1.75;
-const MAKER: UserRole[] = ['MAKER', 'TELLER', 'OFFICER'];
-const CHECKER: UserRole[] = ['CHECKER', 'MANAGER', 'APPROVER'];
-// Per API_REFERENCE.md §1: Spring returns 'ADMIN' for full admin access.
-// Must include all three admin-tier roles so sidebar items are visible.
-const ADMIN: UserRole[] = ['ADMIN', 'ADMIN_HO', 'BRANCH_ADMIN'];
+
+/* ── Helper: extract href/label/roles from a RouteEntry ─────────
+ * Only works for static routes (string paths). Dynamic routes
+ * (functions) are not sidebar-navigable and are excluded. */
+function s(entry: { path: string | ((...a: string[]) => string); label: string; roles?: readonly UserRole[] }): { label: string; href: string; roles?: UserRole[] } {
+  return { label: entry.label, href: entry.path as string, roles: entry.roles as UserRole[] | undefined };
+}
 
 interface SubItem { label: string; href: string; roles?: UserRole[]; }
 interface NavModule { id: string; label: string; icon: React.ReactNode; href?: string; children?: SubItem[]; roles?: UserRole[]; }
 
+/* ── Navigation Modules ─────────────────────────────────────────
+ * Derived from the route registry (src/config/routes.ts).
+ * Icons and module grouping are sidebar-specific; paths, labels,
+ * and roles come from R to maintain a single source of truth. */
 const MODULES: NavModule[] = [
-  { id: 'dashboard', label: 'Dashboard', href: '/dashboard',
+  { id: 'dashboard', label: R.dashboard.home.label, href: R.dashboard.home.path as string,
     icon: <LayoutDashboard size={ICON_SIZE} strokeWidth={ICON_STROKE} /> },
   { id: 'accounts', label: 'Accounts',
     icon: <Landmark size={ICON_SIZE} strokeWidth={ICON_STROKE} />, children: [
-    { label: 'Account Inquiry', href: '/accounts' },
-    { label: 'Open Account', href: '/accounts/new', roles: MAKER },
-    { label: 'Freeze / Unfreeze', href: '/legacy/deposit/freeze', roles: [...MAKER, ...CHECKER] },
-    { label: 'Close Account', href: '/legacy/deposit/close', roles: MAKER },
-    { label: 'Standing Instructions', href: '/legacy/deposit/si', roles: MAKER },
-    { label: 'Mini Statement', href: '/legacy/deposit/mini-statement' },
+    s(R.accounts.list),
+    s(R.accounts.create),
+    s(R.accounts.freeze),
+    s(R.accounts.close),
+    s(R.accounts.si),
+    s(R.accounts.miniStatement),
   ]},
   { id: 'transfers', label: 'Transfers',
     icon: <ArrowLeftRight size={ICON_SIZE} strokeWidth={ICON_STROKE} />, children: [
-    { label: 'Internal Transfer', href: '/transfers' },
-    { label: 'Transfer Inquiry', href: '/legacy/deposit/transfer-inquiry' },
-    { label: 'Reversal', href: '/legacy/deposit/reversal', roles: CHECKER },
+    s(R.transfers.internal),
+    s(R.transfers.inquiry),
+    s(R.transfers.reversal),
   ]},
   { id: 'deposits', label: 'Fixed Deposits',
     icon: <Banknote size={ICON_SIZE} strokeWidth={ICON_STROKE} />, children: [
-    { label: 'FD Inquiry', href: '/deposits' },
-    { label: 'Book FD', href: '/deposits/new', roles: MAKER },
-    { label: 'Premature Close', href: '/deposits/close', roles: [...MAKER, ...CHECKER] },
-    { label: 'Lien Mark / Release', href: '/deposits/lien', roles: [...MAKER, ...CHECKER] },
+    s(R.deposits.list),
+    s(R.deposits.create),
+    s(R.deposits.close),
+    s(R.deposits.lien),
   ]},
   { id: 'loans', label: 'Loans',
     icon: <CreditCard size={ICON_SIZE} strokeWidth={ICON_STROKE} />, children: [
-    { label: 'Loan Inquiry', href: '/loans' },
-    { label: 'Loan Application', href: '/loans/apply', roles: MAKER },
-    { label: 'Disbursement', href: '/loans/disburse', roles: CHECKER },
-    { label: 'Repayment', href: '/loans/repay', roles: MAKER },
+    s(R.loans.list),
+    s(R.loans.apply),
+    s(R.loans.disburse),
+    s(R.loans.repay),
   ]},
   { id: 'customers', label: 'Customers',
     icon: <UserPlus size={ICON_SIZE} strokeWidth={ICON_STROKE} />, children: [
-    { label: 'Customer Search', href: '/customers' },
-    { label: 'New Customer (CIF)', href: '/customers/new', roles: MAKER },
-    { label: 'KYC Verification', href: '/customers/kyc', roles: CHECKER },
+    s(R.customers.search),
+    s(R.customers.create),
+    s(R.customers.kyc),
   ]},
-  { id: 'beneficiaries', label: 'Beneficiaries', href: '/beneficiaries',
+  { id: 'beneficiaries', label: R.beneficiaries.list.label, href: R.beneficiaries.list.path as string,
     icon: <Users size={ICON_SIZE} strokeWidth={ICON_STROKE} /> },
-  { id: 'workflow', label: 'Workflow', href: '/workflow',
+  { id: 'workflow', label: R.workflow.queue.label, href: R.workflow.queue.path as string,
     icon: <ClipboardCheck size={ICON_SIZE} strokeWidth={ICON_STROKE} /> },
-  { id: 'reports', label: 'Reports', roles: [...CHECKER, ...ADMIN, 'AUDITOR'],
+  { id: 'reports', label: 'Reports', roles: R.reports.trialBalance.roles as UserRole[],
     icon: <BarChart3 size={ICON_SIZE} strokeWidth={ICON_STROKE} />, children: [
-    { label: 'Trial Balance', href: '/reports/trial-balance' },
-    { label: 'Day Book', href: '/reports/day-book' },
-    { label: 'GL Inquiry', href: '/reports/gl' },
+    s(R.reports.trialBalance),
+    s(R.reports.dayBook),
+    s(R.reports.gl),
   ]},
-  { id: 'admin', label: 'Administration', roles: ADMIN,
+  { id: 'admin', label: 'Administration', roles: R.admin.branches.roles as UserRole[],
     icon: <Settings size={ICON_SIZE} strokeWidth={ICON_STROKE} />, children: [
-    { label: 'Tenant Setup', href: '/admin/tenants', roles: ['ADMIN_HO'] },
-    { label: 'Branch Management', href: '/admin/branches', roles: ADMIN },
-    { label: 'Calendar & Holidays', href: '/admin/calendar', roles: ADMIN },
-    { label: 'User Management', href: '/admin/users', roles: ADMIN },
-    { label: 'GL Chart of Accounts', href: '/admin/gl', roles: ['ADMIN_HO'] },
-    { label: 'Product Setup', href: '/admin/products', roles: ['ADMIN_HO'] },
-    { label: 'Charge Setup', href: '/admin/charges', roles: ['ADMIN_HO'] },
-    { label: 'Day Open / Close', href: '/admin/day', roles: ADMIN },
+    s(R.admin.tenants),
+    s(R.admin.branches),
+    s(R.admin.calendar),
+    s(R.admin.users),
+    s(R.admin.gl),
+    s(R.admin.products),
+    s(R.admin.charges),
+    s(R.admin.day),
   ]},
-  { id: 'legacy', label: 'Legacy Screens', href: '/legacy',
+  { id: 'legacy', label: R.legacy.home.label, href: R.legacy.home.path as string,
     icon: <Monitor size={ICON_SIZE} strokeWidth={ICON_STROKE} /> },
 ];
 
