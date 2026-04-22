@@ -17,7 +17,7 @@
  * passes the error and reset function as props.
  */
 
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { AlertTriangle, RefreshCw, Home } from 'lucide-react';
 
@@ -28,7 +28,14 @@ export default function GlobalError({
   error: Error & { digest?: string };
   reset: () => void;
 }) {
-  const errorRef = `ERR-${Date.now().toString(36).toUpperCase()}`;
+  // Stable error reference — generated once per error instance.
+  // useMemo ensures React Compiler doesn't flag Date.now() as an
+  // impure render-time call.
+  const errorRef = useMemo(
+    () => `ERR-${Date.now().toString(36).toUpperCase()}`,
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [error],
+  );
 
   useEffect(() => {
     // Log to console in dev; in production this would go to
