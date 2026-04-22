@@ -25,15 +25,22 @@ import { Badge } from '@/components/atoms';
 import { maskPan, maskAadhaar } from './primitives';
 
 /* ── Customer Shape ─────────────────────────────────────────────
- * Subset of the full CustomerDetail that CIF lookup returns.
- * Matches the Spring CustomerResponse per API_REFERENCE.md §3.
- * Consuming screens can cast to this or use individual fields. */
+ * Maps to Spring CifLookupResponse (30 fields) per CIF_API_CONTRACT.md §5.
+ * Field names match the backend DTO so no mapping is needed.
+ *
+ * Gender: backend sends M/F/T but CifLookupResponse maps to MALE/FEMALE/OTHER.
+ * kycStatus: computed as VERIFIED/PENDING/EXPIRED.
+ * status: computed as ACTIVE/INACTIVE.
+ *
+ * Consuming screens receive the full object via onCustomerFound
+ * and populate their own form fields. */
 export interface CifCustomer {
   id: number;
   customerNumber: string;
   firstName: string;
   lastName: string;
   fullName?: string;
+  middleName?: string;
   customerType?: string;
   status: string;
   kycStatus: string;
@@ -42,6 +49,9 @@ export interface CifCustomer {
   pan?: string;
   aadhaar?: string;
   ckycNumber?: string;
+  kycVerified?: boolean;
+  kycExpiryDate?: string;
+  rekycDue?: boolean;
   /* Contact */
   mobile?: string;
   email?: string;
@@ -51,6 +61,10 @@ export interface CifCustomer {
   nationality?: string;
   residentStatus?: string;
   fatherOrSpouseName?: string;
+  /** CERSAI v2.0: separate father/mother fields */
+  fatherName?: string;
+  motherName?: string;
+  spouseName?: string;
   maritalStatus?: string;
   /* Occupation */
   occupation?: string;
@@ -60,7 +74,7 @@ export interface CifCustomer {
   riskCategory?: string;
   pepFlag?: boolean;
   fatcaCountry?: string;
-  /* Address */
+  /* Address — nested objects per §5 */
   permanentAddress?: {
     line1?: string;
     line2?: string;
@@ -228,7 +242,7 @@ export function CifLookup({
               {customer.firstName} {customer.lastName}
             </span>
             <div className="flex items-center gap-2">
-              <Badge variant={customer.kycStatus === 'VERIFIED' ? 'success' : 'warning'}>
+              <Badge variant={customer.kycStatus === 'VERIFIED' ? 'success' : customer.kycStatus === 'EXPIRED' ? 'danger' : 'warning'}>
                 KYC: {customer.kycStatus}
               </Badge>
               <Badge variant={customer.riskCategory === 'HIGH' ? 'danger' : 'default'}>
@@ -267,6 +281,9 @@ export function CifLookup({
             )}
             {customer.pepFlag && (
               <span className="text-cbs-crimson-700 font-semibold">⚠ PEP</span>
+            )}
+            {customer.rekycDue && (
+              <span className="text-cbs-gold-700 font-semibold">⚠ Re-KYC Due</span>
             )}
           </div>
         </div>

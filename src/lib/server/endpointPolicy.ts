@@ -67,13 +67,17 @@ export const ENDPOINT_ALLOWLIST: ReadonlyArray<EndpointRule> = [
   { method: "POST", pathPattern: "/accounts/:acct/close" },
 
   // ── Customers (CIF) ────────────────────────────────────────
+  // Per CIF_API_CONTRACT.md v2.0 §1: 6 endpoints.
   { method: "GET", pathPattern: "/customers" },
+  { method: "GET", pathPattern: "/customers/search" },
   { method: "GET", pathPattern: "/customers/:id" },
   { method: "GET", pathPattern: "/customers/:id/accounts" },
   { method: "GET", pathPattern: "/customers/:id/kyc" },
   { method: "POST", pathPattern: "/customers" },
+  { method: "PUT", pathPattern: "/customers/:id" },
   { method: "PATCH", pathPattern: "/customers/:id" },
   { method: "POST", pathPattern: "/customers/:id/verify-kyc" },
+  { method: "POST", pathPattern: "/customers/:id/deactivate" },
   { method: "POST", pathPattern: "/customers/search" },
 
   // ── Loans ───────────────────────────────────────────────────
