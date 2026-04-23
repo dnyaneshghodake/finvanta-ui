@@ -197,6 +197,21 @@ Zebra:         Even rows use --color-cbs-mist
 Hover:         Background shift only (no animation)
 ```
 
+**Two table implementations — when to use which:**
+
+| Implementation | Use for | Capabilities |
+|----------------|---------|--------------|
+| `<table className="cbs-grid-table">` | Simple inquiry/search results, ≤ 200 rows, no client-side sort | Plain HTML semantics, zero-JS overhead, a11y-by-default |
+| `<CbsDataGrid columns={...} rows={...} />` | Complex lists with sort/pagination/virtualization, ≥ 200 rows | Typed column defs, `CbsSort`/`CbsPagination`, zebra + hover + loading states |
+
+Wrap either in `<div className="overflow-x-auto">` so narrow viewports
+scroll horizontally rather than reflowing the row.
+
+Status cells use `<StatusRibbon status="..." />` — never render status
+strings directly. Row actions go in the last column, right-aligned,
+wrapped in `<div className="inline-flex items-center gap-1">` (see
+"Row Actions" below).
+
 ### Modals
 
 ```
@@ -648,6 +663,264 @@ around the mutating API call.
 - WARNING banners **MUST** persist until the condition resolves
 - INFO toasts **MUST** auto-dismiss (never accumulate)
 - All severity levels use the semantic `--color-status-*` tokens
+
+---
+
+## 14b. Maker-Checker UI Components
+
+Per RBI IT Governance 2023 §8.3 (segregation of duties) every
+financial or master-data posting passes through maker → checker
+approval. The UI renders this workflow via three dedicated components:
+
+| Component | Purpose |
+|-----------|---------|
+| `ApprovalTrail` | Vertical timeline of maker submission → checker action(s) with timestamps, user IDs, and action remarks. Used on workflow detail pages and audit views. |
+| `AuditTrailViewer` | Expandable per-transaction audit entries with maker/checker user IDs, submitted/approved timestamps, SLA badge, and field-level change diff. |
+| `AuditHashChip` | Compact display of the SHA-256 audit hash prefix (first 12 hex chars) on transaction receipts and entry detail pages — the tamper-evidence proof. |
+| `WorkflowStatusBadge` | Ribbon-sized status indicator for workflow items (`PENDING_CHECKER`, `APPROVED`, `REJECTED`, `RECALLED`). |
+| `TransactionConfirmDialog` | Pre-submit modal showing all posting fields in read-only form; maker clicks Confirm to submit for checker approval. Bakes in correlation-ID and idempotency-key propagation. |
+| `SubmitterIdentity` / `CheckerIdentity` | Read-only display of `makerUserId`/`checkerUserId` with timestamp — visible on every posted/approved entry. |
+
+**Rules:**
+- Every maker-checker workflow screen MUST render `ApprovalTrail` or
+  `AuditTrailViewer` so the full chain is visible to operators
+- Financial postings MUST show `AuditHashChip` on the receipt so the
+  operator/customer can verify tamper-evidence later
+- The maker cannot approve their own submission — this is enforced
+  server-side but the UI MUST grey out the approve button when
+  `checkerUserId === session.user.id && makerUserId === session.user.id`
+  to avoid operator confusion
+
+---
+
+## 15a. Status Vocabulary (StatusRibbon)
+
+`<StatusRibbon status="..." />` is the single source of truth for
+entity status rendering. It maps status strings to tokenised colour
+pairs so the palette stays consistent across modules.
+
+| Status value | Tone | Usage |
+|--------------|------|-------|
+| `ACTIVE`, `OPEN`, `VERIFIED` | olive (success) | Live accounts, verified KYC |
+| `POSTED`, `APPROVED`, `COMPLETED`, `SUCCESS` | olive (success) | Posted transactions, approved workflow items |
+| `PENDING`, `PENDING_APPROVAL`, `PENDING_VERIFICATION` | gold (warning) | Maker submitted, awaiting checker |
+| `HOLD`, `FROZEN`, `DORMANT` | gold (warning) | Operational holds |
+| `REJECTED`, `FAILED`, `ERROR` | crimson (error) | Checker rejection, posting failure |
+| `CLOSED`, `INACTIVE`, `DEACTIVATED` | steel (neutral) | Terminal states, archived records |
+| `DRAFT`, `NEW` | navy (info) | Unsubmitted records |
+
+**Rule:** never render a status string as plain text. Always use
+`<StatusRibbon status={value} />`. Unknown statuses fall back to
+steel (neutral) — the component never crashes on a new backend value.
+
+**Mapping custom values:** when a backend returns a domain-specific
+status (e.g. `NPA_STAGE_1`, `NPA_STAGE_2`, `NPA_STAGE_3`), map it to
+one of the canonical values at the service-adapter layer
+(`adaptX()` in `*Service.ts`) — don't add per-module mappings to
+`StatusRibbon`.
+
+---
+
+## 15b. Domain Input Primitives
+
+Form fields that represent regulated financial identifiers are NOT
+built from `<input>` directly. They use domain primitives from
+`src/components/cbs/primitives.tsx` that encapsulate format, validation,
+and masking rules:
+
+| Primitive | Domain | Format / Rule |
+|-----------|--------|---------------|
+| `AmountInr` | INR currency | Indian grouping `1,00,000.00`, tabular-nums, blur-normalised to plain decimal for Zod (`^\d+(\.\d{1,2})?$`) |
+| `Pan` | Permanent Account Number | `AAAAA9999A` pattern, auto-uppercase, 10 chars max |
+| `Aadhaar` | Aadhaar UID | 12 digits, grouped `XXXX XXXX XXXX`, masked after blur (see §15c) |
+| `AccountNo` | Internal account number | `/^[A-Z]{2}-[A-Z0-9]{4,5}-\d{6}$/` (e.g. `SB-HQ001-000001`), uppercase, tabular-nums |
+| `Ifsc` | IFSC code | `AAAA0NNNNNN` pattern (4 letters + 0 + 6 alnum), uppercase |
+| `ValueDate` | Business date | ISO-8601 input; display DD-MMM-YYYY; validates against `businessDate` from session |
+
+**Rule:** when a form field represents one of these domains, the
+primitive **MUST** be used — never a raw `<input>` with manual
+validation. The primitives own the format rule; screens own only
+the label and role-gating.
+
+**react-hook-form integration:** every primitive forwards refs and
+calls `onChange`/`onBlur` with normalised (grouping-free) values so
+Zod resolvers see clean strings. Display formatting is applied in
+the primitive's local state and never stored in form state.
+
+---
+
+## 15c. PII Masking Conventions
+
+Per RBI Cyber Security Framework 2023 §4.2 and IGA FATCA guidance:
+sensitive identifiers must be masked on display by default. The
+mask utilities in `src/components/cbs/primitives.tsx` enforce:
+
+| Utility | Input | Masked output | When revealed |
+|---------|-------|---------------|---------------|
+| `maskPan` | `ABCDE1234F` | `ABCDE****F` (first 5 + last 1) | Never in list views; full value only on CIF detail page with audit log |
+| `maskAadhaar` | `123456789012` | `XXXX XXXX 9012` (last 4 visible) | Never outside CIF detail; full value gated behind operator PIN re-auth |
+| `maskMobile` | `+919876543210` | `+91******3210` (last 4 visible) | Revealed on customer detail only |
+| `maskAccountNo` | `SB-HQ001-000042` | `SB-HQ001-***042` (last 3 visible) | Revealed on account detail; list views show full for internal ops |
+
+**Rules:**
+- List/search result views MUST use the masked form
+- Transaction receipts use masked account numbers (printed copies)
+- Exports (CSV, PDF) MUST use masked values unless the export itself
+  is role-gated to AUDITOR/ADMIN_HO
+- The unmask action **MUST** log a correlation-id'd audit event
+- Never log unmasked PII to console/telemetry — use the masked form
+
+---
+
+## 15d. Navigation & URL Conventions
+
+### Route Registry
+
+All navigation paths live in `src/config/routes.ts` as the registry
+`R`. Sidebar, breadcrumbs, contextual buttons, and `router.push()`
+calls **MUST** reference the registry — never raw string literals.
+
+```tsx
+// ❌ NEVER
+<Link href="/accounts/new">New Account</Link>
+
+// ✅ ALWAYS
+<Link href={R.accounts.create.path as string}>New Account</Link>
+
+// ✅ Dynamic routes
+<Link href={resolvePath(R.accounts.view, acct.id)}>
+```
+
+### Contextual Parameters via `buildUrl()`
+
+Cross-module navigation (e.g. "Open Account" button on a CIF page,
+"Freeze" button on an account row) **MUST** pass the selected
+entity's ID via query param:
+
+```tsx
+// ✅ Correct
+<Link href={buildUrl(R.accounts.freeze.path as string, {
+  accountNumber: acct.accountNumber,
+})}>
+
+// ❌ Wrong — loses row context
+<Link href={R.accounts.freeze.path as string}>
+```
+
+Target pages read parameters via `useSearchParams()`. This is
+literally the pattern that fixed bugs #1 and #2 in PR #11 — row
+actions without query context land on generic pages with no
+entity selected, a compliance-critical UX failure.
+
+### `returnTo` for Nested Flows
+
+CBS operators traverse `Customer → Account Opening → Account Detail
+→ back to Customer`. Without an explicit return path, Cancel/Back
+can only go to the module list, losing context.
+
+```tsx
+// From CIF page, link to Open Account with returnTo:
+<Link href={buildUrl(R.accounts.create.path as string,
+  { customerId: String(c.id) },
+  resolvePath(R.customers.view, String(c.id)),  // returnTo
+)}>
+  Open Account
+</Link>
+
+// On the Open Account page, Cancel button:
+const searchParams = useSearchParams();
+const back = getReturnTo(searchParams, R.customers.search.path as string);
+<Button onClick={() => router.push(back)}>Cancel</Button>
+```
+
+**Security:** `getReturnTo` only accepts relative paths that start
+with `/` and not `//` — no open-redirect.
+
+### Breadcrumbs
+
+Every authenticated page **MUST** render `<Breadcrumb items={[...]} />`
+as its first visual element after any banner. The first item is always
+the module root; the last item has no `href` (it's the current page).
+
+```tsx
+<Breadcrumb items={[
+  { label: R.dashboard.home.label, href: R.dashboard.home.path as string },
+  { label: R.accounts.list.label, href: R.accounts.list.path as string },
+  { label: 'Account Detail' },  // no href — current page
+]} />
+```
+
+---
+
+## 15e. Formatters & Display Conventions
+
+All number, date, and currency rendering goes through
+`src/utils/formatters.ts` — never `toLocaleString()` calls scattered
+across pages. This ensures consistent formatting and a single place
+to change locale/convention.
+
+| Formatter | Input | Output | Usage |
+|-----------|-------|--------|-------|
+| `formatCurrency(amount, ccy?)` | `50000` | `₹ 50,000.00` (INR grouping) | Every amount display |
+| `formatCbsDate(iso)` | `2026-04-19` | `19-APR-2026` | List cells, receipts, breadcrumbs |
+| `formatCbsTimestamp(iso)` | `2026-04-19T10:42:00Z` | `19-APR-2026 10:42:00` | Audit timestamps, last-login |
+| `formatAccountType(type)` | `SAVINGS` | `Savings Account` | Type labels in account lists |
+
+**Rules:**
+- Dates: **always** DD-MMM-YYYY (not DD/MM/YYYY or MM/DD/YYYY) — the
+  unambiguous CBS convention per RBI circulars.
+- Amounts: **always** include currency symbol + Indian grouping
+  (`1,00,000.00` not `100,000.00`).
+- Business date vs calendar date: `businessDate` from session is the
+  CBS day-state (what the system considers "today" for postings).
+  Calendar "today" (`new Date()`) is only for UI freshness indicators.
+  **Never** use calendar date for value dates, posting dates, or
+  interest calculations.
+- Timestamps in audit logs use the operator's local timezone but
+  store UTC — the formatter converts for display.
+
+---
+
+## 15f. Toast & Modal Conventions
+
+### Toasts (`CbsToastContainer`)
+
+Toasts are ephemeral status notifications surfaced via `useUIStore().addToast()`:
+
+| Type | Duration | Position | Use |
+|------|----------|----------|-----|
+| `success` | 3000ms | top-right, stacks 3 max | Posting successful, verification done |
+| `info` | 5000ms | top-right | Day-status changes, non-blocking info |
+| `warning` | 5000ms | top-right | Non-blocking validation warnings |
+| `error` | 3000ms + manual dismiss | top-right | API failures — **include correlation ID** via `CorrelationRefBadge` |
+
+**Rules:**
+- Success toasts auto-dismiss — no manual close required
+- Error toasts have a close button AND auto-dismiss (never sticky)
+- Toasts stack vertically; the 4th queued toast waits for the oldest
+  to expire — never pile up more than 3 visible at once
+- Toast container sits above the session timeout warning but below
+  critical error modals (`z-index` hierarchy: toasts → timeout →
+  critical)
+
+### Modals (`CbsModal`)
+
+Modals use three size tokens (`sm` 400px / `md` 560px / `lg` 720px,
+see §4). The `ModalRole` type selects between `dialog` (confirmation,
+non-critical) and `alertdialog` (blocking decision required).
+
+**Rules:**
+- Use `role="alertdialog"` (via `ModalRole='alert'`) for CRITICAL
+  decisions that block transaction flow — "Transaction may have been
+  submitted", "Unsaved changes will be lost"
+- Use `role="dialog"` for confirmations, forms, and inquiry overlays
+- Every modal MUST close on `Esc` and focus-trap while open
+- Confirmation modals for financial postings use
+  `TransactionConfirmDialog` which bakes in maker-checker messaging,
+  amount display, and accept/cancel buttons
+- Modal backdrop is `rgba(0,0,0,0.4)` and **MUST NOT** close on
+  backdrop click when the modal is `alertdialog` — only Esc / explicit
+  cancel button (prevents accidental dismissal of CRITICAL decisions)
 
 ---
 
