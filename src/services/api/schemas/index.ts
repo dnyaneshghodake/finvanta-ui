@@ -29,6 +29,8 @@ import {
   transferEnvelopeSchema,
   transferStatusEnvelopeSchema,
 } from './transfer';
+import { bookFdEnvelopeSchema } from './deposit';
+import { loanTransactionEnvelopeSchema } from './loan';
 
 export interface ResponseSchemaRule {
   /** Regex string matched against the request URL (as seen by axios). */
@@ -135,6 +137,51 @@ export const RESPONSE_SCHEMAS: ReadonlyArray<ResponseSchemaRule> = [
     methods: ['GET'],
     schema: transferEnvelopeSchema,
   },
+
+  // Fixed Deposit booking — Spring POST /v1/fixed-deposits/book.
+  // Validates the shape consumed by depositService.bookFd so a drifted
+  // or forged FD booking response is rejected before the UI renders it.
+  {
+    name: 'depositBookFd',
+    urlPattern: '^/fixed-deposits/book$',
+    methods: ['POST'],
+    schema: bookFdEnvelopeSchema,
+  },
+
+  // Loan disbursement — Spring POST /v1/loans/{n}/disburse and
+  // /v1/loans/{n}/disburse-tranche. Both return the same
+  // TransactionResponse envelope consumed by loanService.disburse.
+  // Place BEFORE the repayment rules even though regexes are disjoint —
+  // reads naturally as "disburse-tranche is a longer, more specific
+  // path than the bare disburse".
+  {
+    name: 'loanDisburseTranche',
+    urlPattern: '^/loans/[^/]+/disburse-tranche$',
+    methods: ['POST'],
+    schema: loanTransactionEnvelopeSchema,
+  },
+  {
+    name: 'loanDisburse',
+    urlPattern: '^/loans/[^/]+/disburse$',
+    methods: ['POST'],
+    schema: loanTransactionEnvelopeSchema,
+  },
+
+  // Loan repayment — Spring POST /v1/loans/{n}/repayment (EMI) and
+  // /v1/loans/{n}/prepayment (part/full prepayment). Response shape
+  // includes the server-computed principal/interest split.
+  {
+    name: 'loanRepayment',
+    urlPattern: '^/loans/[^/]+/repayment$',
+    methods: ['POST'],
+    schema: loanTransactionEnvelopeSchema,
+  },
+  {
+    name: 'loanPrepayment',
+    urlPattern: '^/loans/[^/]+/prepayment$',
+    methods: ['POST'],
+    schema: loanTransactionEnvelopeSchema,
+  },
 ];
 
 /**
@@ -158,3 +205,5 @@ export function findResponseSchema(
 export * from './common';
 export * from './account';
 export * from './transfer';
+export * from './deposit';
+export * from './loan';
