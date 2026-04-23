@@ -66,7 +66,7 @@ export default function LoanDisbursePage() {
       ]} />
 
       <div>
-        <h1 className="text-xl font-semibold text-cbs-ink">Loan Disbursement</h1>
+        <h1 className="text-lg font-semibold text-cbs-ink">Loan Disbursement</h1>
         <p className="text-xs text-cbs-steel-600 mt-0.5">
           Checker action — disburse an approved loan. Credits borrower CASA,
           debits loan GL via TransactionEngine double-entry.

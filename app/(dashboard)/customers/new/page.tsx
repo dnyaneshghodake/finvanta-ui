@@ -243,7 +243,7 @@ export default function NewCustomerPage() {
       <Breadcrumb items={[{ label: R.dashboard.home.label, href: R.dashboard.home.path as string }, { label: R.customers.search.label, href: R.customers.search.path as string }, { label: R.customers.create.label }]} />
 
       <div>
-        <h1 className="text-xl font-semibold text-cbs-ink">New Customer — CIF Creation</h1>
+        <h1 className="text-lg font-semibold text-cbs-ink">New Customer — CIF Creation</h1>
         <p className="text-xs text-cbs-steel-600 mt-0.5">
           Maker action — CIF requires checker approval.
           <span className="text-cbs-crimson-700 ml-0.5">*</span> = mandatory per RBI KYC / CKYC.

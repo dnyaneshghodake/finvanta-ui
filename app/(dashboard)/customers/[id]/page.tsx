@@ -176,7 +176,7 @@ export default function CustomerDetailPage() {
       <div className="flex items-center justify-between">
         <div>
           <div className="flex items-center gap-3">
-            <h1 className="text-xl font-semibold text-cbs-ink">
+            <h1 className="text-lg font-semibold text-cbs-ink">
               {customer.firstName} {customer.lastName}
             </h1>
             <StatusRibbon status={customer.status} />

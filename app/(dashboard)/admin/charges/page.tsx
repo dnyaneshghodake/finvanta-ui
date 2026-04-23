@@ -22,7 +22,7 @@ export default function ChargeSetupPage() {
         ]} />
 
         <div>
-          <h1 className="text-xl font-semibold text-cbs-ink">Charge Setup</h1>
+          <h1 className="text-lg font-semibold text-cbs-ink">Charge Setup</h1>
           <p className="text-xs text-cbs-steel-600 mt-0.5">
             Service charges, transaction fees, and penalty configurations
             applied to products and account operations.

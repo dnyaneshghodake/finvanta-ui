@@ -63,7 +63,7 @@ export default function FdInquiryPage() {
 
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-semibold text-cbs-ink">Fixed Deposits</h1>
+          <h1 className="text-lg font-semibold text-cbs-ink">Fixed Deposits</h1>
           <p className="text-xs text-cbs-steel-600 mt-0.5">
             Active fixed deposit portfolio for current branch.
           </p>

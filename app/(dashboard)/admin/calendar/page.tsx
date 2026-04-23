@@ -75,7 +75,7 @@ export default function CalendarPage() {
 
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h1 className="text-xl font-semibold text-cbs-ink">Calendar & Holidays</h1>
+            <h1 className="text-lg font-semibold text-cbs-ink">Calendar & Holidays</h1>
             <p className="text-xs text-cbs-steel-600 mt-0.5">
               Business calendar configuration. Controls value date defaulting,
               interest accrual, and clearing cycle scheduling.

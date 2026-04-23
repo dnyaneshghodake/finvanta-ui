@@ -60,7 +60,7 @@ export default function FdLienPage() {
       ]} />
 
       <div>
-        <h1 className="text-xl font-semibold text-cbs-ink">FD Lien Mark / Release</h1>
+        <h1 className="text-lg font-semibold text-cbs-ink">FD Lien Mark / Release</h1>
         <p className="text-xs text-cbs-steel-600 mt-0.5">
           Mark or release a lien on a fixed deposit. Liens prevent premature
           closure and are used for loan collateral or regulatory holds.

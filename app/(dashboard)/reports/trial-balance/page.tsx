@@ -108,7 +108,7 @@ export default function TrialBalancePage() {
 
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-semibold text-cbs-ink">Trial Balance</h1>
+          <h1 className="text-lg font-semibold text-cbs-ink">Trial Balance</h1>
           <p className="text-xs text-cbs-steel-600 mt-0.5">
             General Ledger trial balance as of {asOfDate || 'today'}.
           </p>

@@ -84,7 +84,7 @@ export default function WorkflowPage() {
       <Breadcrumb items={[{ label: R.dashboard.home.label, href: R.dashboard.home.path as string }, { label: R.workflow.queue.label }]} />
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-xl font-semibold text-cbs-ink">Maker-Checker Approval Queue</h1>
+          <h1 className="text-lg font-semibold text-cbs-ink">Maker-Checker Approval Queue</h1>
           <p className="text-xs text-cbs-steel-600 mt-0.5">Self-approval blocked per RBI. <span className="cbs-kbd ml-2">F5</span> Refresh</p>
         </div>
         <span className="flex items-center gap-1 text-xs text-cbs-gold-700"><Clock size={12} /> {total} pending</span>
