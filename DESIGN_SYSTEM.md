@@ -105,6 +105,19 @@ The wider sidebar accommodates:
 - Longer module labels (e.g., "Reconciliation Dashboard")
 - Tier-1 CBS sidebars are typically 260–280px
 
+### Content Width Ownership
+
+The **DashboardShell owns the content width constraint.** The shell
+applies `mx-auto max-w-[1320px]` to the `<main>` inner wrapper
+(`app/(dashboard)/DashboardShell.tsx`). Page-level components under
+`app/(dashboard)/*/page.tsx` MUST NOT apply their own `max-w-*` or
+`mx-auto` — nesting the same constraint is a no-op in best case and
+creates layout drift when the shell value changes.
+
+**Rule:** page components own vertical rhythm (`space-y-4`,
+`space-y-6`) and breakpoint-responsive column layouts only. Width
+belongs to the shell.
+
 ---
 
 ## 4. Component Dimensions
@@ -144,6 +157,35 @@ Font size:     13px
 Min width:     (content-driven, no fixed minimum)
 Border radius: 2px
 ```
+
+### Row Actions (Inline Table Buttons)
+
+```
+Height:        26px                  (h-[26px])
+Padding:       0 8px                 (px-2)
+Font size:     12px                  (text-xs)
+Icon size:     12px + strokeWidth 1.75
+Gap:           4px                   (gap-1)
+Min width:     content-driven
+Border radius: 2px
+```
+
+Used for View / Statement / Transfer / Freeze / KYC icon-only
+actions inside `cbs-grid-table` rows. These are **compact derivatives
+of `.cbs-btn-secondary`** — not a separate component — so they inherit
+every state token (`--state-focus-ring`, `--state-disabled-opacity`)
+from the parent button class.
+
+**Disabled via day-status:** mutating row actions (Transfer, Freeze)
+are gated by `isPostingAllowed` from `DayStatusContext`. When posting
+is blocked, apply `opacity-40 pointer-events-none` AND
+`aria-disabled={!isPostingAllowed}`. The `aria-disabled` is mandatory
+for keyboard operators — `pointer-events-none` alone hides the button
+from mouse clicks but not from Tab focus.
+
+**Role-gated:** wrap in `<RoleGate roles={[...]}>` — never hide via
+conditional rendering without the RoleGate. The component is the
+single source of truth for who-can-see-what.
 
 ### Tables
 
@@ -322,6 +364,25 @@ certificates, and audit reports must print cleanly.
 
 See `app/globals.css` `@media print` block for full rules.
 
+### Printable Components
+
+| Component | Purpose | Print trigger |
+|-----------|---------|---------------|
+| `TransactionReceipt` | Counter-operation voucher — shows txn ref, amount, accounts, audit hash | `window.print()` via "Print Receipt" button (hidden in print via `cbs-no-print`) |
+| Future: `FDCertificate` | FD booking certificate | TBD |
+| Future: `StatementPdf` | Account statement | TBD |
+
+**Contract for new printable components:**
+1. Print-visible chrome goes in the root div. Non-print UI (buttons,
+   filters) must carry `cbs-no-print`.
+2. Amounts must render in `cbs-tabular cbs-amount` so column widths
+   don't shift between screen and print.
+3. Audit hash + correlation ID must appear in the footer of every
+   receipt — these are the only ways IT support can trace a posting
+   after the fact (RBI §8.5).
+4. A "This is a computer-generated receipt. No signature required."
+   footer line is mandatory per RBI digital-voucher guidance.
+
 ---
 
 ## 11. Token Governance
@@ -403,6 +464,48 @@ with AAA targets for critical financial data.
 
 ---
 
+## 13b. Screen Layout Conventions
+
+CBS screens fall into four layout archetypes. Each has a canonical
+shape — mixing layouts within a screen type is forbidden.
+
+| Screen Type | Layout | Example |
+|-------------|--------|---------|
+| **Inquiry** | Dense sortable `<table className="cbs-grid-table">` with inline row actions. **No card grids.** Operators scan 20–50 rows and act from the row. | `/accounts`, `/customers`, `/workflow` |
+| **Dashboard** | Role-gated KPI widget grid (12-column, `col-span-*`). Cards are appropriate here. | `/dashboard` |
+| **Transaction** | 8+4 split: form (`col-span-8`) + risk/summary panel (`col-span-4`). Never a single-column form > 600px wide. | `/accounts/new`, `/transfers`, `/loans/apply` |
+| **Detail** | 12-column full-width with tabbed sub-sections. Read-first; edit actions gated by role + day status. | `/accounts/:id`, `/customers/:id`, `/loans/:id` |
+
+### Why inquiry = table (not card grid)?
+
+Card grids trade density for visual appeal. A teller scanning 30
+accounts on a card grid sees ~6 cards on screen; the same operator
+scanning a `cbs-grid-table` sees 25+ rows. Every extra page of scroll
+costs 3-5 seconds of operator time and increases the chance of
+clicking the wrong account. **Density is a compliance feature.**
+
+Inline row actions (see §4 "Row Actions") keep the operator anchored
+to the correct row. Card grids force a context switch to a detail
+page before any action can be taken.
+
+### Page Heading Rule
+
+Every page uses **exactly one `<h1>` at `text-lg` (18px)** per
+DESIGN_SYSTEM §5 — not `text-xl`, not `text-2xl`. The 18px heading
+size is the Tier-1 CBS convention: visible without dominating the
+content area (operators look at amounts and tables, not titles).
+
+```tsx
+<h1 className="text-lg font-semibold text-cbs-ink">
+  {Screen Name}
+</h1>
+```
+
+Sub-headings on the same page use `text-sm font-semibold uppercase
+tracking-wider text-cbs-steel-700` inside `.cbs-surface-header`.
+
+---
+
 ## 14. Role-Based UI Density
 
 CBS operators have different workflows requiring different UI density:
@@ -465,8 +568,30 @@ distinct visual treatment and UX behaviour:
 |----------|-----------|
 | INFO | `.cbs-alert-info`, `.cbs-toast-info` |
 | WARNING | `.cbs-alert-warning`, `.cbs-toast-warning`, `DayStatusBanner`, `PasswordExpiryBanner` |
-| ERROR | `.cbs-alert-error`, `.cbs-toast-error`, `[aria-invalid="true"]` field states |
-| CRITICAL | `TransactionErrorBoundary` ("transaction may have been submitted"), `SessionTimeoutWarning` (blocking modal) |
+| ERROR | `.cbs-alert-error`, `.cbs-toast-error`, `[aria-invalid="true"]` field states, `app/not-found.tsx` (404) |
+| CRITICAL | `TransactionErrorBoundary` ("transaction may have been submitted"), `SessionTimeoutWarning` (blocking modal), `app/error.tsx` (unhandled runtime error boundary) |
+
+### Next.js Error Boundary Pages
+
+The App Router's built-in error contract is wired up as:
+
+| File | Role | Reference shown to operator |
+|------|------|------------------------------|
+| `app/error.tsx` | Catch-all runtime error boundary (unhandled exceptions) | `error.digest` — Next.js server-generated ID that IT support can grep in server logs |
+| `app/not-found.tsx` | 404 for unknown routes | The URL the operator attempted |
+
+Both pages follow RBI IT Governance 2023 §8:
+- No stack traces or file paths exposed in production
+- Clear recovery action (retry / dashboard / sign in)
+- A branded FV mark so operators know this is Finvanta-owned chrome
+- Dev-only error message shown when `NODE_ENV !== 'production'`
+
+**Why `error.digest` (not a client-generated ID)?**
+The digest is generated server-side at the moment the error is thrown,
+so it lives in the server log at the exact point of failure — the
+trace IT support actually needs. A client-side `Date.now()` ID would
+be disconnected from any server trace. The digest is also
+React-Compiler-compliant (no impure calls during render).
 
 ### Rules:
 
@@ -475,6 +600,58 @@ distinct visual treatment and UX behaviour:
 - WARNING banners **MUST** persist until the condition resolves
 - INFO toasts **MUST** auto-dismiss (never accumulate)
 - All severity levels use the semantic `--color-status-*` tokens
+
+---
+
+## 16b. Security & Compliance UX Patterns
+
+Security controls surface to operators through UX. These patterns are
+part of the design system because they constrain how pages are built.
+
+### Session Handling
+
+| Pattern | Implementation | Reference |
+|---------|---------------|-----------|
+| **Concurrent session prevention** | Every login generates a `sessionNonce` (RFC 4122 UUID) stored in the encrypted session blob. On login, the BFF sends `X-Invalidate-Previous-Sessions: true` so Spring revokes prior refresh tokens. Subsequent requests propagate the nonce via `X-Session-Nonce` to Spring for audit correlation. | `app/api/cbs/auth/login/route.ts:690-712`, `src/lib/server/proxy.ts:314-316` |
+| **Three-layer session enforcement** | Layer 1 (cookie presence) in `proxy.ts`; Layer 2 (full decrypt) in Server Components; Layer 3 (decrypt + CSRF + JWT) in BFF proxy. | `proxy.ts:252-272` |
+| **Session-expired redirect** | Clean URL constructed from `req.nextUrl.origin` — never `req.nextUrl.clone()`. Preserving the original query params would leak PII (customerId, amounts, filters) into login URLs, browser history, and server access logs. | `proxy.ts:267-274` |
+
+### Screen-Access Audit (RBI §8.5)
+
+Every route navigation fires `POST /api/cbs/audit/screen-access` via
+the `useScreenAudit()` hook mounted once in `DashboardShell`.
+
+| Aspect | Rule |
+|--------|------|
+| Route matching | Dynamic routes resolved via sentinel split (prefix + suffix) from the registry at `src/config/routes.ts`. Static routes match by exact equality. |
+| CSRF | Raw `fetch` (not apiClient, to avoid recursion) but reads `NEXT_PUBLIC_CBS_CSRF_COOKIE` and sets `X-CSRF-Token` so the BFF accepts the POST. |
+| Failure mode | Fire-and-forget. Audit never blocks the operator. The server-side correlation ID provides a secondary audit trail if the POST fails. |
+| Screen codes | Every route entry in the registry has a `screenCode` (Finacle convention: `MODULE.ACTION`). Logged alongside `operatorId`, `branchCode`, `timestamp`, `pathname` by the backend. |
+
+### Financial-Safety Retry Policy
+
+The Axios interceptor only retries 429 (rate-limited) requests when
+**one of** these conditions is true:
+1. The method is safe (`GET`/`HEAD`/`OPTIONS`), OR
+2. The caller explicitly provided `X-Idempotency-Key`.
+
+Retrying a mutating call without an idempotency key can produce
+duplicate postings because the BFF generates a new server-side
+fallback key per request. Callers performing a financial posting
+(transfer, FD booking, loan disbursement) **MUST** mint a stable
+idempotency key at the point of the first "Confirm" click and pass
+it via headers.
+
+Reference: `src/services/api/apiClient.ts:247-256`
+
+### FATCA/CRS Status Derivation
+
+A customer is marked `usTaxResident: 'YES'` **only when** their
+`fatcaCountry === 'US'`. Any other non-Indian country (GB, DE, SG…)
+indicates a foreign tax obligation but NOT a US-specific FATCA
+obligation.
+
+Reference: `app/(dashboard)/accounts/new/page.tsx:248`
 
 ---
 
