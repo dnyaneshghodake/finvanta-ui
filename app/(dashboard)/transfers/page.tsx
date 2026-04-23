@@ -45,7 +45,7 @@ import {
   TransactionConfirmDialog,
 } from '@/components/cbs';
 import { useCbsKeyboard } from '@/hooks/useCbsKeyboard';
-import { formatCurrency, formatCbsTimestamp } from '@/utils/formatters';
+import { formatCbsTimestamp } from '@/utils/formatters';
 
 const ACCOUNT_NUMBER_RE = /^[A-Z0-9][A-Z0-9-]{5,24}$/;
 
@@ -186,6 +186,7 @@ export default function TransfersPage() {
       return;
     }
     setShowConfirm(false);
+    setIdempotencyKey(null);
     setPosted(res.data);
     setPhase('posted');
   };

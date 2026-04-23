@@ -138,6 +138,7 @@ export default function LoanDisbursePage() {
       return;
     }
     setShowConfirm(false);
+    setIdempotencyKey(null);
     setPosted(res.data);
   };
 

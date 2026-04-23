@@ -142,6 +142,7 @@ export default function LoanRepaymentPage() {
       return;
     }
     setShowConfirm(false);
+    setIdempotencyKey(null);
     setPosted(res.data);
     setPostedType(pendingData.repaymentType);
   };

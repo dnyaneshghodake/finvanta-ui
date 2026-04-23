@@ -15,12 +15,16 @@
  * `AuditHashChip`).
  */
 import { z } from 'zod';
-import { isoDate, numericString, springEnvelope } from './common';
+import { isoInstant, numericString, springEnvelope } from './common';
 
 export const loanTransactionResponseSchema = z.object({
   transactionRef: z.string().min(1),
   amount: numericString,
-  postingDate: isoDate.nullish(),
+  // Spring TransactionEngine emits a full ISO instant
+  // (e.g. 2026-04-23T10:15:30Z) — validate leniently via isoInstant
+  // to match the transfer schema (`transfer.ts`) and prevent a false
+  // CONTRACT_MISMATCH on a successfully posted loan transaction.
+  postingDate: isoInstant.nullish(),
   principalComponent: numericString.nullish(),
   interestComponent: numericString.nullish(),
   /** SHA-256 audit hash prefix (first 12 hex chars). */
