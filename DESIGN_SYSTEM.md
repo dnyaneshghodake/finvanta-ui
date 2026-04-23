@@ -1035,46 +1035,125 @@ to change locale/convention.
 
 ## 15f. Toast & Modal Conventions
 
-### Toasts (`CbsToastContainer`)
+### Toasts
 
-Toasts are ephemeral status notifications dispatched via
-`useUIStore().addToast({ type, title, message, duration })`.
+Toasts are ephemeral status notifications. Dispatched via
+`useUIStore().addToast(toast)` where `toast: Omit<Toast, 'id'>`.
+The store (`src/store/uiStore.ts`) auto-assigns an ID and, if a
+truthy `duration` (ms) is provided, schedules a `setTimeout` to
+remove the toast.
 
-> **Source of truth:** toast timing, stacking behaviour, and position
-> are implementation details of `src/components/cbs/ToastContainer.tsx`
-> and `src/store/uiStore.ts`. Callers pass an explicit `duration` (in
-> milliseconds) — see existing usages for conventional values
-> (3000ms for success, 3000–6000ms for error).
+Rendered by `<CbsToastContainer />` (mounted once in
+`DashboardShell`). Each toast shows an icon (`CheckCircle` /
+`XCircle` / `AlertTriangle` / `Info`), a bold uppercase title, an
+optional message, and a **close button** (`X` icon — present on
+every toast, not conditional on type). The container uses
+`aria-live="polite" aria-label="Notifications"`.
 
-**Architectural rules:**
-- Every error toast surfacing an API failure **SHOULD** include the
-  correlation ID via `CorrelationRefBadge` so the operator has a
-  reference for IT support (see §16b Correlation ID Propagation)
-- Toasts are ephemeral — they are NOT the place for information the
-  operator needs to act on. Blocking decisions go in a modal; audit
-  evidence goes in a receipt; persistent status goes in a banner
-- The z-index hierarchy is: page content < toasts < session timeout
-  warning < critical error modals — defined in `globals.css`, not
-  per-component
-
-### Modals (`CbsModal`)
-
-`CbsModal` is exported from `src/components/cbs/Modal.tsx`. Size
-tokens `sm` (400px), `md` (560px), `lg` (720px) are defined in §4.
-The `ModalRole` prop selects between `dialog` (non-critical) and
-`alertdialog` (critical / blocking).
+**Signature:**
+```tsx
+addToast({
+  type: 'success' | 'error' | 'warning' | 'info',
+  title: string,        // required — rendered uppercase bold
+  message?: string,     // optional secondary line
+  duration?: number,    // ms; if omitted or 0, toast persists until
+                        //  the operator dismisses it manually
+});
+```
 
 **Architectural rules:**
-- Use `role="alertdialog"` for CRITICAL decisions that block
-  transaction flow (e.g. "Transaction may have been submitted",
-  "Unsaved changes will be lost") — the ARIA role signals to
-  screen readers that immediate user attention is required
-- Use `role="dialog"` for confirmations, forms, and inquiry overlays
-- Every modal MUST close on `Esc` and focus-trap while open (WCAG)
+- The store has **no default duration** — callers decide. A toast
+  without `duration` is sticky until the operator clicks `×`.
+  Conventional values used in the codebase: 3000ms for success,
+  3000–6000ms for error. **Always pass an explicit `duration`**
+  (except for blocking errors that require operator
+  acknowledgement)
+- Every error toast that surfaces an API failure SHOULD include
+  the correlation ID — render `<CorrelationRefBadge value={id} />`
+  alongside the toast body or use the error alert block on the
+  page itself (see §16b)
+- There is **no stacking limit** in the current store — toasts
+  accumulate linearly. If a flow can fire many, the caller must
+  de-duplicate before dispatching (pass `duration` so older ones
+  auto-clear)
+- Toasts are ephemeral — they are NOT the place for information
+  the operator needs to act on. Blocking decisions go in a modal;
+  audit evidence goes in a receipt; persistent status goes in a
+  banner
+
+### Modals — two components
+
+The codebase exports **two distinct modal components**. Pick the
+right one for the use case:
+
+| Component | Source | When to use |
+|-----------|--------|-------------|
+| `Modal` | `src/components/atoms/Modal.tsx` | Default. Portal-rendered, headless, full WCAG focus-trap via `useFocusTrap`, configurable ARIA role (`dialog` or `alertdialog`), configurable backdrop/Esc dismiss. Use for most new dialogs. |
+| `CbsModal` | `src/components/cbs/Modal.tsx` | Simpler variant with a `persistent` boolean. Role is hardcoded to `"dialog"`. Inline (non-portal) rendering. Used by older flows. Prefer the atoms `Modal` for new code. |
+
+Both share the same size tokens (`sm` 400px / `md` 560px / `lg`
+720px — see §4), the same `cbs-modal-*` CSS class family, and both
+implement focus trap, Esc-close, and body-scroll lock.
+
+### `Modal` (atoms) props
+
+```tsx
+<Modal
+  open={boolean}
+  onClose={() => void}
+  size="sm" | "md" | "lg"        // default 'md'
+  role="dialog" | "alertdialog"  // default 'dialog'
+  title={string}                 // rendered uppercase in default header
+  closeOnBackdrop={boolean}      // default true
+  closeOnEscape={boolean}        // default true
+  showCloseButton={boolean}      // default true
+  className={string}
+>
+  <Modal.Header>…</Modal.Header>
+  <Modal.Body>…</Modal.Body>
+  <Modal.Footer>…</Modal.Footer>
+</Modal>
+```
+
+- Backdrop: `bg-cbs-ink/60` (60% opacity on the `cbs-ink` canvas),
+  z-index `var(--z-cbs-modal, 100)`
+- Portal-rendered into `document.body` so stacking contexts from
+  deeply nested rows/panels can't clip it
+- `aria-labelledby` wires the title heading to the dialog
+  automatically; `aria-modal="true"` is always set
+
+### `CbsModal` (cbs) props
+
+```tsx
+<CbsModal
+  open={boolean}
+  onClose={() => void}
+  title={string}
+  size="sm" | "md" | "lg"  // default 'md'
+  persistent={boolean}     // default false — true disables both
+                           //  backdrop-click and Esc dismissal
+>
+  <CbsModal.Body>…</CbsModal.Body>
+  <CbsModal.Footer>…</CbsModal.Footer>
+</CbsModal>
+```
+
+### Architectural rules
+
+- **`role="alertdialog"`** (atoms `Modal` only) for CRITICAL
+  decisions that block transaction flow — "Transaction may have
+  been submitted", "Unsaved changes will be lost". The ARIA role
+  signals to screen readers that immediate user attention is
+  required
+- **`role="dialog"`** (default) for confirmations, forms, and
+  inquiry overlays
+- Every modal MUST close on `Esc` unless the flow explicitly
+  requires acknowledgement — for the atoms `Modal` use
+  `closeOnEscape={false}`; for `CbsModal` use `persistent`
 - Confirmation modals for financial postings use
   `TransactionConfirmDialog` — do not hand-roll a posting modal
-- Backdrop click behaviour is the component's responsibility, not
-  the caller's — consult `Modal.tsx` for the current contract
+- Focus trap is enforced by both components — callers don't need
+  to manage `tabindex` beyond the standard focusable elements
 
 ---
 
