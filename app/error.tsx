@@ -17,7 +17,7 @@
  * passes the error and reset function as props.
  */
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { AlertTriangle, RefreshCw, Home } from 'lucide-react';
 
@@ -28,20 +28,21 @@ export default function GlobalError({
   error: Error & { digest?: string };
   reset: () => void;
 }) {
-  // Stable error reference — generated once per error instance.
-  // Uses useRef (not useMemo) because Date.now() is impure and the
-  // React Compiler's react-hooks/purity rule rejects impure calls
-  // inside useMemo. The ref is assigned in useEffect (a side-effect
-  // context where impure calls are allowed) and persists across
-  // re-renders without triggering the purity check.
-  const errorRefValue = useRef<string>('');
+  // Stable error reference for IT support correlation.
+  // Uses useState (not useMemo/useRef) because:
+  //   - Date.now() is impure → react-hooks/purity rejects useMemo
+  //   - ref.current in JSX → react-hooks/refs rejects useRef
+  // The initial value is a safe empty string; the effect sets the
+  // real value once (per error instance) and triggers a re-render
+  // so the reference is visible to the operator.
+  const [errorRef, setErrorRef] = useState('');
 
   useEffect(() => {
-    // Generate a new reference only when the error instance changes.
-    errorRefValue.current = `ERR-${Date.now().toString(36).toUpperCase()}`;
+    const ref = `ERR-${Date.now().toString(36).toUpperCase()}`;
+    setErrorRef(ref);
     // Log to console in dev; in production this would go to
     // a telemetry service (Sentry, ELK, etc.)
-    console.error('[GLOBAL_ERROR]', errorRefValue.current, error);
+    console.error('[GLOBAL_ERROR]', ref, error);
   }, [error]);
 
   return (
@@ -95,7 +96,7 @@ export default function GlobalError({
         {/* Error reference for IT support */}
         <div className="space-y-1">
           <p className="text-[10px] text-cbs-steel-500 cbs-tabular">
-            Error Ref: {errorRefValue.current}
+            Error Ref: {errorRef}
             {error?.digest ? ` · Digest: ${error.digest}` : ''}
           </p>
           <p className="text-[10px] text-cbs-steel-400">
