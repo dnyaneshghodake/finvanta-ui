@@ -159,6 +159,13 @@ creates layout drift when the shell value changes.
 `space-y-6`) and breakpoint-responsive column layouts only. Width
 belongs to the shell.
 
+**Enforcement:** `eslint.rules.design-system.js` flags `max-w-[…]`
+in `app/(dashboard)/**/page.tsx` as a lint `error`. `mx-auto` is a
+lint `warn` because the same utility is also used for legitimate
+icon / empty-state glyph centering, which a purely-syntactic rule
+cannot distinguish from a page-wrapper width violation — the `warn`
+is advisory, reviewer judgement decides.
+
 ---
 
 ## 4. Component Dimensions
@@ -628,6 +635,12 @@ content area (operators look at amounts and tables, not titles).
 
 Sub-headings on the same page use `text-sm font-semibold uppercase
 tracking-wider text-cbs-steel-700` inside `.cbs-surface-header`.
+
+**Enforcement:** `eslint.rules.design-system.js` flags `text-xl` /
+`text-2xl` / `text-3xl` on `<h1>` in `app/(dashboard)/**/page.tsx`
+as a lint `warn` while legacy pages are migrated incrementally to
+`text-lg`. It will be upgraded to `error` once every page under
+`app/(dashboard)/**/page.tsx` complies (tracked as follow-up).
 
 ---
 
