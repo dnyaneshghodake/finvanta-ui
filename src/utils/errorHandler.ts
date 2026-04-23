@@ -14,7 +14,14 @@ export class AppError extends Error {
     public code: string,
     message: string,
     public statusCode: number = 500,
-    public details?: Record<string, string>
+    public details?: Record<string, string>,
+    /**
+     * X-Correlation-Id from the BFF response headers (when available).
+     * Preserved through the interceptor so UI error alerts can render
+     * it via <CorrelationRefBadge /> per DESIGN_SYSTEM §16b — operators
+     * quote this reference to IT support for trace lookup in Loki/Tempo.
+     */
+    public correlationId?: string,
   ) {
     super(message);
     this.name = 'AppError';
@@ -30,7 +37,11 @@ class ErrorHandler {
    */
   handleApiError(error: unknown): AppError {
     const err = error as {
-      response?: { status: number; data?: { error?: { code?: string; message?: string; details?: Record<string, string> } } };
+      response?: {
+        status: number;
+        headers?: Record<string, string | undefined>;
+        data?: { error?: { code?: string; message?: string; details?: Record<string, string> } };
+      };
       request?: unknown;
       code?: string;
       message?: string;
@@ -39,14 +50,22 @@ class ErrorHandler {
 
     // Handle axios error
     if (err.response) {
-      const { status, data } = err.response;
+      const { status, data, headers } = err.response;
+      // Axios lower-cases response header names; the BFF (proxy.ts)
+      // always emits `x-correlation-id` on every response, success or
+      // failure, so we capture it here for the UI's <CorrelationRefBadge />.
+      const correlationId =
+        typeof headers?.['x-correlation-id'] === 'string'
+          ? (headers['x-correlation-id'] as string)
+          : undefined;
 
       if (data?.error) {
         return new AppError(
           data.error.code || 'UNKNOWN_ERROR',
           data.error.message || 'An error occurred',
           status,
-          data.error.details
+          data.error.details,
+          correlationId,
         );
       }
 
@@ -68,7 +87,9 @@ class ErrorHandler {
       return new AppError(
         `HTTP_${status}`,
         errorMessages[status] || 'An error occurred',
-        status
+        status,
+        undefined,
+        correlationId,
       );
     }
 
