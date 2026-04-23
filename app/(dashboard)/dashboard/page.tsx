@@ -98,13 +98,13 @@ export default function DashboardPage() {
   const lastLogin = user?.lastLoginTimestamp;
 
   return (
-    <div className="space-y-4 max-w-[1320px] mx-auto">
+    <div className="space-y-4">
       <Breadcrumb items={[{ label: 'Dashboard' }]} />
 
       {/* ── Page Header with Day Status (from session, no API) ── */}
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-xl font-semibold text-cbs-ink">Branch Operations Dashboard</h1>
+          <h1 className="text-lg font-semibold text-cbs-ink">Branch Operations Dashboard</h1>
           <p className="text-xs text-cbs-steel-600 mt-0.5">
             Welcome, {displayName}.
             <span className="cbs-kbd ml-3">F2</span> Transfer

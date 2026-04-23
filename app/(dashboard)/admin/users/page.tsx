@@ -113,7 +113,7 @@ export default function UserManagementPage() {
 
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h1 className="text-xl font-semibold text-cbs-ink">User Management</h1>
+            <h1 className="text-lg font-semibold text-cbs-ink">User Management</h1>
             <p className="text-xs text-cbs-steel-600 mt-0.5">
               Operator provisioning under maker-checker governance.
               No self-registration per RBI IT Governance Direction 2023.
