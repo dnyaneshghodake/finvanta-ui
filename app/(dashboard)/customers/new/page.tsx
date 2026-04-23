@@ -184,10 +184,11 @@ export default function NewCustomerPage() {
     try {
       // Map frontend form field names → Spring REST_API_COMPLETE_CATALOGUE
       // §Customer Module field names. The form uses CKYC-centric naming;
-      // Spring uses flat CBS-centric naming.
-      const addr = data.sameAsPermanent
-        ? data.permanentAddress
-        : (data.correspondenceAddress ?? data.permanentAddress);
+      // Spring uses flat CBS-centric naming. Only the permanent address
+      // is forwarded today — the backend derives the correspondence
+      // address from `addressSameAsPermanent`. When Spring exposes
+      // dedicated correspondence fields, resolve them here from
+      // `data.correspondenceAddress ?? data.permanentAddress`.
       const payload = {
         firstName: data.firstName,
         lastName: data.lastName,
