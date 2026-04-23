@@ -56,6 +56,21 @@ interface ErrorState {
   errorCode?: string;
 }
 
+/**
+ * Shallow structural equality for the repayment form. Used to detect
+ * whether the operator edited any field between the first confirm
+ * click and a subsequent retry — if yes, the idempotency key is
+ * invalidated so the new data is evaluated fresh rather than replayed
+ * from the backend's idempotency cache.
+ */
+function formEquals(a: FormData, b: FormData): boolean {
+  return (
+    a.loanAccount === b.loanAccount &&
+    a.amount === b.amount &&
+    a.repaymentType === b.repaymentType
+  );
+}
+
 export default function LoanRepaymentPage() {
   const {
     register,
@@ -77,63 +92,58 @@ export default function LoanRepaymentPage() {
   const [showConfirm, setShowConfirm] = useState(false);
   const [pendingData, setPendingData] = useState<FormData | null>(null);
 
-  // Step 1: Form validation passes → show confirm dialog
+  // Step 1: Form validation passes → show confirm dialog.
+  // If the operator edited any field since the last attempt, invalidate
+  // the idempotency key — otherwise a stale key paired with different
+  // data would cause the backend's idempotency cache to replay the
+  // original response instead of evaluating the corrected request.
   const onFormValid = (data: FormData) => {
     setError(null);
+    if (pendingData && !formEquals(pendingData, data)) {
+      setIdempotencyKey(null);
+    }
     setPendingData(data);
     setShowConfirm(true);
   };
 
-  // Step 2: Operator confirms in dialog → post to backend
+  // Step 2: Operator confirms in dialog → post to backend.
+  // `loanService.repay` never throws — it always returns an
+  // ApiResponse envelope with `correlationId` populated from the
+  // BFF's `x-correlation-id` header (for both server validation
+  // rejections and AppError-wrapped HTTP failures).
   const onConfirmPost = async () => {
     if (!pendingData) return;
     const key = idempotencyKey ?? loanService.mintKey();
     if (!idempotencyKey) setIdempotencyKey(key);
-    try {
-      const res = await loanService.repay(
-        {
-          accountNumber: pendingData.loanAccount,
-          amount: Number(pendingData.amount),
-          type: pendingData.repaymentType,
-        },
-        key,
-      );
-      if (!res.success || !res.data) {
-        // Server validation rejection — clear the key so a corrected
-        // retry is evaluated fresh, not replayed from idempotency cache.
-        setIdempotencyKey(null);
-        setShowConfirm(false);
-        setError({
-          message: res.error?.message || 'Repayment could not be processed',
-          errorCode: res.error?.code,
-        });
-        return;
-      }
+    const res = await loanService.repay(
+      {
+        accountNumber: pendingData.loanAccount,
+        amount: Number(pendingData.amount),
+        type: pendingData.repaymentType,
+      },
+      key,
+    );
+    if (!res.success || !res.data) {
+      // Per DESIGN_SYSTEM §16b: a 4xx response means the server
+      // definitively rejected the request before posting, so clear
+      // the key and let the operator's corrected retry be evaluated
+      // fresh. A 5xx or network error (statusCode 0 / >=500) means
+      // the server MAY have processed — preserve the key so a retry
+      // de-duplicates via the backend's idempotency cache.
+      const status = res.error?.statusCode ?? 0;
+      const safeToClearKey = status >= 400 && status < 500;
+      if (safeToClearKey) setIdempotencyKey(null);
       setShowConfirm(false);
-      setPosted(res.data);
-      setPostedType(pendingData.repaymentType);
-    } catch (err: unknown) {
-      // Network-level error — the server MAY have processed the request.
-      // Keep the idempotency key so a retry de-duplicates correctly.
-      setShowConfirm(false);
-      if (isAxiosError(err)) {
-        setError({
-          message:
-            err.response?.data?.message ||
-            err.response?.data?.error?.message ||
-            err.message,
-          correlationId:
-            (err.response?.headers?.['x-correlation-id'] as string) ||
-            err.response?.data?.correlationId,
-          errorCode:
-            err.response?.data?.errorCode || err.response?.data?.error?.code,
-        });
-        return;
-      }
       setError({
-        message: err instanceof Error ? err.message : 'Repayment failed',
+        message: res.error?.message || 'Repayment could not be processed',
+        errorCode: res.error?.code,
+        correlationId: res.correlationId,
       });
+      return;
     }
+    setShowConfirm(false);
+    setPosted(res.data);
+    setPostedType(pendingData.repaymentType);
   };
 
   const onReset = () => {
