@@ -17,7 +17,7 @@
  * passes the error and reset function as props.
  */
 
-import { useEffect, useMemo } from 'react';
+import { useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { AlertTriangle, RefreshCw, Home } from 'lucide-react';
 
@@ -29,19 +29,20 @@ export default function GlobalError({
   reset: () => void;
 }) {
   // Stable error reference — generated once per error instance.
-  // useMemo ensures React Compiler doesn't flag Date.now() as an
-  // impure render-time call.
-  const errorRef = useMemo(
-    () => `ERR-${Date.now().toString(36).toUpperCase()}`,
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [error],
-  );
+  // Uses useRef (not useMemo) because Date.now() is impure and the
+  // React Compiler's react-hooks/purity rule rejects impure calls
+  // inside useMemo. The ref is assigned in useEffect (a side-effect
+  // context where impure calls are allowed) and persists across
+  // re-renders without triggering the purity check.
+  const errorRefValue = useRef<string>('');
 
   useEffect(() => {
+    // Generate a new reference only when the error instance changes.
+    errorRefValue.current = `ERR-${Date.now().toString(36).toUpperCase()}`;
     // Log to console in dev; in production this would go to
     // a telemetry service (Sentry, ELK, etc.)
-    console.error('[GLOBAL_ERROR]', errorRef, error);
-  }, [error, errorRef]);
+    console.error('[GLOBAL_ERROR]', errorRefValue.current, error);
+  }, [error]);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-cbs-mist p-6">
@@ -94,7 +95,7 @@ export default function GlobalError({
         {/* Error reference for IT support */}
         <div className="space-y-1">
           <p className="text-[10px] text-cbs-steel-500 cbs-tabular">
-            Error Ref: {errorRef}
+            Error Ref: {errorRefValue.current}
             {error?.digest ? ` · Digest: ${error.digest}` : ''}
           </p>
           <p className="text-[10px] text-cbs-steel-400">
