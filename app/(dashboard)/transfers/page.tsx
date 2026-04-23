@@ -227,7 +227,7 @@ export default function TransfersPage() {
           </div>
           <div>{error.message}</div>
           {error.correlationId && (
-            <div className="mt-1 text-xs cbs-tabular">Ref: {error.correlationId}</div>
+            <div className="mt-2"><CorrelationRefBadge value={error.correlationId} /></div>
           )}
         </div>
       )}
