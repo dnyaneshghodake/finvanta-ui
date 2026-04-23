@@ -732,20 +732,37 @@ React-Compiler-compliant (no impure calls during render).
 
 ### Granular Error Boundaries
 
-Within the authenticated shell, three React Error Boundaries isolate
-failures at progressively finer levels:
+`src/components/cbs/CbsErrorBoundary.tsx` exports a single React
+class boundary (`CbsErrorBoundary`) with three convenience wrappers
+at different severity levels. All take an optional `moduleRef` that
+is rendered as the IT-support reference; on error, the boundary
+auto-generates an `ERR-{timestamp-base36}` ID for display.
 
-| Boundary | Scope | Behaviour on error |
-|----------|-------|--------------------|
-| `PageErrorBoundary` | Wraps `{children}` in `DashboardShell` — one screen at a time | Shell (sidebar, header, toasts) stays alive; only the content area is replaced with an inline error card. Operator can navigate away without a full reload. |
-| `WidgetErrorBoundary` | Wraps each dashboard widget individually | A crash in one widget does not take down the other 8. The failed tile shows an inline error with the `moduleRef` (e.g. `PORTFOLIO`, `NPA`) for IT support. |
-| `TransactionErrorBoundary` | Wraps transaction posting flows (transfers, FD booking, loan disbursement) | **CRITICAL**: shows a blocking modal stating "the transaction may or may not have been submitted — do not retry without checking status" per RBI §8.2. |
+| Boundary | Level | Fallback UI |
+|----------|-------|-------------|
+| `PageErrorBoundary` | `page` | Full-page block with 🔺 icon, "Module Unavailable" heading, Retry + Dashboard buttons, and `Error Ref: ERR-… · Module: {moduleRef}`. Shell chrome (sidebar, header, toasts) stays alive — only the `{children}` area is replaced. |
+| `WidgetErrorBoundary` | `widget` | Inline compact card: "Widget unavailable" + `Ref: ERR-… · {moduleRef}` + inline Retry button. A crash in one widget does not affect sibling widgets. |
+| `TransactionErrorBoundary` | `transaction` | Crimson-bordered alert block: "Transaction Processing Error" + "Your transaction may have been submitted. Please check the transaction status before retrying to avoid duplicate postings." with "Check Transaction Status" (→ `/workflow`) and "Retry Form" buttons. |
+
+Each boundary:
+- Sets state via `getDerivedStateFromError(error)` returning
+  `{ hasError: true, error, errorId }` where `errorId` is a stable
+  `ERR-` prefix + base36 timestamp
+- Logs to console via `componentDidCatch` with `moduleRef` and
+  `errorInfo.componentStack` (dev); in production an `onError`
+  callback prop can route to Sentry/ELK
+- Offers `handleRetry` which clears state and re-renders
+  `children` — the boundary does NOT full-reload the page
+- Accepts an optional `fallback` ReactNode to override the default UI
 
 **Rule:** every new page under `app/(dashboard)/` is automatically
-wrapped in `PageErrorBoundary` via the shell. New dashboard widgets
-must be wrapped in `WidgetErrorBoundary` with a distinct `moduleRef`.
-New transaction-posting flows **MUST** use `TransactionErrorBoundary`
-around the mutating API call.
+wrapped in `PageErrorBoundary` via the shell (see
+`DashboardShell.tsx`). New dashboard widgets must be wrapped in
+`WidgetErrorBoundary` with a distinct `moduleRef`. New financial-
+posting flows **MUST** use `TransactionErrorBoundary` around the
+mutating submission — the "may have been submitted" warning is a
+safety requirement per RBI §8.2 and cannot be substituted with a
+page-level or widget-level boundary.
 
 ### Rules:
 
@@ -1070,23 +1087,27 @@ or render inconsistent "no data" messaging.
 
 ### Loading States
 
-| Component | Use | Shape |
-|-----------|-----|-------|
-| `CbsTableSkeleton` | Before a table loads | N shimmer rows matching `cbs-grid-table` dimensions (use `rows={6}` default) |
-| `CbsFormSkeleton` | Before a form's data hydrates (e.g. edit-account page) | Field-sized shimmer blocks in 8+4 layout |
-| `CbsSkeleton` | Generic | Configurable width/height — for KPI cards, detail panels |
-| `Spinner` | Inline / modal / button-loading | `size="sm" | "md" | "lg"` with optional `message` |
+| Component | Signature | Shape |
+|-----------|-----------|-------|
+| `CbsTableSkeleton` | `({ rows = 5 })` | `cbs-surface` with header shimmer + N rows of 4 cell-shimmer blocks (flex-ratios 2/3/1/1). Default 5 rows. |
+| `CbsFormSkeleton` | `({ fields = 4 })` | `cbs-surface` with header + 2-column grid (`md:grid-cols-2`) of label+input shimmer pairs. Default 4 fields. |
+| `CbsSkeleton` | `({ variant, count, className })` | Generic. Variants: `'text' \| 'heading' \| 'cell' \| 'card'` — each maps to a `.cbs-skeleton-*` utility class with a pre-defined height. `count` renders N stacked blocks; last text block is shortened to 75% width. |
+| `Spinner` | `({ size, message, fullScreen })` | Inline / overlay. `size`: `'sm' \| 'md' \| 'lg'` (16/32/48px). `fullScreen={true}` renders a centred overlay on `bg-cbs-paper/75 z-50`. |
+
+All skeletons apply `role="status"` + `aria-label="Loading"` + an
+`sr-only` "Loading…" text for screen-reader announcement.
 
 **Rules:**
-- Skeleton **dimensions MUST match the real content** — no layout
-  shift (CLS = 0 budget in §15). A 36px row becomes a 36px skeleton
-  row; a 34px input becomes a 34px skeleton field.
-- **Never use a spinner for initial page load** — use skeletons.
-  Spinners are for inline async (e.g. "Saving...", "Verifying CIF...")
-  where the operator stays on the same screen.
+- Skeleton **dimensions should approximate the real content** so
+  layout shift (CLS) is minimised — the pre-built skeletons
+  (`CbsTableSkeleton`, `CbsFormSkeleton`) already encode the right
+  shape; prefer them over building custom skeletons
+- **Never use a full-screen spinner for partial data loads** — use
+  skeletons. `Spinner` with `fullScreen` is for authentication /
+  bootstrap states only (e.g. `DashboardShell`'s "Initializing…")
 - Button loading state: `<Button isLoading>Submit</Button>` shows
   an inline spinner and disables the button — do NOT replace the
-  button with a standalone spinner.
+  button with a standalone spinner
 
 ### Empty States
 
