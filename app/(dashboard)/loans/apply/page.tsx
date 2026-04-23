@@ -19,6 +19,7 @@ import { z } from 'zod';
 import { apiClient } from '@/services/api/apiClient';
 import { AmountInr, Breadcrumb } from '@/components/cbs';
 import { Button } from '@/components/atoms';
+import { useAuthStore } from '@/store/authStore';
 import Link from 'next/link';
 
 const loanSchema = z.object({
@@ -36,6 +37,7 @@ type LoanForm = z.infer<typeof loanSchema>;
 
 export default function LoanApplicationPage() {
   const router = useRouter();
+  const user = useAuthStore((s) => s.user);
   const [error, setError] = useState<string | null>(null);
   const [correlationId, setCorrelationId] = useState<string | null>(null);
 
@@ -56,7 +58,7 @@ export default function LoanApplicationPage() {
       // and requires `branchId` + `interestRate`.
       const res = await apiClient.post('/loan-applications', {
         customerId: Number(data.customerId),
-        branchId: 1, // TODO: read from session user's branch
+        branchId: user?.branchId || 1,
         productType: data.loanType,
         requestedAmount: Number(data.requestedAmount),
         interestRate: 0, // Server determines actual rate from product master

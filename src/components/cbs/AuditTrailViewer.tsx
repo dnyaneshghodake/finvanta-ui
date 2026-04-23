@@ -9,10 +9,9 @@
  * verified, approved, and when. This component renders the workflow
  * history for any entity (account, loan, customer, transaction).
  *
- * CBS benchmark:
- *   Tier-1 CBS: HFINLOG (Financial Log) — accessible from any transaction
- *   Tier-1 CBS:     STMT.ENTRY audit — shows maker/checker/timestamp chain
- *   Tier-1 CBS: CSTB_AUDIT_TRAIL — full field-level change history
+ * CBS benchmark: Tier-1 CBS platforms provide a financial log
+ * accessible from any transaction, showing the full maker/checker
+ * timestamp chain and field-level change history.
  *
  * Usage:
  *   <AuditTrailViewer entityType="ACCOUNT" entityId="CASA0001" />
@@ -182,17 +181,21 @@ export function AuditTrailViewer({
               entry.slaBreached ? 'border-cbs-crimson-300' : 'border-cbs-steel-200'
             }`}
           >
-            {/* Header row */}
+            {/* Header row — structured as a 2-line layout:
+             *  Line 1: Icon + Action Type + Status Ribbon + SLA badge
+             *  Line 2: Maker | Checker | Timestamp
+             * The chevron is right-aligned and vertically centered. */}
             <button
               type="button"
               onClick={() => setExpandedEntry(isExpanded ? null : entry.id)}
-              className="flex items-center gap-3 w-full px-3 py-2 text-left hover:bg-cbs-mist transition-colors"
+              className="flex items-start gap-2 w-full px-3 py-2 text-left hover:bg-cbs-mist transition-colors"
               aria-expanded={isExpanded}
             >
-              {config.icon}
+              <span className="mt-0.5 shrink-0">{config.icon}</span>
               <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-semibold text-cbs-ink">
+                {/* Line 1: Action + Status */}
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-xs font-semibold text-cbs-ink uppercase tracking-wider">
                     {entry.actionType.replace(/_/g, ' ')}
                   </span>
                   <span className={`cbs-ribbon text-[10px] ${config.tone}`}>
@@ -204,21 +207,24 @@ export function AuditTrailViewer({
                     </span>
                   )}
                 </div>
-                <div className="flex items-center gap-3 text-[10px] text-cbs-steel-500 cbs-tabular mt-0.5">
-                  <span className="flex items-center gap-1">
-                    <User size={10} />
-                    Maker: {entry.makerUserId}
+                {/* Line 2: Maker | Checker | Timestamp — 11px per label scale */}
+                <div className="flex items-center gap-4 text-[11px] text-cbs-steel-500 cbs-tabular mt-1">
+                  <span className="flex items-center gap-1 shrink-0">
+                    <User size={11} strokeWidth={1.75} />
+                    <span className="text-cbs-steel-600 font-medium">Maker:</span> {entry.makerUserId}
                   </span>
                   {entry.checkerUserId && (
-                    <span className="flex items-center gap-1">
-                      <User size={10} />
-                      Checker: {entry.checkerUserId}
+                    <span className="flex items-center gap-1 shrink-0">
+                      <User size={11} strokeWidth={1.75} />
+                      <span className="text-cbs-steel-600 font-medium">Checker:</span> {entry.checkerUserId}
                     </span>
                   )}
-                  <span>{formatCbsTimestamp(entry.submittedAt)}</span>
+                  <span className="shrink-0">{formatCbsTimestamp(entry.submittedAt)}</span>
                 </div>
               </div>
-              {isExpanded ? <ChevronUp size={14} className="text-cbs-steel-400" /> : <ChevronDown size={14} className="text-cbs-steel-400" />}
+              <span className="mt-1 shrink-0">
+                {isExpanded ? <ChevronUp size={14} className="text-cbs-steel-400" /> : <ChevronDown size={14} className="text-cbs-steel-400" />}
+              </span>
             </button>
 
             {/* Expanded detail */}
@@ -247,22 +253,22 @@ export function AuditTrailViewer({
                     <div className="text-[10px] font-semibold text-cbs-steel-500 uppercase tracking-wider mb-1">
                       Field Changes
                     </div>
-                    <table className="w-full text-xs">
+                    <table className="w-full text-xs border-collapse">
                       <thead>
-                        <tr className="text-[10px] text-cbs-steel-500 uppercase">
-                          <th className="text-left py-0.5 pr-2">Field</th>
-                          <th className="text-left py-0.5 pr-2">Old Value</th>
-                          <th className="text-left py-0.5">New Value</th>
+                        <tr className="cbs-field-label">
+                          <th className="text-left py-1.5 pr-3 font-semibold">Field</th>
+                          <th className="text-left py-1.5 pr-3 font-semibold">Old Value</th>
+                          <th className="text-left py-1.5 font-semibold">New Value</th>
                         </tr>
                       </thead>
                       <tbody>
                         {entry.fieldChanges.map((fc, i) => (
                           <tr key={i} className="border-t border-cbs-steel-100">
-                            <td className="py-1 pr-2 text-cbs-steel-700 font-medium">{fc.fieldName}</td>
-                            <td className="py-1 pr-2 cbs-tabular text-cbs-crimson-700 line-through">
+                            <td className="py-1.5 pr-3 text-cbs-steel-700 font-medium">{fc.fieldName}</td>
+                            <td className="py-1.5 pr-3 cbs-tabular text-cbs-crimson-700 line-through">
                               {fc.oldValue || '—'}
                             </td>
-                            <td className="py-1 cbs-tabular text-cbs-olive-700 font-medium">
+                            <td className="py-1.5 cbs-tabular text-cbs-olive-700 font-medium">
                               {fc.newValue || '—'}
                             </td>
                           </tr>

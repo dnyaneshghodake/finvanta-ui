@@ -142,6 +142,13 @@ export function CifLookup({
   const inputRef = useRef<HTMLInputElement>(null);
   /** Tracks whether the initial auto-fetch for defaultValue has fired. */
   const autoFetchedRef = useRef(false);
+  /** AbortController for in-flight CIF lookup — cancels stale requests
+   *  when the operator triggers a new search before the previous one
+   *  completes. Prevents race conditions where a slow response for CIF-A
+   *  arrives after a fast response for CIF-B, overwriting the correct
+   *  customer snapshot. In a banking context, displaying the wrong
+   *  customer's data is a compliance concern (RBI IT Governance §8.5). */
+  const abortRef = useRef<AbortController | null>(null);
 
   const fetchCustomer = useCallback(async () => {
     const id = cifId.trim();
@@ -149,6 +156,11 @@ export function CifLookup({
       setError('Enter a CIF ID');
       return;
     }
+    // Cancel any in-flight request before starting a new one.
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
+
     setLoading(true);
     setError(null);
     setCustomer(null);
@@ -157,7 +169,13 @@ export function CifLookup({
       const res = await apiClient.get<{
         status: string;
         data?: CifCustomer;
-      }>(`/customers/${encodeURIComponent(id)}`);
+      }>(`/customers/${encodeURIComponent(id)}`, {
+        signal: controller.signal,
+      });
+
+      // If this request was aborted (superseded by a newer search),
+      // silently exit — the newer request will handle state updates.
+      if (controller.signal.aborted) return;
 
       if (res.data?.status !== 'SUCCESS' || !res.data?.data) {
         setError('Customer not found');
@@ -170,10 +188,16 @@ export function CifLookup({
       }
       setCustomer(c);
       onCustomerFound(c);
-    } catch {
+    } catch (err) {
+      // Don't show error for intentionally aborted requests.
+      if (err instanceof Error && err.name === 'CanceledError') return;
+      if (controller.signal.aborted) return;
       setError('Failed to fetch customer');
     } finally {
-      setLoading(false);
+      // Only clear loading if this is still the active request.
+      if (!controller.signal.aborted) {
+        setLoading(false);
+      }
     }
   }, [cifId, requireActive, onCustomerFound, onCustomerCleared]);
 
@@ -193,10 +217,14 @@ export function CifLookup({
     (e: React.KeyboardEvent) => {
       if (e.key === 'Enter') {
         e.preventDefault();
-        fetchCustomer();
+        // Guard: don't fire concurrent requests from rapid Enter presses.
+        // The AbortController handles the race if it does happen, but
+        // skipping the call entirely is cleaner UX — no flash of
+        // "Loading…" → abort → "Loading…" cycle.
+        if (!loading) fetchCustomer();
       }
     },
-    [fetchCustomer],
+    [fetchCustomer, loading],
   );
 
   return (

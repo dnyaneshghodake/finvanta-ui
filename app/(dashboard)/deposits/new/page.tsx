@@ -23,6 +23,7 @@ import { z } from 'zod';
 import { apiClient } from '@/services/api/apiClient';
 import { AmountInr, AccountNo, ValueDate, Breadcrumb } from '@/components/cbs';
 import { Button } from '@/components/atoms';
+import { useAuthStore } from '@/store/authStore';
 import Link from 'next/link';
 
 const fdSchema = z.object({
@@ -40,6 +41,7 @@ type FdForm = z.infer<typeof fdSchema>;
 
 export default function BookFdPage() {
   const router = useRouter();
+  const user = useAuthStore((s) => s.user);
   const [error, setError] = useState<string | null>(null);
   const [correlationId, setCorrelationId] = useState<string | null>(null);
 
@@ -64,7 +66,7 @@ export default function BookFdPage() {
       // and requires `branchId` + `interestRate`.
       const res = await apiClient.post('/fixed-deposits/book', {
         customerId: Number(data.customerId),
-        branchId: 1, // TODO: read from session user's branch
+        branchId: user?.branchId || 1,
         linkedAccountNumber: data.linkedAccountNumber.toUpperCase(),
         principalAmount: Number(data.depositAmount),
         interestRate: 0, // Server determines from product + tenure slab

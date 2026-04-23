@@ -235,6 +235,22 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  // ── Concurrent session prevention ────────────────────────────
+  // Per RBI IT Governance 2023 §8.3 and OWASP ASVS V3.2:
+  // Tier-1 CBS platforms enforce single-session-per-operator.
+  // The same operator must not be logged in from two browsers
+  // simultaneously. We signal this to Spring via the
+  // X-Invalidate-Previous-Sessions header so the backend can
+  // revoke any existing refresh tokens for this username before
+  // issuing a new token pair. This prevents:
+  //   1. Session fixation via stolen cookies on a shared terminal
+  //   2. Unauthorized concurrent access from a second device
+  //   3. Stale sessions surviving after a forced re-login
+  //
+  // CBS benchmark: Tier-1 CBS platforms enforce single-session
+  // via an operator-session registry that detects and kills
+  // duplicate sessions on new login.
+
   let upstream: Response;
   try {
     upstream = await fetch(`${env.backendApiBase}/auth/token`, {
@@ -244,6 +260,11 @@ export async function POST(req: NextRequest) {
         accept: "application/json",
         "x-correlation-id": correlationId,
         "x-tenant-id": env.defaultTenantId,
+        // Signal Spring to invalidate any existing sessions/refresh
+        // tokens for this operator before issuing a new token pair.
+        // Spring's AuthService should revoke prior refresh tokens
+        // when this header is present, ensuring single-session.
+        "x-invalidate-previous-sessions": "true",
       },
       body: JSON.stringify({
         username,
@@ -666,6 +687,20 @@ export async function POST(req: NextRequest) {
     passwordExpiryDate: bUser?.passwordExpiryDate || sessionUser.passwordExpiryDate,
   };
 
+  // ── Session nonce — concurrent session tracking ──────────────
+  // Per RBI IT Governance 2023 §8.3: each login generates a unique
+  // session nonce that is embedded in the encrypted session blob and
+  // propagated to Spring via X-Session-Nonce on every proxied request.
+  // This serves two purposes:
+  //   1. When the same operator logs in from a second browser, the old
+  //      session's refresh token is revoked (X-Invalidate-Previous-Sessions).
+  //      The old browser's next proactive refresh fails with 401, and the
+  //      apiClient redirector sends them to /login?reason=session_compromised.
+  //   2. All requests within a single login session share the same nonce,
+  //      making it trivial to correlate activity to a specific login event
+  //      in the backend audit trail.
+  const sessionNonce = crypto.randomUUID();
+
   const session = await writeSession({
     accessToken,
     refreshToken: refreshTokenRaw,
@@ -674,6 +709,7 @@ export async function POST(req: NextRequest) {
     jwtExpiresAt,
     user: enrichedUser,
     correlationId,
+    sessionNonce,
     businessDate: bootstrapBusinessDate,
     businessDay: bootstrapBizDay ? {
       businessDate: bootstrapBizDay.businessDate || bootstrapBusinessDate,

@@ -100,6 +100,68 @@
   --spacing-cbs-12:  48px;
   --spacing-cbs-16:  64px;
 
+  /* ── Icon Size Scale ──────────────────────────────────────────
+   * CBS convention: icons come in 3 sizes. The clickable area
+   * around an icon must always be ≥ 32px for touch/click targets
+   * (WCAG 2.5.8 Target Size). Stroke width decreases with size
+   * to maintain visual weight consistency.
+   *
+   *   sm (14px) — inline with text (table cells, breadcrumbs)
+   *   md (18px) — sidebar nav, form actions, button icons
+   *   lg (24px) — page headers, empty states, error boundaries
+   */
+  --icon-cbs-sm:    14px;
+  --icon-cbs-md:    18px;
+  --icon-cbs-lg:    24px;
+  --icon-cbs-touch: 32px;
+
+  /* ── Layout Constants ──────────────────────────────────────────
+   * Formalised shell dimensions per CBS grid system.
+   * These match the values in Sidebar.tsx and Header.tsx. */
+  --layout-header-height:     64px;
+  --layout-sidebar-expanded:  272px;
+  --layout-sidebar-collapsed: 72px;
+  --layout-content-max-width: 1320px;
+  --layout-content-padding:   24px;
+
+  /* ── Interaction State Tokens ─────────────────────────────────
+   * Extracted from component classes so hover, focus, active, and
+   * disabled states are consistent across all CBS components.
+   * Components reference these via var() — no inline state values. */
+  --state-hover-bg:          rgba(20, 24, 35, 0.04);
+  --state-active-bg:         rgba(20, 24, 35, 0.08);
+  --state-focus-ring:        0 0 0 2px var(--color-cbs-navy-100);
+  --state-focus-border:      var(--color-cbs-navy-500);
+  --state-error-focus-ring:  0 0 0 2px var(--color-cbs-crimson-100);
+  --state-error-focus-border: var(--color-cbs-crimson-600);
+  --state-disabled-opacity:  0.55;
+
+  /* ── Component Dimension Tokens ──────────────────────────────
+   * Extracted from the CSS class definitions below so they are
+   * discoverable, documentable, and overridable per-tenant.
+   * Components reference these via var() — changing a token here
+   * updates every instance across the application.
+   *
+   * Per DESIGN_SYSTEM.md §4: operator screens use compact dimensions
+   * (34px inputs/buttons) for data density. Login uses 40px for
+   * institutional trust weight. */
+  --comp-input-height:        34px;
+  --comp-input-height-login:  40px;
+  --comp-input-padding-x:     10px;
+  --comp-input-font-size:     13px;
+  --comp-btn-height:          34px;
+  --comp-btn-padding-x:       14px;
+  --comp-btn-font-size:       13px;
+  --comp-table-header-padding: 8px 10px;
+  --comp-table-cell-padding:  8px 10px;
+  --comp-table-font-size:     13px;
+  --comp-modal-sm:            400px;
+  --comp-modal-md:            560px;
+  --comp-modal-lg:            720px;
+  --comp-surface-padding:     14px;
+  --comp-label-font-size:     11px;
+  --comp-label-tracking:      0.04em;
+
   /* ── Elevation / Shadows ────────────────────────────────────
    * CBS convention: data surfaces are flat (no shadow). Elevation
    * is reserved for overlays (modals, dropdowns, toasts).
@@ -141,6 +203,20 @@
   --ease-cbs-out:      ease-out;
   --ease-cbs-in-out:   ease-in-out;
 
+  /* ── Data Visualization Tokens ────────────────────────────────
+   * CBS dashboards include charts, risk indicators, and trend lines.
+   * These tokens ensure consistent colours across all BI visuals.
+   * Derived from the core palette but named by data intent. */
+  --chart-credit:     var(--color-cbs-olive-600);
+  --chart-debit:      var(--color-cbs-crimson-600);
+  --chart-neutral:    var(--color-cbs-steel-400);
+  --chart-primary:    var(--color-cbs-navy-500);
+  --chart-secondary:  var(--color-cbs-navy-300);
+  --chart-warning:    var(--color-cbs-gold-600);
+  --chart-grid:       var(--color-cbs-steel-200);
+  --chart-axis:       var(--color-cbs-steel-500);
+  --chart-label:      var(--color-cbs-steel-600);
+
   /* ── Semantic Status Aliases ────────────────────────────────
    * Map CBS semantic intents to palette tokens so components
    * reference intent (status-success) not palette (olive-700).
@@ -164,6 +240,10 @@
   --color-status-workflow-bg:    var(--color-cbs-violet-50);
   --color-status-workflow-border: var(--color-cbs-violet-600);
   --color-status-workflow-text:  var(--color-cbs-violet-700);
+
+  --color-status-critical-bg:    var(--color-cbs-crimson-100);
+  --color-status-critical-border: var(--color-cbs-crimson-700);
+  --color-status-critical-text:  var(--color-cbs-crimson-800);
 }
 
 :root {
@@ -460,8 +540,8 @@ body {
 }
 
 .cbs-field-label {
-  font-size: 11px;
-  letter-spacing: 0.04em;
+  font-size: var(--comp-label-font-size);
+  letter-spacing: var(--comp-label-tracking);
   text-transform: uppercase;
   color: var(--color-cbs-steel-600);
   font-weight: 600;
@@ -504,14 +584,14 @@ body {
 }
 
 .cbs-surface-body {
-  padding: 14px;
+  padding: var(--comp-surface-padding);
 }
 
 .cbs-grid-table {
   width: 100%;
   border-collapse: separate;
   border-spacing: 0;
-  font-size: 13px;
+  font-size: var(--comp-table-font-size);
 }
 
 .cbs-grid-table thead th {
@@ -520,7 +600,7 @@ body {
   z-index: 1;
   background: var(--color-cbs-steel-50);
   border-bottom: 1px solid var(--color-cbs-steel-200);
-  padding: 8px 10px;
+  padding: var(--comp-table-header-padding);
   text-align: left;
   font-weight: 600;
   font-size: 11px;
@@ -530,7 +610,7 @@ body {
 }
 
 .cbs-grid-table tbody td {
-  padding: 8px 10px;
+  padding: var(--comp-table-cell-padding);
   border-bottom: 1px solid var(--color-cbs-steel-100);
   vertical-align: top;
 }
@@ -545,9 +625,9 @@ body {
 
 .cbs-input {
   width: 100%;
-  height: 34px;
-  padding: 0 10px;
-  font-size: 13px;
+  height: var(--comp-input-height);
+  padding: 0 var(--comp-input-padding-x);
+  font-size: var(--comp-input-font-size);
   line-height: 20px;
   color: var(--color-cbs-ink);
   background: var(--color-cbs-paper);
@@ -562,8 +642,8 @@ body {
 }
 
 .cbs-input:focus {
-  border-color: var(--color-cbs-navy-500);
-  box-shadow: 0 0 0 2px var(--color-cbs-navy-100);
+  border-color: var(--state-focus-border);
+  box-shadow: var(--state-focus-ring);
 }
 
 /* Error state: border + background tint for discoverability in
@@ -575,9 +655,9 @@ body {
 }
 
 .cbs-input[aria-invalid="true"]:focus {
-  border-color: var(--color-cbs-crimson-600);
+  border-color: var(--state-error-focus-border);
   background: var(--color-cbs-paper);
-  box-shadow: 0 0 0 2px var(--color-cbs-crimson-100);
+  box-shadow: var(--state-error-focus-ring);
 }
 
 .cbs-input[disabled],
@@ -598,7 +678,7 @@ body {
  * The base .cbs-input (34px / 13px) is retained for data-dense
  * operational screens (account lists, transfer forms, grids). */
 .cbs-input-login {
-  height: 40px;
+  height: var(--comp-input-height-login);
   padding: 0 12px;
   font-size: 14px;
   line-height: 22px;
@@ -609,9 +689,9 @@ body {
   align-items: center;
   justify-content: center;
   gap: 6px;
-  height: 34px;
-  padding: 0 14px;
-  font-size: 13px;
+  height: var(--comp-btn-height);
+  padding: 0 var(--comp-btn-padding-x);
+  font-size: var(--comp-btn-font-size);
   font-weight: 600;
   letter-spacing: 0.02em;
   border-radius: var(--radius-cbs);
@@ -622,7 +702,7 @@ body {
 }
 
 .cbs-btn[disabled] {
-  opacity: 0.55;
+  opacity: var(--state-disabled-opacity);
   cursor: not-allowed;
 }
 
@@ -702,8 +782,8 @@ body {
 }
 
 .cbs-textarea:focus {
-  border-color: var(--color-cbs-navy-500);
-  box-shadow: 0 0 0 2px var(--color-cbs-navy-100);
+  border-color: var(--state-focus-border);
+  box-shadow: var(--state-focus-ring);
 }
 
 .cbs-textarea[aria-invalid="true"] {
@@ -712,9 +792,9 @@ body {
 }
 
 .cbs-textarea[aria-invalid="true"]:focus {
-  border-color: var(--color-cbs-crimson-600);
+  border-color: var(--state-error-focus-border);
   background: var(--color-cbs-paper);
-  box-shadow: 0 0 0 2px var(--color-cbs-crimson-100);
+  box-shadow: var(--state-error-focus-ring);
 }
 
 .cbs-textarea[disabled],
@@ -727,9 +807,9 @@ body {
 /* CBS Select — dropdown fields. */
 .cbs-select {
   width: 100%;
-  height: 34px;
-  padding: 0 28px 0 10px;
-  font-size: 13px;
+  height: var(--comp-input-height);
+  padding: 0 28px 0 var(--comp-input-padding-x);
+  font-size: var(--comp-input-font-size);
   line-height: 20px;
   color: var(--color-cbs-ink);
   background: var(--color-cbs-paper);
@@ -747,8 +827,8 @@ body {
 }
 
 .cbs-select:focus {
-  border-color: var(--color-cbs-navy-500);
-  box-shadow: 0 0 0 2px var(--color-cbs-navy-100);
+  border-color: var(--state-focus-border);
+  box-shadow: var(--state-focus-ring);
 }
 
 .cbs-select[aria-invalid="true"] {
@@ -757,9 +837,9 @@ body {
 }
 
 .cbs-select[aria-invalid="true"]:focus {
-  border-color: var(--color-cbs-crimson-600);
+  border-color: var(--state-error-focus-border);
   background-color: var(--color-cbs-paper);
-  box-shadow: 0 0 0 2px var(--color-cbs-crimson-100);
+  box-shadow: var(--state-error-focus-ring);
 }
 
 .cbs-select[disabled] {
@@ -851,9 +931,9 @@ body {
   box-shadow: 0 4px 24px rgba(0, 0, 0, 0.15);
 }
 
-.cbs-modal-sm { max-width: 400px; }
-.cbs-modal-md { max-width: 560px; }
-.cbs-modal-lg { max-width: 720px; }
+.cbs-modal-sm { max-width: var(--comp-modal-sm); }
+.cbs-modal-md { max-width: var(--comp-modal-md); }
+.cbs-modal-lg { max-width: var(--comp-modal-lg); }
 
 .cbs-modal-header {
   display: flex;

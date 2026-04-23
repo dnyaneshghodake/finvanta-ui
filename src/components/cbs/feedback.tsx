@@ -100,12 +100,16 @@ export function ApprovalTrail({ entries }: { entries: ApprovalTrailEntry[] }) {
     );
   }
   return (
-    <ol className="relative border-l-2 border-cbs-steel-200 pl-4 space-y-3">
+    <ol className="relative border-l-2 border-cbs-steel-200 pl-6 space-y-3">
       {entries.map((e, i) => {
         const when = e.at instanceof Date ? e.at : new Date(e.at);
         return (
           <li key={`${i}-${e.actor}-${String(e.at)}`} className="relative">
-            <span className="absolute -left-[7px] top-1 h-3 w-3 rounded-full bg-cbs-navy-700 border-2 border-white" />
+            {/* Timeline dot — positioned on the border-left line.
+             *  pl-6 (24px) on <ol> gives text clearance. The dot is
+             *  10px wide, centered at -left-[25px] so its center aligns
+             *  with the 2px border-left. No overlap with text. */}
+            <span className="absolute -left-[25px] top-1 h-2.5 w-2.5 rounded-full bg-cbs-navy-700 border-2 border-cbs-paper" />
             <div className={`text-xs font-semibold uppercase tracking-wider ${actionTone(e.action)}`}>
               {e.action.replace(/_/g, ' ')}
             </div>

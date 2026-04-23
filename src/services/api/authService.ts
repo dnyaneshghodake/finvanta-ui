@@ -17,25 +17,12 @@
 import axios from "axios";
 import { apiClient } from "./apiClient";
 import type { LoginRequest, ApiResponse } from "@/types/api";
-import type { User } from "@/types/entities";
+import type { User, BusinessDay, OperationalConfig } from "@/types/entities";
 
-/** Business day context from Spring `data.businessDay`. */
-export interface BusinessDay {
-  businessDate: string;
-  dayStatus: string;
-  isHoliday: boolean;
-  previousBusinessDate?: string;
-  nextBusinessDate?: string;
-}
-
-/** Operational config from Spring `data.operationalConfig`. */
-export interface OperationalConfig {
-  baseCurrency: string;
-  decimalPrecision: number;
-  roundingMode: string;
-  fiscalYearStartMonth: number;
-  businessDayPolicy: string;
-}
+// Re-export for backward compatibility — existing consumers that
+// imported `BusinessDay` / `OperationalConfig` from authService
+// continue to work without modification.
+export type { BusinessDay, OperationalConfig };
 
 /** Operator transaction limits from Spring `data.limits`. */
 export interface TransactionLimit {

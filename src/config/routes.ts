@@ -36,6 +36,12 @@ import type { UserRole } from '@/types/entities';
 const MAKER: UserRole[] = ['MAKER', 'TELLER', 'OFFICER'];
 const CHECKER: UserRole[] = ['CHECKER', 'MANAGER', 'APPROVER'];
 const ADMIN: UserRole[] = ['ADMIN', 'ADMIN_HO', 'BRANCH_ADMIN'];
+/** RECONCILER role — operators responsible for inter-branch and
+ *  nostro/vostro account reconciliation. Per RBI Master Circular on
+ *  Reconciliation of Transactions: reconcilers need read access to
+ *  GL, statements, and reports, plus write access to the reconciliation
+ *  module. */
+const RECONCILER: UserRole[] = ['RECONCILER'];
 
 export type ScreenType = 'inquiry' | 'transaction' | 'admin' | 'report';
 
@@ -109,9 +115,16 @@ export const R = {
   },
 
   reports: {
-    trialBalance: { path: '/reports/trial-balance', screenCode: 'RPT.TB', label: 'Trial Balance', roles: [...CHECKER, ...ADMIN, 'AUDITOR'] as UserRole[], type: 'report' as ScreenType, moduleId: 'reports' },
-    dayBook:      { path: '/reports/day-book',      screenCode: 'RPT.DB', label: 'Day Book',      roles: [...CHECKER, ...ADMIN, 'AUDITOR'] as UserRole[], type: 'report' as ScreenType, moduleId: 'reports' },
-    gl:           { path: '/reports/gl',             screenCode: 'RPT.GL', label: 'GL Inquiry',    roles: [...CHECKER, ...ADMIN, 'AUDITOR'] as UserRole[], type: 'report' as ScreenType, moduleId: 'reports' },
+    trialBalance: { path: '/reports/trial-balance', screenCode: 'RPT.TB', label: 'Trial Balance', roles: [...CHECKER, ...ADMIN, ...RECONCILER, 'AUDITOR'] as UserRole[], type: 'report' as ScreenType, moduleId: 'reports' },
+    dayBook:      { path: '/reports/day-book',      screenCode: 'RPT.DB', label: 'Day Book',      roles: [...CHECKER, ...ADMIN, ...RECONCILER, 'AUDITOR'] as UserRole[], type: 'report' as ScreenType, moduleId: 'reports' },
+    gl:           { path: '/reports/gl',             screenCode: 'RPT.GL', label: 'GL Inquiry',    roles: [...CHECKER, ...ADMIN, ...RECONCILER, 'AUDITOR'] as UserRole[], type: 'report' as ScreenType, moduleId: 'reports' },
+  },
+
+  reconciliation: {
+    dashboard:   { path: '/reconciliation',           screenCode: 'RECON.DASH',  label: 'Reconciliation Dashboard', roles: [...RECONCILER, ...ADMIN, 'AUDITOR'] as UserRole[], type: 'report' as ScreenType,      moduleId: 'reconciliation' },
+    interBranch: { path: '/reconciliation/inter-branch', screenCode: 'RECON.IBR', label: 'Inter-Branch Recon',      roles: [...RECONCILER, ...ADMIN] as UserRole[],            type: 'transaction' as ScreenType, moduleId: 'reconciliation' },
+    nostro:      { path: '/reconciliation/nostro',     screenCode: 'RECON.NOS',   label: 'Nostro Reconciliation',   roles: [...RECONCILER, ...ADMIN] as UserRole[],            type: 'transaction' as ScreenType, moduleId: 'reconciliation' },
+    suspense:    { path: '/reconciliation/suspense',   screenCode: 'RECON.SUSP',  label: 'Suspense Entries',        roles: [...RECONCILER, ...ADMIN, 'AUDITOR'] as UserRole[], type: 'inquiry' as ScreenType,     moduleId: 'reconciliation' },
   },
 
   admin: {

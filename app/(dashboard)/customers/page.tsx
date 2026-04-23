@@ -15,10 +15,11 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import Link from 'next/link';
+import { Eye, UserPlus, ShieldCheck } from 'lucide-react';
 import { apiClient } from '@/services/api/apiClient';
 import { StatusRibbon, maskPan, Breadcrumb } from '@/components/cbs';
-import { Button, Spinner } from '@/components/atoms';
-import { R, resolvePath } from '@/config/routes';
+import { Button, Spinner, RoleGate } from '@/components/atoms';
+import { R, resolvePath, buildUrl } from '@/config/routes';
 
 const searchSchema = z.object({
   query: z.string().min(2, 'Enter at least 2 characters'),
@@ -35,7 +36,13 @@ interface CustomerResult {
   pan?: string;
   mobile?: string;
   kycStatus: string;
-  status: string;
+  /**
+   * Spring search endpoint returns `active: boolean`, not `status: string`.
+   * The status field is derived from `active` in the mapper below.
+   * Some backend versions may return `status` directly — we handle both.
+   */
+  active?: boolean;
+  status?: string;
   branchCode?: string;
 }
 
@@ -72,7 +79,7 @@ export default function CustomerSearchPage() {
       <Breadcrumb items={[{ label: R.dashboard.home.label, href: R.dashboard.home.path as string }, { label: R.customers.search.label }]} />
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-semibold text-cbs-ink">Customer Search</h1>
+          <h1 className="text-lg font-semibold text-cbs-ink">Customer Search</h1>
           <p className="text-xs text-cbs-steel-600 mt-0.5">
             Search by CIF number, PAN, Aadhaar, name, or mobile number.
           </p>
@@ -157,6 +164,7 @@ export default function CustomerSearchPage() {
                   <th>Branch</th>
                   <th>KYC</th>
                   <th>Status</th>
+                  <th className="text-right">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -186,7 +194,36 @@ export default function CustomerSearchPage() {
                       <StatusRibbon status={c.kycStatus === 'VERIFIED' ? 'APPROVED' : c.kycStatus === 'PENDING' ? 'PENDING_APPROVAL' : 'REJECTED'} />
                     </td>
                     <td>
-                      <StatusRibbon status={c.status} />
+                      <StatusRibbon status={c.status || (c.active === false ? 'CLOSED' : 'ACTIVE')} />
+                    </td>
+                    <td className="text-right">
+                      <div className="inline-flex items-center gap-1">
+                        <Link
+                          href={resolvePath(R.customers.view as import('@/config/routes').RouteEntry, String(c.id))}
+                          className="cbs-btn cbs-btn-secondary h-[26px] px-2 text-xs"
+                          title="View CIF"
+                        >
+                          <Eye size={12} strokeWidth={1.75} />
+                        </Link>
+                        <RoleGate roles={['MAKER', 'ADMIN']}>
+                          <Link
+                            href={buildUrl(R.accounts.create.path as string, { customerId: String(c.id) })}
+                            className="cbs-btn cbs-btn-secondary h-[26px] px-2 text-xs"
+                            title="Open Account"
+                          >
+                            <UserPlus size={12} strokeWidth={1.75} />
+                          </Link>
+                        </RoleGate>
+                        <RoleGate roles={['CHECKER', 'ADMIN']}>
+                          <Link
+                            href={buildUrl(R.customers.kyc.path as string, { id: String(c.id) })}
+                            className="cbs-btn cbs-btn-secondary h-[26px] px-2 text-xs"
+                            title="KYC Verify"
+                          >
+                            <ShieldCheck size={12} strokeWidth={1.75} />
+                          </Link>
+                        </RoleGate>
+                      </div>
                     </td>
                   </tr>
                 ))}

@@ -156,6 +156,9 @@ function shouldForwardRequestHeader(name: string): boolean {
   if (lower === "content-length") return false;
   if (lower === "authorization") return false;
   if (lower === "x-branch-code" || lower === "x-tenant-id") return false;
+  // Session nonce is injected from the encrypted session blob — never
+  // trust a client-supplied value (concurrent session prevention P0-3).
+  if (lower === "x-session-nonce") return false;
   return true;
 }
 
@@ -300,6 +303,16 @@ export async function forward(
   const tenantId = session?.user?.tenantId || env.defaultTenantId;
   if (tenantId) {
     headers.set("x-tenant-id", tenantId);
+  }
+  // Session nonce — per RBI IT Governance 2023 §8.3 (concurrent
+  // session prevention) and §8.5 (audit trail). Propagated to Spring
+  // so the backend can:
+  //   1. Correlate all requests from a single login session
+  //   2. Detect stale sessions if it maintains an active-nonce registry
+  // The nonce is generated at login time (see login/route.ts) and
+  // stored in the encrypted session blob — the browser cannot forge it.
+  if (session?.sessionNonce) {
+    headers.set("x-session-nonce", session.sessionNonce);
   }
 
   const method = req.method.toUpperCase();

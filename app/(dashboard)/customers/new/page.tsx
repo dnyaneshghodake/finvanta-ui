@@ -24,6 +24,7 @@ import { z } from 'zod';
 import { apiClient } from '@/services/api/apiClient';
 import { Pan, Aadhaar, ValueDate, Breadcrumb } from '@/components/cbs';
 import { Button } from '@/components/atoms';
+import { useAuthStore } from '@/store/authStore';
 import { R, resolvePath } from '@/config/routes';
 import type { RouteEntry } from '@/config/routes';
 
@@ -147,6 +148,7 @@ function F({ id, label, error, required, children }: {
 
 export default function NewCustomerPage() {
   const router = useRouter();
+  const user = useAuthStore((s) => s.user);
   const [error, setError] = useState<string | null>(null);
   const [correlationId, setCorrelationId] = useState<string | null>(null);
 
@@ -199,7 +201,7 @@ export default function NewCustomerPage() {
         state: data.permanentAddress.state,
         pinCode: data.permanentAddress.pincode,
         customerType: data.customerType,
-        branchId: 1, // TODO: read from session user's branch
+        branchId: user?.branchId || 1,
         gender: data.gender === 'MALE' ? 'M' : data.gender === 'FEMALE' ? 'F' : 'O',
         fatherName: data.fatherOrSpouseName,
         motherName: data.motherName,

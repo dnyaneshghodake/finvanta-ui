@@ -103,6 +103,26 @@ export interface CbsSession {
   issuedAt: number;
   correlationId?: string;
   /**
+   * Unique session nonce — generated on every login.
+   *
+   * Per RBI IT Governance 2023 §8.3 (concurrent session prevention):
+   * when an operator logs in from a second browser, the new session
+   * gets a new nonce. The old session's nonce is no longer valid
+   * because Spring revokes the old refresh token (triggered by the
+   * X-Invalidate-Previous-Sessions header). When the old browser's
+   * BFF proxy attempts a proactive JWT refresh, Spring rejects the
+   * revoked refresh token with 401, and the apiClient interceptor
+   * redirects to /login?reason=session_compromised.
+   *
+   * The nonce also serves as a secondary audit trail identifier:
+   * all requests within a single login session share the same nonce,
+   * making it easy to correlate activity to a specific login event.
+   *
+   * CBS benchmark: Tier-1 CBS platforms maintain an operator-session
+   * registry keyed by a unique session identifier per login event.
+   */
+  sessionNonce?: string;
+  /**
    * Server-authoritative business date in ISO format (YYYY-MM-DD).
    * Populated from Spring `data.businessDay.businessDate` at login;
    * falls back to server clock date when the backend does not supply it.

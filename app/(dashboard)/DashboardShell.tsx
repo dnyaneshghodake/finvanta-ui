@@ -34,6 +34,7 @@ import { KeyboardHelpOverlay } from '@/components/cbs/KeyboardHelpOverlay';
 import { authService } from '@/services/api/authService';
 import { logger } from '@/utils/logger';
 import { formatCbsDate } from '@/utils/formatters';
+import { useScreenAudit } from '@/hooks/useScreenAudit';
 import {
   DayStatusContext,
   type DayStatusContextValue,
@@ -150,6 +151,11 @@ export default function DashboardShell({
   // CBS keyboard navigation (F1=Help, Alt+D=Dashboard, etc.)
   const { isHelpOpen, toggleHelp, activeKeyMap } = useCbsKeyboardNav();
 
+  // Screen-access audit logging — RBI IT Governance 2023 §8.5.
+  // Fires a POST to /api/cbs/audit/screen-access on every route
+  // navigation with the resolved screen code from the route registry.
+  useScreenAudit();
+
   // Day-status context — controls posting-allowed flag for all children
   const businessDay = useAuthStore((s) => s.businessDay);
   const dayStatusValue = useMemo((): DayStatusContextValue => {
@@ -259,7 +265,7 @@ export default function DashboardShell({
         <div className="flex flex-1 min-h-0">
           <Sidebar />
           <main id="cbs-main" className="flex-1 overflow-y-auto" tabIndex={-1}>
-            <div className="p-3 sm:p-4 lg:p-6">
+            <div className="p-3 sm:p-4 lg:p-6 mx-auto max-w-[1320px]">
               <PageErrorBoundary moduleRef="MAIN">
                 {children}
               </PageErrorBoundary>
