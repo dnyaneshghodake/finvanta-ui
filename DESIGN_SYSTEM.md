@@ -1007,29 +1007,43 @@ the module root; the last item has no `href` (it's the current page).
 ## 15e. Formatters & Display Conventions
 
 All number, date, and currency rendering goes through
-`src/utils/formatters.ts` — never `toLocaleString()` calls scattered
-across pages. This ensures consistent formatting and a single place
-to change locale/convention.
+`src/utils/formatters.ts` — never hand-written `toLocaleString()`
+calls scattered across pages. This ensures consistent formatting and
+a single place to change locale/convention.
 
 | Formatter | Input | Output | Usage |
 |-----------|-------|--------|-------|
-| `formatCurrency(amount, ccy?)` | `50000` | `₹ 50,000.00` (INR grouping) | Every amount display |
-| `formatCbsDate(iso)` | `2026-04-19` | `19-APR-2026` | List cells, receipts, breadcrumbs |
-| `formatCbsTimestamp(iso)` | `2026-04-19T10:42:00Z` | `19-APR-2026 10:42:00` | Audit timestamps, last-login |
-| `formatAccountType(type)` | `SAVINGS` | `Savings Account` | Type labels in account lists |
+| `formatCurrency(amount, currency = 'INR', decimals = 2)` | `50000` | `₹50,000.00` (via `Intl.NumberFormat('en-IN', { style: 'currency' })`) | Every amount display |
+| `formatCbsDate(isoOrDate)` | `'2026-04-19'` or `Date` | `19-APR-2026` | List cells, receipts, breadcrumbs |
+| `formatCbsTimestamp(isoOrDate)` | `'2026-04-19T10:42:00Z'` or `Date` | `19-APR-2026 10:42` (minutes-only — **no seconds**) | Audit timestamps, last-login, approval events |
+| `formatAccountType(type)` | `'SAVINGS'` | `Savings Account` | Type labels in account lists. Also handles `CURRENT`, `CURRENT_OD`, `SALARY`, `SAVINGS_NRI`, `SAVINGS_MINOR`, `SAVINGS_JOINT`, `SAVINGS_PMJDY` |
+| `formatAmountInr(rawString)` | `'150000'` | `'1,50,000.00'` | Used by `AmountInr` primitive on blur — returns Indian lakh/crore grouped string without currency symbol |
+| `formatDate(iso, pattern?)` | `'2026-04-19'` | `'19-APR-2026'` (default) | Generic date formatter via date-fns; `pattern` is a date-fns format token |
+| `formatDateTime(iso, pattern?)` | `'2026-04-19T10:42'` | `'19-APR-2026 10:42'` (default) | Generic datetime formatter via date-fns |
+
+Other helpers in the same file (not primary display formatters):
+`formatNumber`, `formatPhoneNumber`, `formatAccountNumber`,
+`formatPANNumber`, `formatAadharNumber`, `formatIFSCCode`,
+`formatTransactionId`, `formatPercentage`, `truncateText`,
+`capitalize`, `formatTransactionType`, `formatTransactionStatus`.
 
 **Rules:**
 - Dates: **always** DD-MMM-YYYY (not DD/MM/YYYY or MM/DD/YYYY) — the
-  unambiguous CBS convention per RBI circulars.
-- Amounts: **always** include currency symbol + Indian grouping
-  (`1,00,000.00` not `100,000.00`).
+  unambiguous CBS convention per RBI circulars
+- Amounts: use `formatCurrency` — the `Intl.NumberFormat` locale
+  produces Indian lakh/crore grouping (`1,00,000.00` not
+  `100,000.00`) automatically
 - Business date vs calendar date: `businessDate` from session is the
   CBS day-state (what the system considers "today" for postings).
   Calendar "today" (`new Date()`) is only for UI freshness indicators.
   **Never** use calendar date for value dates, posting dates, or
-  interest calculations.
-- Timestamps in audit logs use the operator's local timezone but
-  store UTC — the formatter converts for display.
+  interest calculations — those come from `businessDate`
+- **Timezone behaviour:** `formatCbsTimestamp` / `formatCbsDate`
+  render in the **browser's local timezone** (they call
+  `d.getHours()` / `d.getDate()`, not `getUTC*`). Input ISO strings
+  carrying a `Z` suffix are parsed as UTC by the `Date` constructor
+  and then displayed locally. Any "UTC storage" conversion happens
+  upstream (Spring) — the formatters do not do it
 
 ---
 
