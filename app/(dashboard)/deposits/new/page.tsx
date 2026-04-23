@@ -36,6 +36,7 @@ import {
   AmountInr,
   AccountNo,
   Breadcrumb,
+  CorrelationRefBadge,
   TransactionConfirmDialog,
 } from '@/components/cbs';
 import { Button } from '@/components/atoms';
@@ -189,7 +190,7 @@ export default function BookFdPage() {
           <div className="font-semibold">FD booking failed</div>
           <div>{error.message}</div>
           {error.correlationId && (
-            <div className="mt-1 text-xs cbs-tabular">Ref: {error.correlationId}</div>
+            <div className="mt-2"><CorrelationRefBadge value={error.correlationId} /></div>
           )}
         </div>
       )}
@@ -282,11 +283,19 @@ export default function BookFdPage() {
             { label: 'Customer ID (CIF)', value: pendingData.customerId },
             { label: 'Linked CASA', value: pendingData.linkedAccountNumber.toUpperCase() },
             { label: 'Principal Amount', value: Number(pendingData.depositAmount), isAmount: true },
-            { label: 'Tenure', value: `${pendingData.tenureMonths} month(s)` },
+            // Disclose BOTH the operator-entered tenure (months) AND the
+            // value that will actually be posted to Spring (days), so the
+            // two-step confirmation honours RBI §8.2 "what-you-see-is-
+            // what-you-post". The backend recalculates the exact maturity
+            // date from product master + posting date.
+            {
+              label: 'Tenure',
+              value: `${pendingData.tenureMonths} month(s) — posted as ${Number(pendingData.tenureMonths) * 30} day(s)`,
+            },
             { label: 'Auto-Renew', value: pendingData.autoRenew ? 'Yes' : 'No' },
             ...(pendingData.nomineeName ? [{ label: 'Nominee', value: pendingData.nomineeName }] : []),
           ]}
-          warning="Interest rate is determined server-side by the product + tenure slab. The displayed amount is principal only; maturity amount appears after approval."
+          warning="Tenure is posted to the server as months × 30 days (approximation); the exact maturity date is recalculated server-side from product master and posting date. Interest rate is determined server-side by the product + tenure slab. Maturity amount appears after approval."
         />
       )}
     </div>
