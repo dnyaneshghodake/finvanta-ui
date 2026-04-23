@@ -94,7 +94,7 @@ export default function BookFdPage() {
       ]} />
 
       <div>
-        <h1 className="text-xl font-semibold text-cbs-ink">Book Fixed Deposit</h1>
+        <h1 className="text-lg font-semibold text-cbs-ink">Book Fixed Deposit</h1>
         <p className="text-xs text-cbs-steel-600 mt-0.5">
           Maker action — book a new FD. Interest rate is determined by
           the product master based on tenure slab. UI does not compute interest.

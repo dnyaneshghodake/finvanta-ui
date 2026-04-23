@@ -146,7 +146,7 @@ export default function AccountDetailsPage() {
       {/* Page Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-semibold text-cbs-ink">{formatAccountType(account.accountType)}</h1>
+          <h1 className="text-lg font-semibold text-cbs-ink">{formatAccountType(account.accountType)}</h1>
           <p className="text-xs text-cbs-steel-600 cbs-tabular mt-0.5">{formatAccountNumber(account.accountNumber)}</p>
         </div>
         <div className="flex items-center gap-2">

@@ -83,7 +83,7 @@ export default function BranchManagementPage() {
 
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h1 className="text-xl font-semibold text-cbs-ink">Branch Management</h1>
+            <h1 className="text-lg font-semibold text-cbs-ink">Branch Management</h1>
             <p className="text-xs text-cbs-steel-600 mt-0.5">
               Manage bank branches, SOL IDs, and IFSC codes. Each branch
               operates as an independent operational unit with its own GL.

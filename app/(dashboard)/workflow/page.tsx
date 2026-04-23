@@ -84,7 +84,7 @@ export default function WorkflowPage() {
       <Breadcrumb items={[{ label: R.dashboard.home.label, href: R.dashboard.home.path as string }, { label: R.workflow.queue.label }]} />
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-xl font-semibold text-cbs-ink">Maker-Checker Approval Queue</h1>
+          <h1 className="text-lg font-semibold text-cbs-ink">Maker-Checker Approval Queue</h1>
           <p className="text-xs text-cbs-steel-600 mt-0.5">Self-approval blocked per RBI. <span className="cbs-kbd ml-2">F5</span> Refresh</p>
         </div>
         <span className="flex items-center gap-1 text-xs text-cbs-gold-700"><Clock size={12} /> {total} pending</span>
@@ -102,6 +102,9 @@ export default function WorkflowPage() {
         <div className={`flex-1 min-w-0 ${sel ? 'hidden md:block md:w-1/2' : ''}`}>
           {isLoading ? <CbsTableSkeleton rows={8} /> : list.length === 0 ? (
             <section className="cbs-surface text-center py-10">
+              {/* Icon centering inside an empty-state block — NOT a page-level
+                  content-width violation (DESIGN_SYSTEM §3). Safe to suppress. */}
+              {/* eslint-disable-next-line no-restricted-syntax */}
               <CheckCircle size={32} className="text-cbs-olive-600 mx-auto mb-3" />
               <h3 className="text-sm font-semibold text-cbs-ink">Queue Clear</h3>
             </section>

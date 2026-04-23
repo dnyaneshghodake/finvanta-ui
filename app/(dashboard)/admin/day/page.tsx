@@ -23,7 +23,7 @@ export default function DayOpenClosePage() {
         ]} />
 
         <div>
-          <h1 className="text-xl font-semibold text-cbs-ink">Day Open / Close</h1>
+          <h1 className="text-lg font-semibold text-cbs-ink">Day Open / Close</h1>
           <p className="text-xs text-cbs-steel-600 mt-0.5">
             Business day ceremony — initialises the CBS business date,
             runs BOD/EOD batch jobs, and controls teller posting windows.

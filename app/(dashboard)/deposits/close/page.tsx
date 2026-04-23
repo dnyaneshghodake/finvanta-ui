@@ -58,7 +58,7 @@ export default function FdPrematureClosePage() {
       ]} />
 
       <div>
-        <h1 className="text-xl font-semibold text-cbs-ink">FD Premature Close</h1>
+        <h1 className="text-lg font-semibold text-cbs-ink">FD Premature Close</h1>
         <p className="text-xs text-cbs-steel-600 mt-0.5">
           Close a fixed deposit before maturity. Penalty interest is
           calculated server-side by the product engine.

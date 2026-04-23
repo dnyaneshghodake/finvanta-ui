@@ -21,7 +21,7 @@ export default function DayBookPage() {
       ]} />
 
       <div>
-        <h1 className="text-xl font-semibold text-cbs-ink">Day Book</h1>
+        <h1 className="text-lg font-semibold text-cbs-ink">Day Book</h1>
         <p className="text-xs text-cbs-steel-600 mt-0.5">
           Chronological register of all transactions posted during
           the current business day.

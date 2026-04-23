@@ -22,7 +22,7 @@ export default function ProductSetupPage() {
         ]} />
 
         <div>
-          <h1 className="text-xl font-semibold text-cbs-ink">Product Setup</h1>
+          <h1 className="text-lg font-semibold text-cbs-ink">Product Setup</h1>
           <p className="text-xs text-cbs-steel-600 mt-0.5">
             Define CASA, FD, loan, and other product types with interest
             rates, charges, limits, and GL mapping.

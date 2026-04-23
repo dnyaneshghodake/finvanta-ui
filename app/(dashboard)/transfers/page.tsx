@@ -202,7 +202,7 @@ export default function TransfersPage() {
 
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-semibold text-cbs-ink">Fund Transfer</h1>
+          <h1 className="text-lg font-semibold text-cbs-ink">Fund Transfer</h1>
           <p className="text-xs text-cbs-steel-600">
             Intra-bank internal transfer.
             {phase === 'capture' && <><span className="cbs-kbd ml-2">F8</span> Post</>}

@@ -184,10 +184,11 @@ export default function NewCustomerPage() {
     try {
       // Map frontend form field names → Spring REST_API_COMPLETE_CATALOGUE
       // §Customer Module field names. The form uses CKYC-centric naming;
-      // Spring uses flat CBS-centric naming.
-      const addr = data.sameAsPermanent
-        ? data.permanentAddress
-        : (data.correspondenceAddress ?? data.permanentAddress);
+      // Spring uses flat CBS-centric naming. Only the permanent address
+      // is forwarded today — the backend derives the correspondence
+      // address from `addressSameAsPermanent`. When Spring exposes
+      // dedicated correspondence fields, resolve them here from
+      // `data.correspondenceAddress ?? data.permanentAddress`.
       const payload = {
         firstName: data.firstName,
         lastName: data.lastName,
@@ -243,7 +244,7 @@ export default function NewCustomerPage() {
       <Breadcrumb items={[{ label: R.dashboard.home.label, href: R.dashboard.home.path as string }, { label: R.customers.search.label, href: R.customers.search.path as string }, { label: R.customers.create.label }]} />
 
       <div>
-        <h1 className="text-xl font-semibold text-cbs-ink">New Customer — CIF Creation</h1>
+        <h1 className="text-lg font-semibold text-cbs-ink">New Customer — CIF Creation</h1>
         <p className="text-xs text-cbs-steel-600 mt-0.5">
           Maker action — CIF requires checker approval.
           <span className="text-cbs-crimson-700 ml-0.5">*</span> = mandatory per RBI KYC / CKYC.

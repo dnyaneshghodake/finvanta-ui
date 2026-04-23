@@ -85,7 +85,7 @@ export default function LoanApplicationPage() {
       ]} />
 
       <div>
-        <h1 className="text-xl font-semibold text-cbs-ink">Loan Application</h1>
+        <h1 className="text-lg font-semibold text-cbs-ink">Loan Application</h1>
         <p className="text-xs text-cbs-steel-600 mt-0.5">
           Maker action — submit a new loan application into the LOS pipeline.
           Eligibility and credit scoring are performed server-side.

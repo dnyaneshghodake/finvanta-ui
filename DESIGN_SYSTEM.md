@@ -6,6 +6,47 @@
 
 ---
 
+## Table of Contents
+
+**Foundation**
+- §0 Token Architecture
+- §1 Base Unit · §2 Grid System · §3 App Shell + Content Width
+
+**Visual Tokens**
+- §5 Typography + Tailwind Mapping + Utility Classes
+- §6 Icons · §7 Radius · §8 Colour Palette · §8b State Tokens
+- §8c CSS Architecture Layers · §8d Dark Mode
+
+**Components**
+- §4 Inputs / Buttons / Row Actions / Tables / Modals / Cards
+- §14b Maker-Checker UI Components
+- §15a Status Vocabulary · §15b Domain Input Primitives
+- §15g Loading & Empty States
+
+**Conventions**
+- §9 Critical Rules · §10 Print + Printable Components
+- §13b Screen Layout · §15c PII Masking · §15d Navigation & URLs
+- §15e Formatters · §15f Toast & Modal · §16c Keyboard Shortcuts
+
+**Quality**
+- §11 Token Governance · §12 Accessibility · §15 Performance Budget
+
+**Data & Roles**
+- §13 Data Visualization · §14 Role-Based UI Density
+
+**Errors & Security**
+- §16 Error Severity + Boundaries · §16b Security & Compliance UX
+
+**Meta**
+- §17 Future Considerations
+
+> **Note on section numbering:** sections with letter suffixes (§8b,
+> §13b, §14b, §15a–g, §16b, §16c) were added organically over time
+> and are grouped above by topic rather than alphabetically. Use the
+> TOC above, not the sequential order, to navigate.
+
+---
+
 ## 0. Token Architecture
 
 All design tokens follow a strict 3-layer hierarchy:
@@ -105,6 +146,28 @@ The wider sidebar accommodates:
 - Longer module labels (e.g., "Reconciliation Dashboard")
 - Tier-1 CBS sidebars are typically 260–280px
 
+### Content Width Ownership
+
+The **DashboardShell owns the content width constraint.** The shell
+applies `mx-auto max-w-[1320px]` to the `<main>` inner wrapper
+(`app/(dashboard)/DashboardShell.tsx`). Page-level components under
+`app/(dashboard)/*/page.tsx` MUST NOT apply their own `max-w-*` or
+`mx-auto` — nesting the same constraint is a no-op in best case and
+creates layout drift when the shell value changes.
+
+**Rule:** page components own vertical rhythm (`space-y-4`,
+`space-y-6`) and breakpoint-responsive column layouts only. Width
+belongs to the shell.
+
+**Enforcement:** `eslint.rules.design-system.js` flags both
+`max-w-[…]` and `mx-auto` in `app/(dashboard)/**/page.tsx` as a lint
+`error`. Legitimate icon / empty-state glyph centering (which the
+syntactic rule cannot distinguish from a page-wrapper width
+violation) is suppressed inline with
+`// eslint-disable-next-line no-restricted-syntax` and an explanatory
+comment — reviewers must verify the suppression is on an icon, not
+on a content wrapper.
+
 ---
 
 ## 4. Component Dimensions
@@ -145,6 +208,35 @@ Min width:     (content-driven, no fixed minimum)
 Border radius: 2px
 ```
 
+### Row Actions (Inline Table Buttons)
+
+```
+Height:        26px                  (h-[26px])
+Padding:       0 8px                 (px-2)
+Font size:     12px                  (text-xs)
+Icon size:     12px + strokeWidth 1.75
+Gap:           4px                   (gap-1)
+Min width:     content-driven
+Border radius: 2px
+```
+
+Used for View / Statement / Transfer / Freeze / KYC icon-only
+actions inside `cbs-grid-table` rows. These are **compact derivatives
+of `.cbs-btn-secondary`** — not a separate component — so they inherit
+every state token (`--state-focus-ring`, `--state-disabled-opacity`)
+from the parent button class.
+
+**Disabled via day-status:** mutating row actions (Transfer, Freeze)
+are gated by `isPostingAllowed` from `DayStatusContext`. When posting
+is blocked, apply `opacity-40 pointer-events-none` AND
+`aria-disabled={!isPostingAllowed}`. The `aria-disabled` is mandatory
+for keyboard operators — `pointer-events-none` alone hides the button
+from mouse clicks but not from Tab focus.
+
+**Role-gated:** wrap in `<RoleGate roles={[...]}>` — never hide via
+conditional rendering without the RoleGate. The component is the
+single source of truth for who-can-see-what.
+
 ### Tables
 
 ```
@@ -154,6 +246,21 @@ Font size:     13px body / 11px headers (uppercase)
 Zebra:         Even rows use --color-cbs-mist
 Hover:         Background shift only (no animation)
 ```
+
+**Two table implementations — when to use which:**
+
+| Implementation | Use for | Capabilities |
+|----------------|---------|--------------|
+| `<table className="cbs-grid-table">` | Simple inquiry/search results, ≤ 200 rows, no client-side sort | Plain HTML semantics, zero-JS overhead, a11y-by-default |
+| `<CbsDataGrid columns={...} rows={...} />` | Complex lists with sort/pagination/virtualization, ≥ 200 rows | Typed column defs, `CbsSort`/`CbsPagination`, zebra + hover + loading states |
+
+Wrap either in `<div className="overflow-x-auto">` so narrow viewports
+scroll horizontally rather than reflowing the row.
+
+Status cells use `<StatusRibbon status="..." />` — never render status
+strings directly. Row actions go in the last column, right-aligned,
+wrapped in `<div className="inline-flex items-center gap-1">` (see
+"Row Actions" below).
 
 ### Modals
 
@@ -181,19 +288,38 @@ Shadow:        none (data surfaces are flat)
 9px   → calendar day-of-week labels
 10px  → environment badge, helper text, timestamps
 11px  → field labels (uppercase), table headers, breadcrumbs
-12px  → tabs, compact body text
+12px  → tabs, compact body text, row-action buttons
 13px  → default body text, inputs, buttons, table cells
 14px  → login inputs, section descriptions
 16px  → section titles, page subtitles
-18px  → page headings (h1)
+18px  → page headings (h1) — see §13b Page Heading Rule
 24px  → KPI values (dashboard)
 ```
+
+**Tailwind class mapping:**
+- `text-[10px]` → 10px  (helper text, environment badge)
+- `text-[11px]` (or `cbs-field-label`) → 11px  (uppercase labels)
+- `text-xs` → 12px  (tabs, compact body, row actions)
+- `text-sm` → 14px  (login inputs, surface header label)
+- `text-base` → 16px  (default body)
+- `text-lg` → 18px  (**h1 page headings — always this, never `text-xl`**)
 
 Font stack: Inter → IBM Plex Sans → system sans-serif
 Mono stack: JetBrains Mono → IBM Plex Mono → system monospace
 
 Amounts and dates always use `font-variant-numeric: tabular-nums`
 via the `.cbs-tabular` or `.cbs-amount` utility classes.
+
+### Utility Classes
+
+| Class | Purpose |
+|-------|---------|
+| `cbs-tabular` | Tabular-nums for dates, IDs, phone numbers, CIFs |
+| `cbs-amount` | Tabular-nums + right-aligned + mono for currency amounts |
+| `cbs-field-label` | 11px uppercase tracking-0.04em — form field labels |
+| `cbs-kbd` | Styled `<kbd>` for keyboard shortcut display (see §16c) |
+| `cbs-no-print` | Hides element in `@media print` (see §10) |
+| `cbs-skeleton-*` | Loading placeholder dimensions (matches real content) |
 
 ---
 
@@ -292,6 +418,56 @@ Layer 6: Screens      → app/(dashboard)/*/page.tsx — composition only, no ne
 
 ---
 
+## 8d. Theming (Light / Dark / High-Contrast)
+
+Theme switching is implemented by toggling a `data-theme` attribute
+on `<html>`. CSS custom properties in `globals.css` respond to this
+attribute via `:root[data-theme="..."]` selectors. Changing a Layer 1
+token value cascades through semantic (Layer 2) and component
+(Layer 3) tokens automatically via `var()`.
+
+### Toggle mechanism
+
+Source of truth: `src/contexts/ThemeContext.tsx`.
+
+```tsx
+import { useTheme } from '@/contexts/ThemeContext';
+
+const { theme, setTheme, toggleTheme } = useTheme();
+// theme: 'light' | 'dark' | 'high-contrast'
+// setTheme(next)  — jump to a specific theme
+// toggleTheme()   — cycle light → dark → high-contrast → light
+```
+
+**Initial theme resolution (in order):**
+1. `localStorage` key `cbs-theme` (persisted operator preference)
+2. `prefers-color-scheme: dark` media query → `dark`
+3. `prefers-contrast: high` media query → `high-contrast`
+4. Fallback → `light`
+
+The `ThemeProvider` applies the theme to `<html>` via
+`setAttribute('data-theme', theme)` and sets `color-scheme` CSS
+property so the browser's native scrollbars and form controls match.
+
+### Rules
+
+- **Never use hardcoded `#fff` / `#000`** in component code — always
+  reference `cbs-paper` / `cbs-ink` so theme switches cascade
+- **Three themes, three palettes** — `light` (default), `dark`
+  (reduced eye-strain for night-shift), `high-contrast` (WCAG AAA
+  / branch kiosk environments)
+- **Theme switching MUST NOT alter data presentation** — amounts,
+  dates, status codes render identically in all themes. Only chrome
+  and surface colours change (per RBI IT Governance 2023 §8 on
+  display integrity)
+- **Zero layout shift on theme change** — only colour tokens move,
+  never dimensions
+- New Layer 1 overrides belong in `globals.css` under the
+  `:root[data-theme="dark"]` / `[data-theme="high-contrast"]`
+  selectors — **never** redeclare semantic or component tokens
+
+---
+
 ## 9. Critical Rules
 
 - ❌ No pixel drift between components on the same row
@@ -321,6 +497,25 @@ certificates, and audit reports must print cleanly.
 - Signature lines for posting confirmations
 
 See `app/globals.css` `@media print` block for full rules.
+
+### Printable Components
+
+| Component | Purpose | Print trigger |
+|-----------|---------|---------------|
+| `TransactionReceipt` | Counter-operation voucher — shows txn ref, amount, accounts, audit hash | `window.print()` via "Print Receipt" button (hidden in print via `cbs-no-print`) |
+| Future: `FDCertificate` | FD booking certificate | TBD |
+| Future: `StatementPdf` | Account statement | TBD |
+
+**Contract for new printable components:**
+1. Print-visible chrome goes in the root div. Non-print UI (buttons,
+   filters) must carry `cbs-no-print`.
+2. Amounts must render in `cbs-tabular cbs-amount` so column widths
+   don't shift between screen and print.
+3. Audit hash + correlation ID must appear in the footer of every
+   receipt — these are the only ways IT support can trace a posting
+   after the fact (RBI §8.5).
+4. A "This is a computer-generated receipt. No signature required."
+   footer line is mandatory per RBI digital-voucher guidance.
 
 ---
 
@@ -357,15 +552,15 @@ with AAA targets for critical financial data.
 
 ### Implemented in `globals.css`:
 
-| Feature | Implementation | Reference |
-|---------|---------------|-----------|
-| Focus ring | `:focus-visible` with 2px navy-500 outline | `globals.css:368-371` |
-| Reduced motion | `prefers-reduced-motion: reduce` kills all animation | `globals.css:374-383` |
-| High contrast | `prefers-contrast: high` doubles border widths | `globals.css:390-420` |
-| Forced colors | `forced-colors: active` maps to system colours | `globals.css:426-469` |
-| Skip link | `.cbs-skip-link` visible on keyboard Tab | `globals.css:320-351` |
-| Screen reader | `.sr-only` clip pattern | `globals.css:354-364` |
-| Contrast | steel-400 bumped to 4.8:1 (AA compliant) | `globals.css:38-40` |
+| Feature | Implementation |
+|---------|---------------|
+| Focus ring | `:focus-visible` with 2px navy-500 outline |
+| Reduced motion | `prefers-reduced-motion: reduce` kills all animation |
+| High contrast | `prefers-contrast: high` doubles border widths |
+| Forced colors | `forced-colors: active` maps to system colours |
+| Skip link | `.cbs-skip-link` visible on keyboard Tab |
+| Screen reader | `.sr-only` clip pattern |
+| Contrast | steel-400 tuned to 4.8:1 (AA compliant) |
 
 ### Rules:
 
@@ -403,24 +598,82 @@ with AAA targets for critical financial data.
 
 ---
 
+## 13b. Screen Layout Conventions
+
+CBS screens fall into four layout archetypes. Each has a canonical
+shape — mixing layouts within a screen type is forbidden.
+
+| Screen Type | Layout | Example |
+|-------------|--------|---------|
+| **Inquiry** | Dense sortable `<table className="cbs-grid-table">` with inline row actions. **No card grids.** Operators scan 20–50 rows and act from the row. | `/accounts`, `/customers`, `/workflow` |
+| **Dashboard** | Role-gated KPI widget grid (12-column, `col-span-*`). Cards are appropriate here. | `/dashboard` |
+| **Transaction** | 8+4 split: form (`col-span-8`) + risk/summary panel (`col-span-4`). Never a single-column form > 600px wide. | `/accounts/new`, `/transfers`, `/loans/apply` |
+| **Detail** | 12-column full-width with tabbed sub-sections. Read-first; edit actions gated by role + day status. | `/accounts/:id`, `/customers/:id`, `/loans/:id` |
+
+### Why inquiry = table (not card grid)?
+
+Card grids trade density for visual appeal. A teller scanning 30
+accounts on a card grid sees ~6 cards on screen; the same operator
+scanning a `cbs-grid-table` sees 25+ rows. Every extra page of scroll
+costs 3-5 seconds of operator time and increases the chance of
+clicking the wrong account. **Density is a compliance feature.**
+
+Inline row actions (see §4 "Row Actions") keep the operator anchored
+to the correct row. Card grids force a context switch to a detail
+page before any action can be taken.
+
+### Page Heading Rule
+
+Every page uses **exactly one `<h1>` at `text-lg` (18px)** per
+DESIGN_SYSTEM §5 — not `text-xl`, not `text-2xl`. The 18px heading
+size is the Tier-1 CBS convention: visible without dominating the
+content area (operators look at amounts and tables, not titles).
+
+```tsx
+<h1 className="text-lg font-semibold text-cbs-ink">
+  {Screen Name}
+</h1>
+```
+
+Sub-headings on the same page use `text-sm font-semibold uppercase
+tracking-wider text-cbs-steel-700` inside `.cbs-surface-header`.
+
+**Enforcement:** `eslint.rules.design-system.js` flags `text-xl` /
+`text-2xl` / `text-3xl` on `<h1>` in `app/(dashboard)/**/page.tsx`
+as a lint `error`. Every page has been migrated to `text-lg`.
+
+---
+
 ## 14. Role-Based UI Density
 
-CBS operators have different workflows requiring different UI density:
+CBS operators have different workflows requiring different UI density.
+The canonical roles live in `src/types/entities.ts` as `UserRole` and
+are shorthanded in `src/config/routes.ts`:
 
-| Role | Density | Characteristics |
-|------|---------|----------------|
+```
+MAKER       = ['MAKER', 'TELLER', 'OFFICER']
+CHECKER     = ['CHECKER', 'MANAGER', 'APPROVER']
+ADMIN       = ['ADMIN', 'ADMIN_HO', 'BRANCH_ADMIN']
+RECONCILER  = ['RECONCILER']
+(plus)      AUDITOR
+```
+
+| Role family | Density | Characteristics |
+|-------------|---------|----------------|
 | **TELLER** | Dense | Compact tables, minimal whitespace, keyboard-optimised, high transaction throughput |
 | **OFFICER/MAKER** | Standard | Balanced forms + tables, accordion sections, CIF lookup integration |
-| **MANAGER/CHECKER** | Summary | KPI cards, approval queues, risk panels, graph-heavy dashboards |
+| **MANAGER/CHECKER/APPROVER** | Summary | KPI cards, approval queues, risk panels, graph-heavy dashboards |
 | **AUDITOR** | Read-only | Audit trail emphasis, field-level change history, export-heavy |
-| **ADMIN** | Configuration | Wide tables, bulk operations, settings forms |
+| **RECONCILER** | Dense + read-heavy | Inter-branch and nostro/vostro reconciliation, GL inquiry, suspense entries (RBI Master Circular on Reconciliation) |
+| **ADMIN/ADMIN_HO/BRANCH_ADMIN** | Configuration | Wide tables, bulk operations, settings forms |
 
 ### Implementation:
 
-- Role gating is handled by `RoleGate` component and route-level `roles` arrays
-- Screen layout (8+4 split, full-width table, KPI grid) is chosen per screen type
-- The base component dimensions (34px inputs, 36px table rows) are shared across all roles
+- Role gating is handled by `RoleGate` component and route-level `roles` arrays in `src/config/routes.ts`
+- Screen layout (8+4 split, full-width table, KPI grid) is chosen per screen type (see §13b)
+- The base component dimensions (34px inputs, 36px table rows, 26px row actions) are shared across all roles
 - Role-specific density is achieved through **layout composition**, not component variants
+- Dashboard widgets are blueprinted by role via `getVisibleWidgets(roles)` — see `src/components/dashboard/`
 
 ---
 
@@ -465,8 +718,64 @@ distinct visual treatment and UX behaviour:
 |----------|-----------|
 | INFO | `.cbs-alert-info`, `.cbs-toast-info` |
 | WARNING | `.cbs-alert-warning`, `.cbs-toast-warning`, `DayStatusBanner`, `PasswordExpiryBanner` |
-| ERROR | `.cbs-alert-error`, `.cbs-toast-error`, `[aria-invalid="true"]` field states |
-| CRITICAL | `TransactionErrorBoundary` ("transaction may have been submitted"), `SessionTimeoutWarning` (blocking modal) |
+| ERROR | `.cbs-alert-error`, `.cbs-toast-error`, `[aria-invalid="true"]` field states, `app/not-found.tsx` (404) |
+| CRITICAL | `TransactionErrorBoundary` ("transaction may have been submitted"), `SessionTimeoutWarning` (blocking modal), `app/error.tsx` (unhandled runtime error boundary) |
+
+### Next.js Error Boundary Pages
+
+The App Router's built-in error contract is wired up as:
+
+| File | Role | Reference shown to operator |
+|------|------|------------------------------|
+| `app/error.tsx` | Catch-all runtime error boundary (unhandled exceptions) | `error.digest` — Next.js server-generated ID that IT support can grep in server logs |
+| `app/not-found.tsx` | 404 for unknown routes | The URL the operator attempted |
+
+Both pages follow RBI IT Governance 2023 §8:
+- No stack traces or file paths exposed in production
+- Clear recovery action (retry / dashboard / sign in)
+- A branded FV mark so operators know this is Finvanta-owned chrome
+- Dev-only error message shown when `NODE_ENV !== 'production'`
+
+**Why `error.digest` (not a client-generated ID)?**
+The digest is generated server-side at the moment the error is thrown,
+so it lives in the server log at the exact point of failure — the
+trace IT support actually needs. A client-side `Date.now()` ID would
+be disconnected from any server trace. The digest is also
+React-Compiler-compliant (no impure calls during render).
+
+### Granular Error Boundaries
+
+`src/components/cbs/CbsErrorBoundary.tsx` exports a single React
+class boundary (`CbsErrorBoundary`) with three convenience wrappers
+at different severity levels. All take an optional `moduleRef` that
+is rendered as the IT-support reference; on error, the boundary
+auto-generates an `ERR-{timestamp-base36}` ID for display.
+
+| Boundary | Level | Fallback UI |
+|----------|-------|-------------|
+| `PageErrorBoundary` | `page` | Full-page block with 🔺 icon, "Module Unavailable" heading, Retry + Dashboard buttons, and `Error Ref: ERR-… · Module: {moduleRef}`. Shell chrome (sidebar, header, toasts) stays alive — only the `{children}` area is replaced. |
+| `WidgetErrorBoundary` | `widget` | Inline compact card: "Widget unavailable" + `Ref: ERR-… · {moduleRef}` + inline Retry button. A crash in one widget does not affect sibling widgets. |
+| `TransactionErrorBoundary` | `transaction` | Crimson-bordered alert block: "Transaction Processing Error" + "Your transaction may have been submitted. Please check the transaction status before retrying to avoid duplicate postings." with "Check Transaction Status" (→ `/workflow`) and "Retry Form" buttons. |
+
+Each boundary:
+- Sets state via `getDerivedStateFromError(error)` returning
+  `{ hasError: true, error, errorId }` where `errorId` is a stable
+  `ERR-` prefix + base36 timestamp
+- Logs to console via `componentDidCatch` with `moduleRef` and
+  `errorInfo.componentStack` (dev); in production an `onError`
+  callback prop can route to Sentry/ELK
+- Offers `handleRetry` which clears state and re-renders
+  `children` — the boundary does NOT full-reload the page
+- Accepts an optional `fallback` ReactNode to override the default UI
+
+**Rule:** every new page under `app/(dashboard)/` is automatically
+wrapped in `PageErrorBoundary` via the shell (see
+`DashboardShell.tsx`). New dashboard widgets must be wrapped in
+`WidgetErrorBoundary` with a distinct `moduleRef`. New financial-
+posting flows **MUST** use `TransactionErrorBoundary` around the
+mutating submission — the "may have been submitted" warning is a
+safety requirement per RBI §8.2 and cannot be substituted with a
+page-level or widget-level boundary.
 
 ### Rules:
 
@@ -475,6 +784,654 @@ distinct visual treatment and UX behaviour:
 - WARNING banners **MUST** persist until the condition resolves
 - INFO toasts **MUST** auto-dismiss (never accumulate)
 - All severity levels use the semantic `--color-status-*` tokens
+
+---
+
+## 14b. Maker-Checker UI Components
+
+Per RBI IT Governance 2023 §8.3 (segregation of duties) every
+financial or master-data posting passes through maker → checker
+approval. Four components render this workflow:
+
+| Component | Location | Export status | Role |
+|-----------|----------|---------------|------|
+| `ApprovalTrail` | `src/components/cbs/feedback.tsx` | re-exported from `cbs/index.ts` | Vertical timeline of `ApprovalTrailEntry[]` (actor, role, action, at, remarks). Action types: `MAKER_SUBMIT`, `CHECKER_APPROVE`, `CHECKER_REJECT`, `VERIFIER_VERIFY`, `VERIFIER_REJECT`, `RECALL`, `AUTO_POST`, or any string. Tone derived from action keyword (`APPROVE`/`POST`/`VERIFY` → olive, `REJECT`/`RECALL` → crimson). |
+| `AuditTrailViewer` | `src/components/cbs/AuditTrailViewer.tsx` | **direct import only** (not re-exported) | Fetches `/workflow/history/:entityType/:entityId` and renders expandable per-entry rows with maker/checker IDs, submitted/actioned timestamps, SLA-breach badge, and field-level diff table. Internal status enum: `PENDING \| APPROVED \| REJECTED \| AUTO_APPROVED \| ESCALATED`. |
+| `AuditHashChip` | `src/components/cbs/feedback.tsx` | re-exported from `cbs/index.ts` | Compact `Hash` chip displaying the first 12 hex chars of a SHA-256 audit hash (sanitises non-hex input). Renders nothing when `hashPrefix` is falsy. |
+| `WorkflowStatusBadge` | `src/components/molecules/WorkflowStatusBadge.tsx` | re-exported from `molecules/index.ts` | `Badge`-based status display. `WorkflowStatus` enum: `DRAFT \| SUBMITTED \| PENDING_VERIFICATION \| VERIFIED \| PENDING_APPROVAL \| APPROVED \| REJECTED \| CANCELLED`. Optional `makerName` / `checkerName` render as a secondary attribution line. |
+| `TransactionConfirmDialog` | `src/components/cbs/TransactionConfirmDialog.tsx` | re-exported from `cbs/index.ts` | Pre-submit confirmation modal for financial postings. Takes `ConfirmField[]` describing the fields to display in read-only form. |
+
+Also related: `CorrelationRefBadge` (in `feedback.tsx`) renders a
+compact `Ref` chip for the correlation ID returned by the server —
+mandatory on error toasts per §16b.
+
+### Rules
+
+- Every maker-checker workflow screen should render `ApprovalTrail`
+  or `AuditTrailViewer` so the full chain is visible to operators
+- Financial-posting receipts should include the `AuditHashChip` so
+  operators/customers can later verify tamper-evidence
+- The maker cannot approve their own submission — this is enforced
+  **server-side** in Spring. Any UI grey-out is a redundant UX
+  nicety; rely on the server rejection as the authoritative guarantee
+- `AuditTrailViewer` is not re-exported from `cbs/index.ts` because
+  it is a **self-contained data-fetching component**, not a
+  reusable primitive. Import directly:
+  `import { AuditTrailViewer } from '@/components/cbs/AuditTrailViewer'`
+
+---
+
+## 15a. Status Vocabulary (StatusRibbon)
+
+`<StatusRibbon status="..." />` (exported from
+`src/components/cbs/feedback.tsx`) is the canonical component for
+rendering entity status. It maps a `CbsStatus` value to a tokenised
+colour pair so the palette stays consistent across modules.
+
+### CbsStatus enum
+
+The canonical enum (verified against `feedback.tsx`) covers
+workflow, account lifecycle, and loan pipeline states:
+
+| Status | Tone | Usage |
+|--------|------|-------|
+| `PENDING_APPROVAL` | gold | Maker submitted, awaiting checker |
+| `PENDING_VERIFICATION` | gold | Awaiting KYC/doc verification |
+| `PENDING_ACTIVATION` | gold | Approved but not yet active |
+| `DORMANT` | gold | Inactive account (operational hold) |
+| `APPROVED` | olive | Checker approved |
+| `POSTED` | olive | Financial entry posted to ledger |
+| `ACTIVE` | olive | Live account / customer |
+| `DISBURSED` | olive | Loan disbursed |
+| `VERIFIED` | **navy** | KYC verified (info tone, not success) |
+| `SUBMITTED` | violet | Maker-checker in-flight |
+| `DRAFT` | violet | Unsubmitted record |
+| `REJECTED` | crimson | Checker rejected |
+| `REVERSED` | crimson | Transaction reversed |
+| `FROZEN` | **crimson** | Account frozen (error tone — indicates restriction) |
+| `DECEASED` | crimson | Customer deceased |
+| `WRITTEN_OFF` | crimson | Loan write-off |
+| `INOPERATIVE` | steel | Terminal inactive state |
+| `CLOSED` | steel | Terminal closed state |
+
+### Architectural rules
+
+- Never render a raw status string (`<td>{acct.status}</td>`) — always
+  use `<StatusRibbon status={value} />`
+- Unknown status values do **not** throw — the component falls back
+  to the `DRAFT` tone (violet) when a value is outside the
+  `STATUS_TONE` map. This is a safety net, not a first-class state;
+  adapter layers SHOULD map backend values into the `CbsStatus` enum
+- When a backend returns a domain-specific status (e.g.
+  `NPA_STAGE_1`, `NPA_STAGE_2`), map it to one of the canonical
+  `CbsStatus` values at the service-adapter layer (`adaptX()` in
+  `*Service.ts`) — don't extend the component with per-module mappings
+- Status strings render with underscores replaced by spaces
+  (`PENDING_APPROVAL` → `PENDING APPROVAL`)
+
+---
+
+## 15b. Domain Input Primitives
+
+Form fields that represent regulated financial identifiers are NOT
+built from `<input>` directly. They use domain primitives from
+`src/components/cbs/primitives.tsx` that encapsulate format, validation,
+and masking rules:
+
+| Primitive | Domain | Format / Rule |
+|-----------|--------|---------------|
+| `AmountInr` | INR currency | Inline `INR` prefix chip, Indian lakh/crore grouping on blur (`1,50,000.00`), strip commas on focus for raw editing, blur-normalised to 2-decimal plain string for Zod (`^\d+(\.\d{0,2})?$`) |
+| `Pan` | Permanent Account Number | HTML `pattern="[A-Z]{5}[0-9]{4}[A-Z]"`, `maxLength=10`, `minLength=10` — the browser enforces validity; callers force uppercase via CSS `uppercase` utility |
+| `Aadhaar` | Aadhaar UID | HTML `pattern="\d{12}"`, `maxLength=12`, `autoComplete="off"`, rendered with `tracking-widest`. **Entry is unmasked** — masking applies only to read-only display (see §15c) |
+| `AccountNo` | CBS account identifier | HTML `pattern="[A-Z0-9][A-Z0-9-]{5,24}"`, `maxLength=25`, `autoCapitalize="characters"`. Finvanta composite keys (e.g. `SB-HQ001-000001`) are alphanumeric with hyphens — the pattern intentionally permits this shape |
+| `Ifsc` | IFSC code | HTML `pattern="[A-Z]{4}0[A-Z0-9]{6}"`, `maxLength=11`, `minLength=11`, uppercase |
+| `ValueDate` | Value date | Native `<input type="date">` (browser date picker), paired with a "Today" button that fills `new Date().toISOString().slice(0,10)`. **No client-side business-date validation** — Spring enforces cutoff, holidays, and business-day rules on submit |
+| `AmountDisplay` | Read-only amount | Render-only (not an input) — `sign="debit" | "credit" | "neutral"` picks crimson / olive / ink tone; uses `toLocaleString('en-IN')` + `INR` prefix |
+
+**Rule:** when a form field represents one of these domains, the
+primitive **MUST** be used — never a raw `<input>` with manual
+validation. The primitives own the format rule; screens own only
+the label and role-gating.
+
+**react-hook-form integration:** every primitive forwards refs and
+calls `onChange`/`onBlur` with normalised (grouping-free) values so
+Zod resolvers see clean strings. Display formatting is applied in
+the primitive's local state and never stored in form state.
+
+---
+
+## 15c. PII Masking Conventions
+
+Per RBI IT Governance 2023 §8.5 and UIDAI Aadhaar masking guidance:
+sensitive identifiers are masked on display by default. The mask
+utilities in `src/components/cbs/primitives.tsx` implement **last-4
+visible** (plain `X` or `*` characters, not Unicode) and truncate
+to a fixed prefix — they do not preserve the original character
+positions.
+
+| Utility | Input | Masked output | Where used |
+|---------|-------|---------------|-----------|
+| `maskPan` | `ABCDE1234F` | `XXXXXX234F` | CIF list/search rows, customer detail header |
+| `maskAadhaar` | `123456789012` | `XXXXXXXX9012` | KYC verification, CIF detail |
+| `maskMobile` | `9876543210` | `XXXXXX3210` | CIF list rows (raw 10-digit, no country code) |
+| `maskAccountNo` | `SB-HQ001-000042` | `****0042` | Display-only views; internal ops may show full |
+
+All utilities are defensive: invalid-length inputs return a safe
+placeholder (`****` or `**** **** ****`) rather than leaking partial
+data. The masked form is always a plain string — consumers can
+render it in any container.
+
+**Rules:**
+- List/search result views MUST use the masked form (`maskPan`,
+  `maskAadhaar`, `maskMobile`, `maskAccountNo`)
+- The underlying full value stays in form state / API payloads —
+  masking is a **display-only** concern, never a transport concern
+- Never log unmasked PII to console/telemetry — pass the masked
+  value to `logger.*` calls
+- The mask utilities are pure string transforms — they do not
+  perform any unmask/reveal workflow. Any future "reveal full PAN"
+  feature must be implemented as a separate role-gated, audited
+  operation (not currently implemented)
+
+---
+
+## 15d. Navigation & URL Conventions
+
+### Route Registry
+
+All navigation paths live in `src/config/routes.ts` as the registry
+`R`. Sidebar, breadcrumbs, contextual buttons, and `router.push()`
+calls **MUST** reference the registry — never raw string literals.
+
+```tsx
+// ❌ NEVER
+<Link href="/accounts/new">New Account</Link>
+
+// ✅ ALWAYS
+<Link href={R.accounts.create.path as string}>New Account</Link>
+
+// ✅ Dynamic routes
+<Link href={resolvePath(R.accounts.view, acct.id)}>
+```
+
+### Contextual Parameters via `buildUrl()`
+
+Cross-module navigation (e.g. "Open Account" button on a CIF page,
+"Freeze" button on an account row) **MUST** pass the selected
+entity's ID via query param:
+
+```tsx
+// ✅ Correct
+<Link href={buildUrl(R.accounts.freeze.path as string, {
+  accountNumber: acct.accountNumber,
+})}>
+
+// ❌ Wrong — loses row context
+<Link href={R.accounts.freeze.path as string}>
+```
+
+Target pages read parameters via `useSearchParams()`. This is
+literally the pattern that fixed bugs #1 and #2 in PR #11 — row
+actions without query context land on generic pages with no
+entity selected, a compliance-critical UX failure.
+
+### `returnTo` for Nested Flows
+
+CBS operators traverse `Customer → Account Opening → Account Detail
+→ back to Customer`. Without an explicit return path, Cancel/Back
+can only go to the module list, losing context.
+
+```tsx
+// From CIF page, link to Open Account with returnTo:
+<Link href={buildUrl(R.accounts.create.path as string,
+  { customerId: String(c.id) },
+  resolvePath(R.customers.view, String(c.id)),  // returnTo
+)}>
+  Open Account
+</Link>
+
+// On the Open Account page, Cancel button:
+const searchParams = useSearchParams();
+const back = getReturnTo(searchParams, R.customers.search.path as string);
+<Button onClick={() => router.push(back)}>Cancel</Button>
+```
+
+**Security:** `getReturnTo` only accepts relative paths that start
+with `/` and not `//` — no open-redirect.
+
+### Breadcrumbs
+
+Every authenticated page **MUST** render `<Breadcrumb items={[...]} />`
+as its first visual element after any banner. The first item is always
+the module root; the last item has no `href` (it's the current page).
+
+```tsx
+<Breadcrumb items={[
+  { label: R.dashboard.home.label, href: R.dashboard.home.path as string },
+  { label: R.accounts.list.label, href: R.accounts.list.path as string },
+  { label: 'Account Detail' },  // no href — current page
+]} />
+```
+
+---
+
+## 15e. Formatters & Display Conventions
+
+All number, date, and currency rendering goes through
+`src/utils/formatters.ts` — never hand-written `toLocaleString()`
+calls scattered across pages. This ensures consistent formatting and
+a single place to change locale/convention.
+
+| Formatter | Input | Output | Usage |
+|-----------|-------|--------|-------|
+| `formatCurrency(amount, currency = 'INR', decimals = 2)` | `50000` | `₹50,000.00` (via `Intl.NumberFormat('en-IN', { style: 'currency' })`) | Every amount display |
+| `formatCbsDate(isoOrDate)` | `'2026-04-19'` or `Date` | `19-APR-2026` | List cells, receipts, breadcrumbs |
+| `formatCbsTimestamp(isoOrDate)` | `'2026-04-19T10:42:00Z'` or `Date` | `19-APR-2026 10:42` (minutes-only — **no seconds**) | Audit timestamps, last-login, approval events |
+| `formatAccountType(type)` | `'SAVINGS'` | `Savings Account` | Type labels in account lists. Also handles `CURRENT`, `CURRENT_OD`, `SALARY`, `SAVINGS_NRI`, `SAVINGS_MINOR`, `SAVINGS_JOINT`, `SAVINGS_PMJDY` |
+| `formatAmountInr(rawString)` | `'150000'` | `'1,50,000.00'` | Used by `AmountInr` primitive on blur — returns Indian lakh/crore grouped string without currency symbol |
+| `formatDate(iso, pattern?)` | `'2026-04-19'` | `'19-APR-2026'` (default) | Generic date formatter via date-fns; `pattern` is a date-fns format token |
+| `formatDateTime(iso, pattern?)` | `'2026-04-19T10:42'` | `'19-APR-2026 10:42'` (default) | Generic datetime formatter via date-fns |
+
+Other helpers in the same file (not primary display formatters):
+`formatNumber`, `formatPhoneNumber`, `formatAccountNumber`,
+`formatPANNumber`, `formatAadharNumber`, `formatIFSCCode`,
+`formatTransactionId`, `formatPercentage`, `truncateText`,
+`capitalize`, `formatTransactionType`, `formatTransactionStatus`.
+
+**Rules:**
+- Dates: **always** DD-MMM-YYYY (not DD/MM/YYYY or MM/DD/YYYY) — the
+  unambiguous CBS convention per RBI circulars
+- Amounts: use `formatCurrency` — the `Intl.NumberFormat` locale
+  produces Indian lakh/crore grouping (`1,00,000.00` not
+  `100,000.00`) automatically
+- Business date vs calendar date: `businessDate` from session is the
+  CBS day-state (what the system considers "today" for postings).
+  Calendar "today" (`new Date()`) is only for UI freshness indicators.
+  **Never** use calendar date for value dates, posting dates, or
+  interest calculations — those come from `businessDate`
+- **Timezone behaviour:** `formatCbsTimestamp` / `formatCbsDate`
+  render in the **browser's local timezone** (they call
+  `d.getHours()` / `d.getDate()`, not `getUTC*`). Input ISO strings
+  carrying a `Z` suffix are parsed as UTC by the `Date` constructor
+  and then displayed locally. Any "UTC storage" conversion happens
+  upstream (Spring) — the formatters do not do it
+
+---
+
+## 15f. Toast & Modal Conventions
+
+### Toasts
+
+Toasts are ephemeral status notifications. Dispatched via
+`useUIStore().addToast(toast)` where `toast: Omit<Toast, 'id'>`.
+The store (`src/store/uiStore.ts`) auto-assigns an ID and, if a
+truthy `duration` (ms) is provided, schedules a `setTimeout` to
+remove the toast.
+
+Rendered by `<CbsToastContainer />` (mounted once in
+`DashboardShell`). Each toast shows an icon (`CheckCircle` /
+`XCircle` / `AlertTriangle` / `Info`), a bold uppercase title, an
+optional message, and a **close button** (`X` icon — present on
+every toast, not conditional on type). The container uses
+`aria-live="polite" aria-label="Notifications"`.
+
+**Signature:**
+```tsx
+addToast({
+  type: 'success' | 'error' | 'warning' | 'info',
+  title: string,        // required — rendered uppercase bold
+  message?: string,     // optional secondary line
+  duration?: number,    // ms; if omitted or 0, toast persists until
+                        //  the operator dismisses it manually
+});
+```
+
+**Architectural rules:**
+- The store has **no default duration** — callers decide. A toast
+  without `duration` is sticky until the operator clicks `×`.
+  Conventional values used in the codebase: 3000ms for success,
+  3000–6000ms for error. **Always pass an explicit `duration`**
+  (except for blocking errors that require operator
+  acknowledgement)
+- Every error toast that surfaces an API failure SHOULD include
+  the correlation ID — render `<CorrelationRefBadge value={id} />`
+  alongside the toast body or use the error alert block on the
+  page itself (see §16b)
+- There is **no stacking limit** in the current store — toasts
+  accumulate linearly. If a flow can fire many, the caller must
+  de-duplicate before dispatching (pass `duration` so older ones
+  auto-clear)
+- Toasts are ephemeral — they are NOT the place for information
+  the operator needs to act on. Blocking decisions go in a modal;
+  audit evidence goes in a receipt; persistent status goes in a
+  banner
+
+### Modals — two components
+
+The codebase exports **two distinct modal components**. Pick the
+right one for the use case:
+
+| Component | Source | When to use |
+|-----------|--------|-------------|
+| `Modal` | `src/components/atoms/Modal.tsx` | Default. Portal-rendered, headless, full WCAG focus-trap via `useFocusTrap`, configurable ARIA role (`dialog` or `alertdialog`), configurable backdrop/Esc dismiss. Use for most new dialogs. |
+| `CbsModal` | `src/components/cbs/Modal.tsx` | Simpler variant with a `persistent` boolean. Role is hardcoded to `"dialog"`. Inline (non-portal) rendering. Used by older flows. Prefer the atoms `Modal` for new code. |
+
+Both share the same size tokens (`sm` 400px / `md` 560px / `lg`
+720px — see §4), the same `cbs-modal-*` CSS class family, and both
+implement focus trap, Esc-close, and body-scroll lock.
+
+### `Modal` (atoms) props
+
+```tsx
+<Modal
+  open={boolean}
+  onClose={() => void}
+  size="sm" | "md" | "lg"        // default 'md'
+  role="dialog" | "alertdialog"  // default 'dialog'
+  title={string}                 // rendered uppercase in default header
+  closeOnBackdrop={boolean}      // default true
+  closeOnEscape={boolean}        // default true
+  showCloseButton={boolean}      // default true
+  className={string}
+>
+  <Modal.Header>…</Modal.Header>
+  <Modal.Body>…</Modal.Body>
+  <Modal.Footer>…</Modal.Footer>
+</Modal>
+```
+
+- Backdrop: `bg-cbs-ink/60` (60% opacity on the `cbs-ink` canvas),
+  z-index `var(--z-cbs-modal, 100)`
+- Portal-rendered into `document.body` so stacking contexts from
+  deeply nested rows/panels can't clip it
+- `aria-labelledby` wires the title heading to the dialog
+  automatically; `aria-modal="true"` is always set
+
+### `CbsModal` (cbs) props
+
+```tsx
+<CbsModal
+  open={boolean}
+  onClose={() => void}
+  title={string}
+  size="sm" | "md" | "lg"  // default 'md'
+  persistent={boolean}     // default false — true disables both
+                           //  backdrop-click and Esc dismissal
+>
+  <CbsModal.Body>…</CbsModal.Body>
+  <CbsModal.Footer>…</CbsModal.Footer>
+</CbsModal>
+```
+
+### Architectural rules
+
+- **`role="alertdialog"`** (atoms `Modal` only) for CRITICAL
+  decisions that block transaction flow — "Transaction may have
+  been submitted", "Unsaved changes will be lost". The ARIA role
+  signals to screen readers that immediate user attention is
+  required
+- **`role="dialog"`** (default) for confirmations, forms, and
+  inquiry overlays
+- Every modal MUST close on `Esc` unless the flow explicitly
+  requires acknowledgement — for the atoms `Modal` use
+  `closeOnEscape={false}`; for `CbsModal` use `persistent`
+- Confirmation modals for financial postings use
+  `TransactionConfirmDialog` — do not hand-roll a posting modal
+- Focus trap is enforced by both components — callers don't need
+  to manage `tabindex` beyond the standard focusable elements
+
+---
+
+## 15g. Loading & Empty States
+
+Every async-data surface has three rendering states: **loading → data →
+empty**. The design system provides canonical components for each so
+screens never flash blank, show raw spinners over empty containers,
+or render inconsistent "no data" messaging.
+
+### Loading States
+
+| Component | Signature | Shape |
+|-----------|-----------|-------|
+| `CbsTableSkeleton` | `({ rows = 5 })` | `cbs-surface` with header shimmer + N rows of 4 cell-shimmer blocks (flex-ratios 2/3/1/1). Default 5 rows. |
+| `CbsFormSkeleton` | `({ fields = 4 })` | `cbs-surface` with header + 2-column grid (`md:grid-cols-2`) of label+input shimmer pairs. Default 4 fields. |
+| `CbsSkeleton` | `({ variant, count, className })` | Generic. Variants: `'text' \| 'heading' \| 'cell' \| 'card'` — each maps to a `.cbs-skeleton-*` utility class with a pre-defined height. `count` renders N stacked blocks; last text block is shortened to 75% width. |
+| `Spinner` | `({ size, message, fullScreen })` | Inline / overlay. `size`: `'sm' \| 'md' \| 'lg'` (16/32/48px). `fullScreen={true}` renders a centred overlay on `bg-cbs-paper/75 z-50`. |
+
+All skeletons apply `role="status"` + `aria-label="Loading"` + an
+`sr-only` "Loading…" text for screen-reader announcement.
+
+**Rules:**
+- Skeleton **dimensions should approximate the real content** so
+  layout shift (CLS) is minimised — the pre-built skeletons
+  (`CbsTableSkeleton`, `CbsFormSkeleton`) already encode the right
+  shape; prefer them over building custom skeletons
+- **Never use a full-screen spinner for partial data loads** — use
+  skeletons. `Spinner` with `fullScreen` is for authentication /
+  bootstrap states only (e.g. `DashboardShell`'s "Initializing…")
+- Button loading state: `<Button isLoading>Submit</Button>` shows
+  an inline spinner and disables the button — do NOT replace the
+  button with a standalone spinner
+
+### Empty States
+
+Every list/inquiry screen MUST handle the empty case with the
+canonical empty-state pattern (do NOT render an empty table):
+
+```tsx
+<section className="cbs-surface text-center py-10">
+  <div className="space-y-3">
+    <h3 className="text-sm font-semibold text-cbs-ink">
+      No {EntityType} Found
+    </h3>
+    <p className="text-xs text-cbs-steel-600">
+      {Contextual message — "No results match your search"
+       OR "No {EntityType} provisioned yet"}
+    </p>
+    {/* Optional: primary action if the role permits */}
+    <RoleGate roles={[...]}>
+      <Link href={...}>
+        <Button size="sm">{New Entity CTA}</Button>
+      </Link>
+    </RoleGate>
+  </div>
+</section>
+```
+
+**Rules:**
+- Headline: `text-sm font-semibold text-cbs-ink`, sentence-case
+  "No X Found" (not "no X found" or "NO X FOUND")
+- Body: `text-xs text-cbs-steel-600`, explains **why** empty (search
+  returned nothing vs nothing ever created)
+- Primary action is optional but MUST be role-gated — don't show
+  "New Customer" to an AUDITOR
+- Never show error-tone (crimson) colours on an empty state —
+  empty is not an error. Use the neutral `.cbs-surface` surface.
+
+### State Transitions
+
+```
+[Mount] → [Skeleton] → (API response)
+                      ├── data.length > 0  → [Render list/table]
+                      ├── data.length === 0 → [Empty state]
+                      └── error             → [Error alert + retry]
+```
+
+The error path uses `<div role="alert" className="cbs-alert cbs-alert-error">`
+with a `CorrelationRefBadge` (see §16b Correlation ID Propagation) and
+a retry button — never silently show an empty state on an API failure,
+or the operator thinks the data is legitimately empty.
+
+---
+
+## 16b. Security & Compliance UX Patterns
+
+Security controls surface to operators through UX. These patterns are
+part of the design system because they constrain how pages are built.
+
+### Session Handling
+
+| Pattern | Implementation | Reference |
+|---------|---------------|-----------|
+| **Concurrent session prevention** | Every login generates a `sessionNonce` (RFC 4122 UUID) stored in the encrypted session blob. On login, the BFF sends `X-Invalidate-Previous-Sessions: true` so Spring revokes prior refresh tokens. Subsequent requests propagate the nonce via `X-Session-Nonce` to Spring for audit correlation. | `app/api/cbs/auth/login/route.ts`, `src/lib/server/proxy.ts` (`x-session-nonce` header injection) |
+| **Three-layer session enforcement** | Layer 1 (cookie presence) in `proxy.ts`; Layer 2 (full decrypt) in Server Components; Layer 3 (decrypt + CSRF + JWT) in BFF proxy. | `proxy.ts` (`enforceSession`) |
+| **Session-expired redirect** | Clean URL constructed from `req.nextUrl.origin` — never `req.nextUrl.clone()`. Preserving the original query params would leak PII (customerId, amounts, filters) into login URLs, browser history, and server access logs. | `proxy.ts` (`enforceSession` redirect block) |
+
+### Screen-Access Audit (RBI §8.5)
+
+Every route navigation fires `POST /api/cbs/audit/screen-access` via
+the `useScreenAudit()` hook mounted once in `DashboardShell`.
+
+| Aspect | Rule |
+|--------|------|
+| Route matching | Dynamic routes resolved via sentinel split (prefix + suffix) from the registry at `src/config/routes.ts`. Static routes match by exact equality. |
+| CSRF | Raw `fetch` (not apiClient, to avoid recursion) but reads `NEXT_PUBLIC_CBS_CSRF_COOKIE` and sets `X-CSRF-Token` so the BFF accepts the POST. |
+| Failure mode | Fire-and-forget. Audit never blocks the operator. The server-side correlation ID provides a secondary audit trail if the POST fails. |
+| Screen codes | Every route entry in the registry has a `screenCode` (Finacle convention: `MODULE.ACTION`). Logged alongside `operatorId`, `branchCode`, `timestamp`, `pathname` by the backend. |
+
+### Correlation ID Propagation
+
+Every request that enters the Next.js server carries an
+`X-Correlation-Id` header from end to end. This is the primary
+RBI §8.5 audit trace and appears in:
+
+1. **Root proxy (`proxy.ts`)** — seeds or validates the header
+   against `/^[A-Za-z0-9-]{16,64}$/` and sets it on both the request
+   and the response.
+2. **BFF catch-all (`src/lib/server/proxy.ts`)** — forwards to Spring
+   on every proxied call.
+3. **Spring** — records it in every audit log entry and echoes it
+   back in the response.
+4. **apiClient response interceptor** — surfaces it to the UI via
+   `setCorrelationId()` for display in error toasts and
+   `CorrelationRefBadge`.
+5. **Operator-visible** — shown as "Ref: {id}" in error alerts,
+   success confirmations, and the `TransactionReceipt` footer.
+
+**Rule:** every error toast or alert that surfaces an API failure
+**MUST** render `<CorrelationRefBadge value={correlationId} />` so
+the operator has a reference for IT support.
+
+### Financial-Safety Retry Policy
+
+The Axios interceptor only retries 429 (rate-limited) requests when
+**one of** these conditions is true:
+1. The method is safe (`GET`/`HEAD`/`OPTIONS`), OR
+2. The caller explicitly provided `X-Idempotency-Key`.
+
+Retrying a mutating call without an idempotency key can produce
+duplicate postings because the BFF generates a new server-side
+fallback key per request. Callers performing a financial posting
+(transfer, FD booking, loan disbursement) **MUST** mint a stable
+idempotency key at the point of the first "Confirm" click and pass
+it via headers.
+
+Reference: `src/services/api/apiClient.ts` (429 retry guard in response interceptor)
+
+### FATCA/CRS Status Derivation
+
+A customer is marked `usTaxResident: 'YES'` **only when** their
+`fatcaCountry === 'US'`. Any other non-Indian country (GB, DE, SG…)
+indicates a foreign tax obligation but NOT a US-specific FATCA
+obligation.
+
+Reference: `app/(dashboard)/accounts/new/page.tsx` (CIF fatcaCountry → usTaxResident mapper)
+
+---
+
+## 16c. Keyboard Shortcuts
+
+CBS operators process 200+ transactions per day. Mouse-driven flows
+add friction; Tier-1 CBS platforms are keyboard-first. Finvanta
+follows the Finacle/T24 convention of function-key shortcuts plus
+`Alt`-key module jumps, implemented in `src/hooks/useCbsKeyboardNav.ts`.
+
+### Hook architecture
+
+- `useCbsKeyboardNav(pageKeyMap?)` — mounted once in `DashboardShell`.
+  Owns the global keymap (always active) and merges a page-level
+  override map. Returns `{ isHelpOpen, toggleHelp, activeKeyMap }` —
+  the overlay renders `activeKeyMap` grouped by category.
+- Page-level pages pass a `CbsKeyMap` (keyed by the normalised key
+  string; see `normalizeKey` in the hook) that takes priority over
+  the global map when both define the same key.
+
+Normalised key strings use `Ctrl+` / `Alt+` / `Shift+` prefixes and
+treat `Ctrl` and `Meta` (macOS ⌘) identically. Single-letter keys
+are uppercased; `' '` becomes `Space`.
+
+### F-key convention (Tier-1 CBS standard)
+
+These are the **documented** conventions per `useCbsKeyboardNav.ts`
+JSDoc. Not all pages implement every key — page-level keymaps
+declare the ones that apply:
+
+| Key | Convention |
+|-----|-----------|
+| `F1` | Help / Context Help (opens `KeyboardHelpOverlay`) |
+| `F2` | New Transaction (context-sensitive) |
+| `F3` | Find / Search (global search focus) |
+| `F4` | Close current tab / Cancel |
+| `F5` | Refresh current screen (**page-level only** — intentionally not in the global map so page handlers own it) |
+| `F7` | Previous record / Scroll up |
+| `F8` | Next record / Scroll down |
+| `F9` | Print current screen |
+| `F10` | Submit / Commit (form submission) |
+
+### Global shortcuts (always active)
+
+Registered in `useCbsKeyboardNav.ts` (category shown for help-overlay
+grouping):
+
+| Key | Action | Category |
+|-----|--------|----------|
+| `F1` | Open Help / Shortcut Reference | system |
+| `Escape` | Close dialog — closes help overlay if open, else dispatches `cbs:escape` custom event that modals listen for | system |
+| `Ctrl+/` | Toggle Shortcut Help overlay | system |
+| `Alt+D` | Go to Dashboard | navigation |
+| `Alt+T` | Go to Transfers | navigation |
+| `Alt+A` | Go to Accounts | navigation |
+| `Alt+W` | Go to Workflow | navigation |
+| `Alt+L` | Go to Loans | navigation |
+
+### Page-level registration example
+
+From `app/(dashboard)/dashboard/page.tsx`:
+
+```tsx
+import { useCbsKeyboard } from '@/hooks/useCbsKeyboard';
+
+const shortcuts = useMemo(() => ({
+  F2: () => router.push('/transfers'),
+  F5: () => { window.location.reload(); },
+  F9: () => { printScreen(); },
+}), [router]);
+useCbsKeyboard(shortcuts);
+```
+
+### Input-field exceptions
+
+The global handler skips firing when focus is inside `<input>`,
+`<textarea>`, `<select>`, or a `contentEditable` element — operators
+can type normally. Four shortcuts are **allow-listed to fire
+inside inputs** because they are form-submit actions: `Ctrl+S`,
+`Ctrl+Enter`, `F10`, `Escape`. For global (non-page) shortcuts, all
+F-keys / `Alt+*` / `Escape` / `Ctrl+/` are treated as system keys
+and fire regardless of focus.
+
+### Rules
+
+- Shortcuts visible to operators **MUST** be displayed as
+  `<span className="cbs-kbd">F2</span>` next to their action so
+  they're discoverable without memorisation
+- Dialogs / modals MUST listen for the `cbs:escape` custom event
+  and close on receipt (since `Escape` is multiplexed through the
+  global handler)
+- **Never override browser-native shortcuts** (Ctrl+C, Ctrl+V, Tab,
+  Enter-in-inputs). The hook skips input-field focus for exactly
+  this reason
+- New global shortcuts go in `useCbsKeyboardNav.ts`, not per-page —
+  keeps the help overlay a single source of truth
 
 ---
 
