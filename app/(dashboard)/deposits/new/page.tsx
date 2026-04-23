@@ -31,7 +31,6 @@ import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { isAxiosError } from 'axios';
 import { depositService } from '@/services/api/depositService';
 import {
   AmountInr,
@@ -62,6 +61,23 @@ interface ErrorState {
   errorCode?: string;
 }
 
+/**
+ * Shallow structural equality for FdForm. Used to detect whether the
+ * operator edited any field between the first confirm click and a
+ * subsequent retry — if yes, the idempotency key is invalidated so
+ * the new data is evaluated fresh rather than replayed from cache.
+ */
+function fdFormEquals(a: FdForm, b: FdForm): boolean {
+  return (
+    a.customerId === b.customerId &&
+    a.linkedAccountNumber === b.linkedAccountNumber &&
+    a.depositAmount === b.depositAmount &&
+    a.tenureMonths === b.tenureMonths &&
+    a.autoRenew === b.autoRenew &&
+    (a.nomineeName || '') === (b.nomineeName || '')
+  );
+}
+
 export default function BookFdPage() {
   const router = useRouter();
   const user = useAuthStore((s) => s.user);
@@ -88,71 +104,65 @@ export default function BookFdPage() {
     },
   });
 
-  // Step 1: Form validation passes → show confirm dialog
+  // Step 1: Form validation passes → show confirm dialog.
+  // If the operator edited any field since the last attempt, invalidate
+  // the idempotency key — otherwise a stale key paired with different
+  // data would cause the backend's idempotency cache to replay the
+  // original response instead of evaluating the corrected request.
   const onFormValid = (data: FdForm) => {
     setError(null);
+    if (pendingData && !fdFormEquals(pendingData, data)) {
+      setIdempotencyKey(null);
+    }
     setPendingData(data);
     setShowConfirm(true);
   };
 
-  // Step 2: Operator confirms in dialog → post to backend
+  // Step 2: Operator confirms in dialog → post to backend.
+  // `depositService.bookFd` never throws — it always returns an
+  // ApiResponse envelope with `correlationId` populated from the
+  // BFF's `x-correlation-id` header (for both server validation
+  // rejections and AppError-wrapped HTTP failures).
   const onConfirmPost = async () => {
     if (!pendingData) return;
     const key = idempotencyKey ?? depositService.mintKey();
     if (!idempotencyKey) setIdempotencyKey(key);
-    try {
-      const res = await depositService.bookFd(
-        {
-          customerId: Number(pendingData.customerId),
-          branchId: user?.branchId || 1,
-          linkedAccountNumber: pendingData.linkedAccountNumber.toUpperCase(),
-          principalAmount: Number(pendingData.depositAmount),
-          tenureDays: Number(pendingData.tenureMonths) * 30, // server recalculates exact
-          interestPayoutMode: 'MATURITY',
-          autoRenewalMode: pendingData.autoRenew ? 'YES' : 'NO',
-          nomineeName: pendingData.nomineeName || undefined,
-        },
-        key,
-      );
-      if (!res.success || !res.data) {
-        // Server validation rejection — the server did NOT process the
-        // booking, so the idempotency key must be cleared. Reusing it
-        // on the next attempt (after the operator corrects the input)
-        // would cause the backend's idempotency cache to replay the
-        // cached rejection instead of evaluating the corrected request.
-        setIdempotencyKey(null);
-        setShowConfirm(false);
-        setError({
-          message: res.error?.message || 'FD booking could not be processed',
-          errorCode: res.error?.code,
-        });
-        return;
-      }
+    const res = await depositService.bookFd(
+      {
+        customerId: Number(pendingData.customerId),
+        branchId: user?.branchId || 1,
+        linkedAccountNumber: pendingData.linkedAccountNumber.toUpperCase(),
+        principalAmount: Number(pendingData.depositAmount),
+        tenureDays: Number(pendingData.tenureMonths) * 30, // server recalculates exact
+        interestPayoutMode: 'MATURITY',
+        autoRenewalMode: pendingData.autoRenew ? 'YES' : 'NO',
+        nomineeName: pendingData.nomineeName || undefined,
+      },
+      key,
+    );
+    if (!res.success || !res.data) {
+      // Per DESIGN_SYSTEM §16b: a 4xx response means the server
+      // definitively rejected the request before posting, so clear
+      // the key and let the operator's corrected retry be evaluated
+      // fresh. A 5xx or network error (statusCode 0 / >=500) means
+      // the server MAY have processed — preserve the key so a retry
+      // de-duplicates via the backend's idempotency cache.
+      const status = res.error?.statusCode ?? 0;
+      const safeToClearKey = status >= 400 && status < 500;
+      if (safeToClearKey) setIdempotencyKey(null);
       setShowConfirm(false);
-      reset();
-      setPendingData(null);
-      setIdempotencyKey(null);
-      router.push('/deposits');
-    } catch (err: unknown) {
-      // Network-level error — the server MAY have processed the request.
-      // Keep the idempotency key so a retry de-duplicates correctly.
-      setShowConfirm(false);
-      if (isAxiosError(err)) {
-        setError({
-          message:
-            err.response?.data?.message ||
-            err.response?.data?.error?.message ||
-            err.message,
-          correlationId:
-            (err.response?.headers?.['x-correlation-id'] as string) ||
-            err.response?.data?.correlationId,
-          errorCode:
-            err.response?.data?.errorCode || err.response?.data?.error?.code,
-        });
-        return;
-      }
-      setError({ message: err instanceof Error ? err.message : 'FD booking failed' });
+      setError({
+        message: res.error?.message || 'FD booking could not be processed',
+        errorCode: res.error?.code,
+        correlationId: res.correlationId,
+      });
+      return;
     }
+    setShowConfirm(false);
+    reset();
+    setPendingData(null);
+    setIdempotencyKey(null);
+    router.push('/deposits');
   };
 
   return (

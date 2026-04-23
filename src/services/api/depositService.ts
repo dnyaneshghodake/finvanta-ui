@@ -19,6 +19,7 @@
  */
 import { apiClient } from './apiClient';
 import type { ApiResponse } from '@/types/api';
+import { AppError } from '@/utils/errorHandler';
 
 export interface BookFdRequest {
   customerId: number;
@@ -101,6 +102,19 @@ function toNumber(v: number | string | null | undefined): number {
   return Number.isFinite(n) ? n : 0;
 }
 
+/**
+ * Translate an AppError (produced by the apiClient response interceptor,
+ * which wraps every AxiosError) into a uniform errEnvelope so callers
+ * never see a thrown error — they get a single `{success:false}` shape
+ * with the correlation id preserved for <CorrelationRefBadge />.
+ */
+function fromAppError<T>(err: unknown, fallbackCode: string, fallbackMsg: string): ApiResponse<T> {
+  if (err instanceof AppError) {
+    return errEnvelope<T>(err.code || fallbackCode, err.message || fallbackMsg, err.statusCode, err.correlationId);
+  }
+  return errEnvelope<T>(fallbackCode, err instanceof Error ? err.message : fallbackMsg, 500);
+}
+
 class DepositService {
   /**
    * Book a new Fixed Deposit. POSTs to `/v1/fixed-deposits/book` with
@@ -117,47 +131,51 @@ class DepositService {
     idempotencyKey?: string,
   ): Promise<ApiResponse<BookFdResponse>> {
     const key = idempotencyKey || freshIdempotencyKey();
-    const response = await apiClient.post<SpringEnvelope<SpringFdResponse>>(
-      '/fixed-deposits/book',
-      {
-        customerId: req.customerId,
-        branchId: req.branchId,
-        linkedAccountNumber: req.linkedAccountNumber,
-        principalAmount: req.principalAmount,
-        interestRate: 0, // Server determines from product + tenure slab
-        tenureDays: req.tenureDays,
-        interestPayoutMode: req.interestPayoutMode || 'MATURITY',
-        autoRenewalMode: req.autoRenewalMode || 'NO',
-        nomineeName: req.nomineeName,
-        idempotencyKey: key,
-      },
-      {
-        headers: { 'X-Idempotency-Key': key },
-      },
-    );
-    const body = response.data;
-    const correlationId =
-      (response.headers?.['x-correlation-id'] as string | undefined) || undefined;
-    if (body.status === 'SUCCESS' && body.data) {
-      return okEnvelope<BookFdResponse>({
-        fdAccountNumber: body.data.fdAccountNumber,
-        customerId: Number(body.data.customerId),
-        principalAmount: toNumber(body.data.principalAmount),
-        tenureDays: toNumber(body.data.tenureDays),
-        interestRate: toNumber(body.data.interestRate),
-        maturityAmount:
-          body.data.maturityAmount != null ? toNumber(body.data.maturityAmount) : undefined,
-        maturityDate: body.data.maturityDate || undefined,
-        status: body.data.status || 'PENDING_APPROVAL',
+    try {
+      const response = await apiClient.post<SpringEnvelope<SpringFdResponse>>(
+        '/fixed-deposits/book',
+        {
+          customerId: req.customerId,
+          branchId: req.branchId,
+          linkedAccountNumber: req.linkedAccountNumber,
+          principalAmount: req.principalAmount,
+          interestRate: 0, // Server determines from product + tenure slab
+          tenureDays: req.tenureDays,
+          interestPayoutMode: req.interestPayoutMode || 'MATURITY',
+          autoRenewalMode: req.autoRenewalMode || 'NO',
+          nomineeName: req.nomineeName,
+          idempotencyKey: key,
+        },
+        {
+          headers: { 'X-Idempotency-Key': key },
+        },
+      );
+      const body = response.data;
+      const correlationId =
+        (response.headers?.['x-correlation-id'] as string | undefined) || undefined;
+      if (body.status === 'SUCCESS' && body.data) {
+        return okEnvelope<BookFdResponse>({
+          fdAccountNumber: body.data.fdAccountNumber,
+          customerId: Number(body.data.customerId),
+          principalAmount: toNumber(body.data.principalAmount),
+          tenureDays: toNumber(body.data.tenureDays),
+          interestRate: toNumber(body.data.interestRate),
+          maturityAmount:
+            body.data.maturityAmount != null ? toNumber(body.data.maturityAmount) : undefined,
+          maturityDate: body.data.maturityDate || undefined,
+          status: body.data.status || 'PENDING_APPROVAL',
+          correlationId,
+        });
+      }
+      return errEnvelope<BookFdResponse>(
+        body.errorCode || 'FD_BOOKING_FAILED',
+        body.message || 'FD booking could not be processed',
+        400,
         correlationId,
-      });
+      );
+    } catch (err) {
+      return fromAppError<BookFdResponse>(err, 'FD_BOOKING_FAILED', 'FD booking could not be processed');
     }
-    return errEnvelope<BookFdResponse>(
-      body.errorCode || 'FD_BOOKING_FAILED',
-      body.message || 'FD booking could not be processed',
-      400,
-      correlationId,
-    );
   }
 
   /** Generate a fresh idempotency key at the point of "Confirm" click. */
