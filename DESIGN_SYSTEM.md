@@ -6,6 +6,47 @@
 
 ---
 
+## Table of Contents
+
+**Foundation**
+- §0 Token Architecture
+- §1 Base Unit · §2 Grid System · §3 App Shell + Content Width
+
+**Visual Tokens**
+- §5 Typography + Tailwind Mapping + Utility Classes
+- §6 Icons · §7 Radius · §8 Colour Palette · §8b State Tokens
+- §8c CSS Architecture Layers · §8d Dark Mode
+
+**Components**
+- §4 Inputs / Buttons / Row Actions / Tables / Modals / Cards
+- §14b Maker-Checker UI Components
+- §15a Status Vocabulary · §15b Domain Input Primitives
+- §15g Loading & Empty States
+
+**Conventions**
+- §9 Critical Rules · §10 Print + Printable Components
+- §13b Screen Layout · §15c PII Masking · §15d Navigation & URLs
+- §15e Formatters · §15f Toast & Modal · §16c Keyboard Shortcuts
+
+**Quality**
+- §11 Token Governance · §12 Accessibility · §15 Performance Budget
+
+**Data & Roles**
+- §13 Data Visualization · §14 Role-Based UI Density
+
+**Errors & Security**
+- §16 Error Severity + Boundaries · §16b Security & Compliance UX
+
+**Meta**
+- §17 Future Considerations
+
+> **Note on section numbering:** sections with letter suffixes (§8b,
+> §13b, §14b, §15a–g, §16b, §16c) were added organically over time
+> and are grouped above by topic rather than alphabetically. Use the
+> TOC above, not the sequential order, to navigate.
+
+---
+
 ## 0. Token Architecture
 
 All design tokens follow a strict 3-layer hierarchy:
@@ -368,6 +409,56 @@ Layer 6: Screens      → app/(dashboard)/*/page.tsx — composition only, no ne
 
 ---
 
+## 8d. Dark Mode
+
+Dark mode is implemented by overriding **Layer 1 core tokens only** —
+semantic tokens (Layer 2) and component tokens (Layer 3) adapt
+automatically because they reference Layer 1 via `var()`.
+
+### Toggle mechanism
+
+The theme toggle lives in `src/contexts/ThemeContext.tsx` and
+applies `data-theme="dark"` on `<html>`:
+
+```tsx
+const { theme, setTheme } = useTheme();
+// theme: 'light' | 'dark' | 'system'
+// 'system' follows `prefers-color-scheme` media query
+```
+
+The theme preference is persisted to `localStorage` with the key
+`cbs-theme-preference` and hydrated on mount to avoid FOUC (flash of
+unstyled content).
+
+### Palette inversion rules
+
+Dark mode is **not** a mechanical invert. The palette is designed so
+information hierarchy, status tones, and amount colour-coding remain
+identical:
+
+| Token family | Light | Dark | Rule |
+|--------------|-------|------|------|
+| `cbs-paper` | white-tinted | near-black (`#0E1219`) | Canvas — must be paper-like in both |
+| `cbs-ink` | near-black | near-white | Inverts for readability |
+| `cbs-steel-*` | grey scale | **same scale, inverted direction** (steel-100 becomes darkest, steel-900 lightest) | Preserves weight hierarchy |
+| `cbs-olive` / `cbs-crimson` / `cbs-gold` | same hues | **slightly desaturated** (~10%) | Neon on black is harsh; reduce saturation |
+| `cbs-navy-*` | as-is | as-is | Navy stays saturated — it's the brand chrome |
+
+### Rules
+
+- **Never use hardcoded `#fff` / `#000`** — always reference `cbs-paper`
+  and `cbs-ink` so the theme switches correctly
+- **Charts** must re-render on theme change — grid/axis/label tokens
+  resolve to different colours in dark mode
+- **Print output is always light** — `@media print` overrides
+  `data-theme` and uses the light palette regardless of operator
+  preference (black amounts on white paper)
+- **Status colour semantics** (olive=good, crimson=bad) must hold
+  in both themes — never flip saturation or hue in dark mode to
+  the point where a success/error distinction is lost
+
+---
+
 ## 9. Critical Rules
 
 - ❌ No pixel drift between components on the same row
@@ -452,15 +543,15 @@ with AAA targets for critical financial data.
 
 ### Implemented in `globals.css`:
 
-| Feature | Implementation | Reference |
-|---------|---------------|-----------|
-| Focus ring | `:focus-visible` with 2px navy-500 outline | `globals.css:368-371` |
-| Reduced motion | `prefers-reduced-motion: reduce` kills all animation | `globals.css:374-383` |
-| High contrast | `prefers-contrast: high` doubles border widths | `globals.css:390-420` |
-| Forced colors | `forced-colors: active` maps to system colours | `globals.css:426-469` |
-| Skip link | `.cbs-skip-link` visible on keyboard Tab | `globals.css:320-351` |
-| Screen reader | `.sr-only` clip pattern | `globals.css:354-364` |
-| Contrast | steel-400 bumped to 4.8:1 (AA compliant) | `globals.css:38-40` |
+| Feature | Implementation |
+|---------|---------------|
+| Focus ring | `:focus-visible` with 2px navy-500 outline |
+| Reduced motion | `prefers-reduced-motion: reduce` kills all animation |
+| High contrast | `prefers-contrast: high` doubles border widths |
+| Forced colors | `forced-colors: active` maps to system colours |
+| Skip link | `.cbs-skip-link` visible on keyboard Tab |
+| Screen reader | `.sr-only` clip pattern |
+| Contrast | steel-400 tuned to 4.8:1 (AA compliant) |
 
 ### Rules:
 
@@ -670,7 +761,8 @@ around the mutating API call.
 
 Per RBI IT Governance 2023 §8.3 (segregation of duties) every
 financial or master-data posting passes through maker → checker
-approval. The UI renders this workflow via three dedicated components:
+approval. The UI renders this workflow via the following dedicated
+components:
 
 | Component | Purpose |
 |-----------|---------|
@@ -924,6 +1016,84 @@ non-critical) and `alertdialog` (blocking decision required).
 
 ---
 
+## 15g. Loading & Empty States
+
+Every async-data surface has three rendering states: **loading → data →
+empty**. The design system provides canonical components for each so
+screens never flash blank, show raw spinners over empty containers,
+or render inconsistent "no data" messaging.
+
+### Loading States
+
+| Component | Use | Shape |
+|-----------|-----|-------|
+| `CbsTableSkeleton` | Before a table loads | N shimmer rows matching `cbs-grid-table` dimensions (use `rows={6}` default) |
+| `CbsFormSkeleton` | Before a form's data hydrates (e.g. edit-account page) | Field-sized shimmer blocks in 8+4 layout |
+| `CbsSkeleton` | Generic | Configurable width/height — for KPI cards, detail panels |
+| `Spinner` | Inline / modal / button-loading | `size="sm" | "md" | "lg"` with optional `message` |
+
+**Rules:**
+- Skeleton **dimensions MUST match the real content** — no layout
+  shift (CLS = 0 budget in §15). A 36px row becomes a 36px skeleton
+  row; a 34px input becomes a 34px skeleton field.
+- **Never use a spinner for initial page load** — use skeletons.
+  Spinners are for inline async (e.g. "Saving...", "Verifying CIF...")
+  where the operator stays on the same screen.
+- Button loading state: `<Button isLoading>Submit</Button>` shows
+  an inline spinner and disables the button — do NOT replace the
+  button with a standalone spinner.
+
+### Empty States
+
+Every list/inquiry screen MUST handle the empty case with the
+canonical empty-state pattern (do NOT render an empty table):
+
+```tsx
+<section className="cbs-surface text-center py-10">
+  <div className="space-y-3">
+    <h3 className="text-sm font-semibold text-cbs-ink">
+      No {EntityType} Found
+    </h3>
+    <p className="text-xs text-cbs-steel-600">
+      {Contextual message — "No results match your search"
+       OR "No {EntityType} provisioned yet"}
+    </p>
+    {/* Optional: primary action if the role permits */}
+    <RoleGate roles={[...]}>
+      <Link href={...}>
+        <Button size="sm">{New Entity CTA}</Button>
+      </Link>
+    </RoleGate>
+  </div>
+</section>
+```
+
+**Rules:**
+- Headline: `text-sm font-semibold text-cbs-ink`, sentence-case
+  "No X Found" (not "no X found" or "NO X FOUND")
+- Body: `text-xs text-cbs-steel-600`, explains **why** empty (search
+  returned nothing vs nothing ever created)
+- Primary action is optional but MUST be role-gated — don't show
+  "New Customer" to an AUDITOR
+- Never show error-tone (crimson) colours on an empty state —
+  empty is not an error. Use the neutral `.cbs-surface` surface.
+
+### State Transitions
+
+```
+[Mount] → [Skeleton] → (API response)
+                      ├── data.length > 0  → [Render list/table]
+                      ├── data.length === 0 → [Empty state]
+                      └── error             → [Error alert + retry]
+```
+
+The error path uses `<div role="alert" className="cbs-alert cbs-alert-error">`
+with a `CorrelationRefBadge` (see §16b Correlation ID Propagation) and
+a retry button — never silently show an empty state on an API failure,
+or the operator thinks the data is legitimately empty.
+
+---
+
 ## 16b. Security & Compliance UX Patterns
 
 Security controls surface to operators through UX. These patterns are
@@ -933,9 +1103,9 @@ part of the design system because they constrain how pages are built.
 
 | Pattern | Implementation | Reference |
 |---------|---------------|-----------|
-| **Concurrent session prevention** | Every login generates a `sessionNonce` (RFC 4122 UUID) stored in the encrypted session blob. On login, the BFF sends `X-Invalidate-Previous-Sessions: true` so Spring revokes prior refresh tokens. Subsequent requests propagate the nonce via `X-Session-Nonce` to Spring for audit correlation. | `app/api/cbs/auth/login/route.ts:690-712`, `src/lib/server/proxy.ts:314-316` |
-| **Three-layer session enforcement** | Layer 1 (cookie presence) in `proxy.ts`; Layer 2 (full decrypt) in Server Components; Layer 3 (decrypt + CSRF + JWT) in BFF proxy. | `proxy.ts:252-272` |
-| **Session-expired redirect** | Clean URL constructed from `req.nextUrl.origin` — never `req.nextUrl.clone()`. Preserving the original query params would leak PII (customerId, amounts, filters) into login URLs, browser history, and server access logs. | `proxy.ts:267-274` |
+| **Concurrent session prevention** | Every login generates a `sessionNonce` (RFC 4122 UUID) stored in the encrypted session blob. On login, the BFF sends `X-Invalidate-Previous-Sessions: true` so Spring revokes prior refresh tokens. Subsequent requests propagate the nonce via `X-Session-Nonce` to Spring for audit correlation. | `app/api/cbs/auth/login/route.ts`, `src/lib/server/proxy.ts` (`x-session-nonce` header injection) |
+| **Three-layer session enforcement** | Layer 1 (cookie presence) in `proxy.ts`; Layer 2 (full decrypt) in Server Components; Layer 3 (decrypt + CSRF + JWT) in BFF proxy. | `proxy.ts` (`enforceSession`) |
+| **Session-expired redirect** | Clean URL constructed from `req.nextUrl.origin` — never `req.nextUrl.clone()`. Preserving the original query params would leak PII (customerId, amounts, filters) into login URLs, browser history, and server access logs. | `proxy.ts` (`enforceSession` redirect block) |
 
 ### Screen-Access Audit (RBI §8.5)
 
@@ -986,7 +1156,7 @@ fallback key per request. Callers performing a financial posting
 idempotency key at the point of the first "Confirm" click and pass
 it via headers.
 
-Reference: `src/services/api/apiClient.ts:247-256`
+Reference: `src/services/api/apiClient.ts` (429 retry guard in response interceptor)
 
 ### FATCA/CRS Status Derivation
 
@@ -995,7 +1165,7 @@ A customer is marked `usTaxResident: 'YES'` **only when** their
 indicates a foreign tax obligation but NOT a US-specific FATCA
 obligation.
 
-Reference: `app/(dashboard)/accounts/new/page.tsx:248`
+Reference: `app/(dashboard)/accounts/new/page.tsx` (CIF fatcaCountry → usTaxResident mapper)
 
 ---
 
