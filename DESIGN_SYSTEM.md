@@ -778,35 +778,33 @@ page-level or widget-level boundary.
 
 Per RBI IT Governance 2023 §8.3 (segregation of duties) every
 financial or master-data posting passes through maker → checker
-approval. The codebase exports the following maker-checker UI
-components (all from `src/components/cbs/`):
+approval. Four components render this workflow:
 
-- `ApprovalTrail` — timeline of maker submission → checker action(s)
-  (see `feedback.tsx`)
-- `AuditTrailViewer` — expandable per-entry audit rows with
-  maker/checker identity and field-level diff
-- `AuditHashChip` — SHA-256 audit hash prefix display for
-  tamper-evidence (see `feedback.tsx`)
-- `WorkflowStatusBadge` — ribbon-sized workflow status (in
-  `src/components/molecules/`)
-- `TransactionConfirmDialog` — pre-submit confirmation modal for
-  financial postings
+| Component | Location | Export status | Role |
+|-----------|----------|---------------|------|
+| `ApprovalTrail` | `src/components/cbs/feedback.tsx` | re-exported from `cbs/index.ts` | Vertical timeline of `ApprovalTrailEntry[]` (actor, role, action, at, remarks). Action types: `MAKER_SUBMIT`, `CHECKER_APPROVE`, `CHECKER_REJECT`, `VERIFIER_VERIFY`, `VERIFIER_REJECT`, `RECALL`, `AUTO_POST`, or any string. Tone derived from action keyword (`APPROVE`/`POST`/`VERIFY` → olive, `REJECT`/`RECALL` → crimson). |
+| `AuditTrailViewer` | `src/components/cbs/AuditTrailViewer.tsx` | **direct import only** (not re-exported) | Fetches `/workflow/history/:entityType/:entityId` and renders expandable per-entry rows with maker/checker IDs, submitted/actioned timestamps, SLA-breach badge, and field-level diff table. Internal status enum: `PENDING \| APPROVED \| REJECTED \| AUTO_APPROVED \| ESCALATED`. |
+| `AuditHashChip` | `src/components/cbs/feedback.tsx` | re-exported from `cbs/index.ts` | Compact `Hash` chip displaying the first 12 hex chars of a SHA-256 audit hash (sanitises non-hex input). Renders nothing when `hashPrefix` is falsy. |
+| `WorkflowStatusBadge` | `src/components/molecules/WorkflowStatusBadge.tsx` | re-exported from `molecules/index.ts` | `Badge`-based status display. `WorkflowStatus` enum: `DRAFT \| SUBMITTED \| PENDING_VERIFICATION \| VERIFIED \| PENDING_APPROVAL \| APPROVED \| REJECTED \| CANCELLED`. Optional `makerName` / `checkerName` render as a secondary attribution line. |
+| `TransactionConfirmDialog` | `src/components/cbs/TransactionConfirmDialog.tsx` | re-exported from `cbs/index.ts` | Pre-submit confirmation modal for financial postings. Takes `ConfirmField[]` describing the fields to display in read-only form. |
 
-> **Note:** the detailed behaviour (status enum values, SLA badge
-> thresholds, hash truncation length, exact props) is defined by
-> each component's JSDoc header — consult the source files for the
-> current contract. This section documents only the architectural
-> intent, not the implementation details which evolve.
+Also related: `CorrelationRefBadge` (in `feedback.tsx`) renders a
+compact `Ref` chip for the correlation ID returned by the server —
+mandatory on error toasts per §16b.
 
-**Rules:**
+### Rules
+
 - Every maker-checker workflow screen should render `ApprovalTrail`
   or `AuditTrailViewer` so the full chain is visible to operators
 - Financial-posting receipts should include the `AuditHashChip` so
   operators/customers can later verify tamper-evidence
 - The maker cannot approve their own submission — this is enforced
-  **server-side** in Spring. UI grey-out is a UX nicety that may
-  or may not be implemented yet; rely on the server rejection as
-  the authoritative guarantee
+  **server-side** in Spring. Any UI grey-out is a redundant UX
+  nicety; rely on the server rejection as the authoritative guarantee
+- `AuditTrailViewer` is not re-exported from `cbs/index.ts` because
+  it is a **self-contained data-fetching component**, not a
+  reusable primitive. Import directly:
+  `import { AuditTrailViewer } from '@/components/cbs/AuditTrailViewer'`
 
 ---
 
