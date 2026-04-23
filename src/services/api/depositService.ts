@@ -79,10 +79,16 @@ function okEnvelope<T>(data: T): ApiResponse<T> {
   };
 }
 
-function errEnvelope<T>(code: string, message: string, status: number): ApiResponse<T> {
+function errEnvelope<T>(
+  code: string,
+  message: string,
+  status: number,
+  correlationId?: string,
+): ApiResponse<T> {
   return {
     success: false,
     error: { code, message, statusCode: status },
+    correlationId,
     timestamp: new Date().toISOString(),
     requestId: '',
   };
