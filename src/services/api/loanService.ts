@@ -19,6 +19,7 @@
  */
 import { apiClient } from './apiClient';
 import type { ApiResponse } from '@/types/api';
+import { AppError } from '@/utils/errorHandler';
 
 /* ── Disbursement ──────────────────────────────────────────────── */
 
@@ -111,13 +112,32 @@ function okEnvelope<T>(data: T): ApiResponse<T> {
   };
 }
 
-function errEnvelope<T>(code: string, message: string, status: number): ApiResponse<T> {
+function errEnvelope<T>(
+  code: string,
+  message: string,
+  status: number,
+  correlationId?: string,
+): ApiResponse<T> {
   return {
     success: false,
     error: { code, message, statusCode: status },
+    correlationId,
     timestamp: new Date().toISOString(),
     requestId: '',
   };
+}
+
+/**
+ * Translate an AppError (produced by the apiClient response interceptor,
+ * which wraps every AxiosError) into a uniform errEnvelope so callers
+ * never see a thrown error — they get a single `{success:false}` shape
+ * with the correlation id preserved for <CorrelationRefBadge />.
+ */
+function fromAppError<T>(err: unknown, fallbackCode: string, fallbackMsg: string): ApiResponse<T> {
+  if (err instanceof AppError) {
+    return errEnvelope<T>(err.code || fallbackCode, err.message || fallbackMsg, err.statusCode, err.correlationId);
+  }
+  return errEnvelope<T>(fallbackCode, err instanceof Error ? err.message : fallbackMsg, 500);
 }
 
 /* ── Service ───────────────────────────────────────────────────── */
@@ -147,31 +167,36 @@ class LoanService {
       ? { amount: req.amount, narration: req.narration || undefined, idempotencyKey: key }
       : { idempotencyKey: key };
 
-    const response = await apiClient.post<SpringEnvelope<SpringTxnResponse>>(
-      endpoint,
-      body,
-      { headers: { 'X-Idempotency-Key': key } },
-    );
-    const env = response.data;
-    const correlationId =
-      (response.headers?.['x-correlation-id'] as string | undefined) || undefined;
-    if (env.status === 'SUCCESS' && env.data) {
-      const amount = toNumber(env.data.amount);
-      return okEnvelope<DisburseResponse>({
-        transactionRef: env.data.transactionRef,
-        accountNumber: acct,
-        amount: Number.isFinite(amount) ? Math.abs(amount) : req.amount || 0,
-        status: 'POSTED',
-        postedAt: env.data.postingDate || undefined,
+    try {
+      const response = await apiClient.post<SpringEnvelope<SpringTxnResponse>>(
+        endpoint,
+        body,
+        { headers: { 'X-Idempotency-Key': key } },
+      );
+      const env = response.data;
+      const correlationId =
+        (response.headers?.['x-correlation-id'] as string | undefined) || undefined;
+      if (env.status === 'SUCCESS' && env.data) {
+        const amount = toNumber(env.data.amount);
+        return okEnvelope<DisburseResponse>({
+          transactionRef: env.data.transactionRef,
+          accountNumber: acct,
+          amount: Number.isFinite(amount) ? Math.abs(amount) : req.amount || 0,
+          status: 'POSTED',
+          postedAt: env.data.postingDate || undefined,
+          correlationId,
+          auditHashPrefix: env.data.auditHashPrefix || undefined,
+        });
+      }
+      return errEnvelope<DisburseResponse>(
+        env.errorCode || 'DISBURSEMENT_FAILED',
+        env.message || 'Loan disbursement could not be processed',
+        400,
         correlationId,
-        auditHashPrefix: env.data.auditHashPrefix || undefined,
-      });
+      );
+    } catch (err) {
+      return fromAppError<DisburseResponse>(err, 'DISBURSEMENT_FAILED', 'Loan disbursement could not be processed');
     }
-    return errEnvelope<DisburseResponse>(
-      env.errorCode || 'DISBURSEMENT_FAILED',
-      env.message || 'Loan disbursement could not be processed',
-      400,
-    );
   }
 
   /**
@@ -190,35 +215,40 @@ class LoanService {
       ? `/loans/${encodeURIComponent(acct)}/prepayment`
       : `/loans/${encodeURIComponent(acct)}/repayment`;
 
-    const response = await apiClient.post<SpringEnvelope<SpringTxnResponse>>(
-      endpoint,
-      { amount: req.amount, idempotencyKey: key },
-      { headers: { 'X-Idempotency-Key': key } },
-    );
-    const env = response.data;
-    const correlationId =
-      (response.headers?.['x-correlation-id'] as string | undefined) || undefined;
-    if (env.status === 'SUCCESS' && env.data) {
-      const amount = toNumber(env.data.amount);
-      return okEnvelope<RepaymentResponse>({
-        transactionRef: env.data.transactionRef,
-        accountNumber: acct,
-        amount: Number.isFinite(amount) ? Math.abs(amount) : req.amount,
-        principalComponent:
-          env.data.principalComponent != null ? toNumber(env.data.principalComponent) : undefined,
-        interestComponent:
-          env.data.interestComponent != null ? toNumber(env.data.interestComponent) : undefined,
-        status: 'POSTED',
-        postedAt: env.data.postingDate || undefined,
+    try {
+      const response = await apiClient.post<SpringEnvelope<SpringTxnResponse>>(
+        endpoint,
+        { amount: req.amount, idempotencyKey: key },
+        { headers: { 'X-Idempotency-Key': key } },
+      );
+      const env = response.data;
+      const correlationId =
+        (response.headers?.['x-correlation-id'] as string | undefined) || undefined;
+      if (env.status === 'SUCCESS' && env.data) {
+        const amount = toNumber(env.data.amount);
+        return okEnvelope<RepaymentResponse>({
+          transactionRef: env.data.transactionRef,
+          accountNumber: acct,
+          amount: Number.isFinite(amount) ? Math.abs(amount) : req.amount,
+          principalComponent:
+            env.data.principalComponent != null ? toNumber(env.data.principalComponent) : undefined,
+          interestComponent:
+            env.data.interestComponent != null ? toNumber(env.data.interestComponent) : undefined,
+          status: 'POSTED',
+          postedAt: env.data.postingDate || undefined,
+          correlationId,
+          auditHashPrefix: env.data.auditHashPrefix || undefined,
+        });
+      }
+      return errEnvelope<RepaymentResponse>(
+        env.errorCode || 'REPAYMENT_FAILED',
+        env.message || 'Loan repayment could not be processed',
+        400,
         correlationId,
-        auditHashPrefix: env.data.auditHashPrefix || undefined,
-      });
+      );
+    } catch (err) {
+      return fromAppError<RepaymentResponse>(err, 'REPAYMENT_FAILED', 'Loan repayment could not be processed');
     }
-    return errEnvelope<RepaymentResponse>(
-      env.errorCode || 'REPAYMENT_FAILED',
-      env.message || 'Loan repayment could not be processed',
-      400,
-    );
   }
 
   /** Generate a fresh idempotency key at the point of "Confirm" click. */
