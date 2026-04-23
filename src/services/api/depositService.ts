@@ -156,6 +156,7 @@ class DepositService {
       body.errorCode || 'FD_BOOKING_FAILED',
       body.message || 'FD booking could not be processed',
       400,
+      correlationId,
     );
   }
 
