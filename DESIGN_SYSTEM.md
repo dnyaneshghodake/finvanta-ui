@@ -223,19 +223,38 @@ Shadow:        none (data surfaces are flat)
 9px   → calendar day-of-week labels
 10px  → environment badge, helper text, timestamps
 11px  → field labels (uppercase), table headers, breadcrumbs
-12px  → tabs, compact body text
+12px  → tabs, compact body text, row-action buttons
 13px  → default body text, inputs, buttons, table cells
 14px  → login inputs, section descriptions
 16px  → section titles, page subtitles
-18px  → page headings (h1)
+18px  → page headings (h1) — see §13b Page Heading Rule
 24px  → KPI values (dashboard)
 ```
+
+**Tailwind class mapping:**
+- `text-[10px]` → 10px  (helper text, environment badge)
+- `text-[11px]` (or `cbs-field-label`) → 11px  (uppercase labels)
+- `text-xs` → 12px  (tabs, compact body, row actions)
+- `text-sm` → 14px  (login inputs, surface header label)
+- `text-base` → 16px  (default body)
+- `text-lg` → 18px  (**h1 page headings — always this, never `text-xl`**)
 
 Font stack: Inter → IBM Plex Sans → system sans-serif
 Mono stack: JetBrains Mono → IBM Plex Mono → system monospace
 
 Amounts and dates always use `font-variant-numeric: tabular-nums`
 via the `.cbs-tabular` or `.cbs-amount` utility classes.
+
+### Utility Classes
+
+| Class | Purpose |
+|-------|---------|
+| `cbs-tabular` | Tabular-nums for dates, IDs, phone numbers, CIFs |
+| `cbs-amount` | Tabular-nums + right-aligned + mono for currency amounts |
+| `cbs-field-label` | 11px uppercase tracking-0.04em — form field labels |
+| `cbs-kbd` | Styled `<kbd>` for keyboard shortcut display (see §16c) |
+| `cbs-no-print` | Hides element in `@media print` (see §10) |
+| `cbs-skeleton-*` | Loading placeholder dimensions (matches real content) |
 
 ---
 
@@ -508,22 +527,34 @@ tracking-wider text-cbs-steel-700` inside `.cbs-surface-header`.
 
 ## 14. Role-Based UI Density
 
-CBS operators have different workflows requiring different UI density:
+CBS operators have different workflows requiring different UI density.
+The canonical roles live in `src/types/entities.ts` as `UserRole` and
+are shorthanded in `src/config/routes.ts`:
 
-| Role | Density | Characteristics |
-|------|---------|----------------|
+```
+MAKER       = ['MAKER', 'TELLER', 'OFFICER']
+CHECKER     = ['CHECKER', 'MANAGER', 'APPROVER']
+ADMIN       = ['ADMIN', 'ADMIN_HO', 'BRANCH_ADMIN']
+RECONCILER  = ['RECONCILER']
+(plus)      AUDITOR
+```
+
+| Role family | Density | Characteristics |
+|-------------|---------|----------------|
 | **TELLER** | Dense | Compact tables, minimal whitespace, keyboard-optimised, high transaction throughput |
 | **OFFICER/MAKER** | Standard | Balanced forms + tables, accordion sections, CIF lookup integration |
-| **MANAGER/CHECKER** | Summary | KPI cards, approval queues, risk panels, graph-heavy dashboards |
+| **MANAGER/CHECKER/APPROVER** | Summary | KPI cards, approval queues, risk panels, graph-heavy dashboards |
 | **AUDITOR** | Read-only | Audit trail emphasis, field-level change history, export-heavy |
-| **ADMIN** | Configuration | Wide tables, bulk operations, settings forms |
+| **RECONCILER** | Dense + read-heavy | Inter-branch and nostro/vostro reconciliation, GL inquiry, suspense entries (RBI Master Circular on Reconciliation) |
+| **ADMIN/ADMIN_HO/BRANCH_ADMIN** | Configuration | Wide tables, bulk operations, settings forms |
 
 ### Implementation:
 
-- Role gating is handled by `RoleGate` component and route-level `roles` arrays
-- Screen layout (8+4 split, full-width table, KPI grid) is chosen per screen type
-- The base component dimensions (34px inputs, 36px table rows) are shared across all roles
+- Role gating is handled by `RoleGate` component and route-level `roles` arrays in `src/config/routes.ts`
+- Screen layout (8+4 split, full-width table, KPI grid) is chosen per screen type (see §13b)
+- The base component dimensions (34px inputs, 36px table rows, 26px row actions) are shared across all roles
 - Role-specific density is achieved through **layout composition**, not component variants
+- Dashboard widgets are blueprinted by role via `getVisibleWidgets(roles)` — see `src/components/dashboard/`
 
 ---
 
@@ -593,6 +624,23 @@ trace IT support actually needs. A client-side `Date.now()` ID would
 be disconnected from any server trace. The digest is also
 React-Compiler-compliant (no impure calls during render).
 
+### Granular Error Boundaries
+
+Within the authenticated shell, three React Error Boundaries isolate
+failures at progressively finer levels:
+
+| Boundary | Scope | Behaviour on error |
+|----------|-------|--------------------|
+| `PageErrorBoundary` | Wraps `{children}` in `DashboardShell` — one screen at a time | Shell (sidebar, header, toasts) stays alive; only the content area is replaced with an inline error card. Operator can navigate away without a full reload. |
+| `WidgetErrorBoundary` | Wraps each dashboard widget individually | A crash in one widget does not take down the other 8. The failed tile shows an inline error with the `moduleRef` (e.g. `PORTFOLIO`, `NPA`) for IT support. |
+| `TransactionErrorBoundary` | Wraps transaction posting flows (transfers, FD booking, loan disbursement) | **CRITICAL**: shows a blocking modal stating "the transaction may or may not have been submitted — do not retry without checking status" per RBI §8.2. |
+
+**Rule:** every new page under `app/(dashboard)/` is automatically
+wrapped in `PageErrorBoundary` via the shell. New dashboard widgets
+must be wrapped in `WidgetErrorBoundary` with a distinct `moduleRef`.
+New transaction-posting flows **MUST** use `TransactionErrorBoundary`
+around the mutating API call.
+
 ### Rules:
 
 - CRITICAL errors **MUST** block transaction progression
@@ -628,6 +676,29 @@ the `useScreenAudit()` hook mounted once in `DashboardShell`.
 | Failure mode | Fire-and-forget. Audit never blocks the operator. The server-side correlation ID provides a secondary audit trail if the POST fails. |
 | Screen codes | Every route entry in the registry has a `screenCode` (Finacle convention: `MODULE.ACTION`). Logged alongside `operatorId`, `branchCode`, `timestamp`, `pathname` by the backend. |
 
+### Correlation ID Propagation
+
+Every request that enters the Next.js server carries an
+`X-Correlation-Id` header from end to end. This is the primary
+RBI §8.5 audit trace and appears in:
+
+1. **Root proxy (`proxy.ts`)** — seeds or validates the header
+   against `/^[A-Za-z0-9-]{16,64}$/` and sets it on both the request
+   and the response.
+2. **BFF catch-all (`src/lib/server/proxy.ts`)** — forwards to Spring
+   on every proxied call.
+3. **Spring** — records it in every audit log entry and echoes it
+   back in the response.
+4. **apiClient response interceptor** — surfaces it to the UI via
+   `setCorrelationId()` for display in error toasts and
+   `CorrelationRefBadge`.
+5. **Operator-visible** — shown as "Ref: {id}" in error alerts,
+   success confirmations, and the `TransactionReceipt` footer.
+
+**Rule:** every error toast or alert that surfaces an API failure
+**MUST** render `<CorrelationRefBadge value={correlationId} />` so
+the operator has a reference for IT support.
+
 ### Financial-Safety Retry Policy
 
 The Axios interceptor only retries 429 (rate-limited) requests when
@@ -652,6 +723,49 @@ indicates a foreign tax obligation but NOT a US-specific FATCA
 obligation.
 
 Reference: `app/(dashboard)/accounts/new/page.tsx:248`
+
+---
+
+## 16c. Keyboard Shortcuts
+
+CBS operators process 200+ transactions per day. Mouse-driven flows
+add friction; Tier-1 CBS platforms are keyboard-first. Finvanta
+follows the Finacle/T24 convention of single-key F-shortcuts for
+frequent actions, registered per-page via `useCbsKeyboard(shortcuts)`
+and surfaced in the `KeyboardHelpOverlay` (F1).
+
+### Global Shortcuts (via `useCbsKeyboardNav` in DashboardShell)
+
+| Key | Action |
+|-----|--------|
+| `F1` | Toggle Keyboard Help overlay |
+| `Alt+D` | Go to Dashboard |
+| `Alt+A` | Go to Accounts (Inquiry) |
+| `Alt+C` | Go to Customers |
+| `Alt+T` | Go to Transfers |
+| `Ctrl+K` | Focus sidebar search |
+| `Esc` | Close topmost modal/toast |
+
+### Per-Page Shortcuts (registered via `useCbsKeyboard`)
+
+| Key | Convention | Example screens |
+|-----|-----------|-----------------|
+| `F2` | Primary action (new/transfer/post) | Dashboard → Transfer, Transfer page → Confirm |
+| `F3` | Focus search input | Any list/inquiry screen |
+| `F5` | Refresh current data | Dashboard, Account list, Workflow queue |
+| `F9` | Print current screen | Dashboard, Transaction Receipt |
+| `Enter` | Trigger primary button in focused row | Customer search, CIF lookup |
+
+### Rules:
+
+- Shortcuts **MUST** be displayed as `<span className="cbs-kbd">F2</span>`
+  next to their action (page header, button tooltip, or help overlay)
+- The `KeyboardHelpOverlay` (F1) reads from the active keymap — new
+  shortcuts become discoverable automatically
+- **Never override browser-native shortcuts** (Ctrl+C, Ctrl+V, Tab,
+  Enter in inputs) — operators rely on them
+- Form fields must support Enter-to-submit when there's exactly one
+  submit button and no multi-line textarea in focus
 
 ---
 
