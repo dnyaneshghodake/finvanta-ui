@@ -102,6 +102,9 @@ export default function WorkflowPage() {
         <div className={`flex-1 min-w-0 ${sel ? 'hidden md:block md:w-1/2' : ''}`}>
           {isLoading ? <CbsTableSkeleton rows={8} /> : list.length === 0 ? (
             <section className="cbs-surface text-center py-10">
+              {/* Icon centering inside an empty-state block — NOT a page-level
+                  content-width violation (DESIGN_SYSTEM §3). Safe to suppress. */}
+              {/* eslint-disable-next-line no-restricted-syntax */}
               <CheckCircle size={32} className="text-cbs-olive-600 mx-auto mb-3" />
               <h3 className="text-sm font-semibold text-cbs-ink">Queue Clear</h3>
             </section>
