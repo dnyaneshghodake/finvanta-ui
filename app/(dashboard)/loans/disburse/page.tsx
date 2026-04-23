@@ -11,10 +11,48 @@
  */
 
 import { useState } from 'react';
-import { apiClient } from '@/services/api/apiClient';
-import { AccountNo, AmountInr, CorrelationRefBadge, Breadcrumb } from '@/components/cbs';
-import { Button } from '@/components/atoms';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
+import { isAxiosError } from 'axios';
 import Link from 'next/link';
+import { loanService, type DisburseResponse } from '@/services/api/loanService';
+import {
+  AccountNo,
+  AmountInr,
+  AmountDisplay,
+  CbsTextarea,
+  CorrelationRefBadge,
+  Breadcrumb,
+  TransactionConfirmDialog,
+  AuditHashChip,
+  KeyValue,
+} from '@/components/cbs';
+import { Button } from '@/components/atoms';
+import { formatCbsTimestamp } from '@/utils/formatters';
+
+const ACCOUNT_NUMBER_RE = /^[A-Z0-9][A-Z0-9-]{5,24}$/;
+
+const schema = z.object({
+  loanAccount: z
+    .string()
+    .trim()
+    .transform((v) => v.toUpperCase())
+    .pipe(z.string().regex(ACCOUNT_NUMBER_RE, 'Enter a valid loan account number')),
+  amount: z
+    .string()
+    .regex(/^\d+(\.\d{1,2})?$/, 'Enter a valid amount')
+    .refine((v) => Number(v) > 0, 'Amount must be greater than zero'),
+  remarks: z.string().max(140, 'Remarks are too long').optional(),
+});
+
+type FormData = z.infer<typeof schema>;
+
+interface ErrorState {
+  message: string;
+  correlationId?: string;
+  errorCode?: string;
+}
 
 export default function LoanDisbursePage() {
   const [loanAccount, setLoanAccount] = useState('');

@@ -13,6 +13,17 @@
  * The FD enters PENDING_APPROVAL until checker authorises.
  * Interest rate is determined server-side by the product + tenure slab.
  * UI does NOT compute interest — that is TransactionEngine's job.
+ *
+ * CBS two-step financial-safety flow (DESIGN_SYSTEM §14b + §16b):
+ *   1. CAPTURE — operator fills the form; Zod validates shape.
+ *   2. CONFIRM — `TransactionConfirmDialog` renders a read-only
+ *      summary with an explicit "I confirm" checkbox. The idempotency
+ *      key is minted once on first Confirm click and re-used for any
+ *      transient-retry attempts. On server-side validation rejection
+ *      (INSUFFICIENT_FUNDS, PRODUCT_INACTIVE, etc.) the key is cleared
+ *      so the corrected request is evaluated fresh; on network error
+ *      the key is preserved so the backend idempotency cache can dedupe.
+ *   3. POSTED — router navigates to the FD list on success.
  */
 
 import { useState } from 'react';
@@ -20,8 +31,14 @@ import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { apiClient } from '@/services/api/apiClient';
-import { AmountInr, AccountNo, ValueDate, Breadcrumb } from '@/components/cbs';
+import { isAxiosError } from 'axios';
+import { depositService } from '@/services/api/depositService';
+import {
+  AmountInr,
+  AccountNo,
+  Breadcrumb,
+  TransactionConfirmDialog,
+} from '@/components/cbs';
 import { Button } from '@/components/atoms';
 import { useAuthStore } from '@/store/authStore';
 import Link from 'next/link';
@@ -39,16 +56,30 @@ const fdSchema = z.object({
 
 type FdForm = z.infer<typeof fdSchema>;
 
+interface ErrorState {
+  message: string;
+  correlationId?: string;
+  errorCode?: string;
+}
+
 export default function BookFdPage() {
   const router = useRouter();
   const user = useAuthStore((s) => s.user);
-  const [error, setError] = useState<string | null>(null);
-  const [correlationId, setCorrelationId] = useState<string | null>(null);
+  const [error, setError] = useState<ErrorState | null>(null);
+
+  // CBS: mint a stable idempotency key on the first confirm click.
+  // A network-level retry must reuse the same key so the backend
+  // de-duplicates via its Redis + DB idempotency cache.
+  const [idempotencyKey, setIdempotencyKey] = useState<string | null>(null);
+  // CBS two-step confirmation: capture → confirm dialog → post
+  const [showConfirm, setShowConfirm] = useState(false);
+  const [pendingData, setPendingData] = useState<FdForm | null>(null);
 
   const {
     register,
     handleSubmit,
     formState: { errors, isSubmitting },
+    reset,
   } = useForm<FdForm>({
     resolver: zodResolver(fdSchema),
     defaultValues: {
@@ -57,31 +88,70 @@ export default function BookFdPage() {
     },
   });
 
-  const onSubmit = async (data: FdForm) => {
+  // Step 1: Form validation passes → show confirm dialog
+  const onFormValid = (data: FdForm) => {
     setError(null);
+    setPendingData(data);
+    setShowConfirm(true);
+  };
+
+  // Step 2: Operator confirms in dialog → post to backend
+  const onConfirmPost = async () => {
+    if (!pendingData) return;
+    const key = idempotencyKey ?? depositService.mintKey();
+    if (!idempotencyKey) setIdempotencyKey(key);
     try {
-      // Map form fields → Spring REST_API_COMPLETE_CATALOGUE §FD Module.
-      // Spring expects `principalAmount` (not `depositAmount`),
-      // `tenureDays` (not `tenureMonths`), `autoRenewalMode` (YES/NO),
-      // and requires `branchId` + `interestRate`.
-      const res = await apiClient.post('/fixed-deposits/book', {
-        customerId: Number(data.customerId),
-        branchId: user?.branchId || 1,
-        linkedAccountNumber: data.linkedAccountNumber.toUpperCase(),
-        principalAmount: Number(data.depositAmount),
-        interestRate: 0, // Server determines from product + tenure slab
-        tenureDays: Number(data.tenureMonths) * 30, // Approximate; server recalculates exact
-        interestPayoutMode: 'MATURITY',
-        autoRenewalMode: data.autoRenew ? 'YES' : 'NO',
-        nomineeName: data.nomineeName || undefined,
-      });
-      const corr = res.headers?.['x-correlation-id'] as string | undefined;
-      setCorrelationId(corr || null);
-      if (res.data?.status === 'SUCCESS') {
-        router.push('/deposits');
+      const res = await depositService.bookFd(
+        {
+          customerId: Number(pendingData.customerId),
+          branchId: user?.branchId || 1,
+          linkedAccountNumber: pendingData.linkedAccountNumber.toUpperCase(),
+          principalAmount: Number(pendingData.depositAmount),
+          tenureDays: Number(pendingData.tenureMonths) * 30, // server recalculates exact
+          interestPayoutMode: 'MATURITY',
+          autoRenewalMode: pendingData.autoRenew ? 'YES' : 'NO',
+          nomineeName: pendingData.nomineeName || undefined,
+        },
+        key,
+      );
+      if (!res.success || !res.data) {
+        // Server validation rejection — the server did NOT process the
+        // booking, so the idempotency key must be cleared. Reusing it
+        // on the next attempt (after the operator corrects the input)
+        // would cause the backend's idempotency cache to replay the
+        // cached rejection instead of evaluating the corrected request.
+        setIdempotencyKey(null);
+        setShowConfirm(false);
+        setError({
+          message: res.error?.message || 'FD booking could not be processed',
+          errorCode: res.error?.code,
+        });
+        return;
       }
+      setShowConfirm(false);
+      reset();
+      setPendingData(null);
+      setIdempotencyKey(null);
+      router.push('/deposits');
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'FD booking failed');
+      // Network-level error — the server MAY have processed the request.
+      // Keep the idempotency key so a retry de-duplicates correctly.
+      setShowConfirm(false);
+      if (isAxiosError(err)) {
+        setError({
+          message:
+            err.response?.data?.message ||
+            err.response?.data?.error?.message ||
+            err.message,
+          correlationId:
+            (err.response?.headers?.['x-correlation-id'] as string) ||
+            err.response?.data?.correlationId,
+          errorCode:
+            err.response?.data?.errorCode || err.response?.data?.error?.code,
+        });
+        return;
+      }
+      setError({ message: err instanceof Error ? err.message : 'FD booking failed' });
     }
   };
 
@@ -102,14 +172,19 @@ export default function BookFdPage() {
       </div>
 
       {error && (
-        <div className="border border-cbs-crimson-600 bg-cbs-crimson-50 text-cbs-crimson-700 p-3 text-sm">
+        <div
+          role="alert"
+          className="border border-cbs-crimson-600 bg-cbs-crimson-50 text-cbs-crimson-700 p-3 text-sm"
+        >
           <div className="font-semibold">FD booking failed</div>
-          <div>{error}</div>
-          {correlationId && <div className="mt-1 text-xs cbs-tabular">Ref: {correlationId}</div>}
+          <div>{error.message}</div>
+          {error.correlationId && (
+            <div className="mt-1 text-xs cbs-tabular">Ref: {error.correlationId}</div>
+          )}
         </div>
       )}
 
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+      <form onSubmit={handleSubmit(onFormValid)} className="space-y-4">
         {/* Customer & Account */}
         <section className="cbs-surface">
           <div className="cbs-surface-header">
@@ -177,12 +252,33 @@ export default function BookFdPage() {
           The rate is applied server-side — the UI does not compute interest.
         </div>
 
-        {/* Submit */}
+        {/* Submit — two-step: clicking this shows the Confirm dialog;
+            the actual financial post happens from inside the dialog. */}
         <div className="flex gap-2 justify-end border-t border-cbs-steel-200 pt-3">
           <Link href="/deposits" className="cbs-btn cbs-btn-secondary">Cancel</Link>
-          <Button type="submit" isLoading={isSubmitting}>Submit for Approval</Button>
+          <Button type="submit" isLoading={isSubmitting}>Review &amp; Confirm</Button>
         </div>
       </form>
+
+      {/* CBS two-step confirmation dialog (Step 2) */}
+      {pendingData && (
+        <TransactionConfirmDialog
+          isOpen={showConfirm}
+          onCancel={() => setShowConfirm(false)}
+          onConfirm={onConfirmPost}
+          transactionType="Fixed Deposit Booking"
+          amount={Number(pendingData.depositAmount)}
+          fields={[
+            { label: 'Customer ID (CIF)', value: pendingData.customerId },
+            { label: 'Linked CASA', value: pendingData.linkedAccountNumber.toUpperCase() },
+            { label: 'Principal Amount', value: Number(pendingData.depositAmount), isAmount: true },
+            { label: 'Tenure', value: `${pendingData.tenureMonths} month(s)` },
+            { label: 'Auto-Renew', value: pendingData.autoRenew ? 'Yes' : 'No' },
+            ...(pendingData.nomineeName ? [{ label: 'Nominee', value: pendingData.nomineeName }] : []),
+          ]}
+          warning="Interest rate is determined server-side by the product + tenure slab. The displayed amount is principal only; maturity amount appears after approval."
+        />
+      )}
     </div>
   );
 }
