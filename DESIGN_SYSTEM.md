@@ -818,6 +818,13 @@ mandatory on error toasts per §16b.
   it is a **self-contained data-fetching component**, not a
   reusable primitive. Import directly:
   `import { AuditTrailViewer } from '@/components/cbs/AuditTrailViewer'`
+- **Every money-moving flow MUST render `TransactionConfirmDialog`
+  between form submit and the actual POST.** The dialog owns the
+  explicit "I confirm" checkbox that RBI §8.2 requires. Page compliance
+  audit: `app/(dashboard)/transfers/page.tsx` (internal transfer),
+  `app/(dashboard)/deposits/new/page.tsx` (FD booking),
+  `app/(dashboard)/loans/disburse/page.tsx` (disbursement),
+  `app/(dashboard)/loans/repay/page.tsx` (EMI / prepayment).
 
 ---
 
@@ -1322,9 +1329,48 @@ The Axios interceptor only retries 429 (rate-limited) requests when
 Retrying a mutating call without an idempotency key can produce
 duplicate postings because the BFF generates a new server-side
 fallback key per request. Callers performing a financial posting
-(transfer, FD booking, loan disbursement) **MUST** mint a stable
-idempotency key at the point of the first "Confirm" click and pass
-it via headers.
+(transfer, FD booking, loan disbursement, loan repayment) **MUST**
+mint a stable idempotency key at the point of the first "Confirm"
+click and pass it via headers.
+
+**Canonical UI pattern:**
+
+```tsx
+// State — mint once, re-use across retries.
+const [idempotencyKey, setIdempotencyKey] = useState<string | null>(null);
+
+const onConfirmPost = async () => {
+  const key = idempotencyKey ?? service.mintKey();
+  if (!idempotencyKey) setIdempotencyKey(key);
+  try {
+    const res = await service.call(req, key);
+    if (!res.success) {
+      // Server validation rejection — clear the key so the operator's
+      // corrected retry is evaluated fresh, not replayed from the
+      // backend's idempotency cache.
+      setIdempotencyKey(null);
+      // …show error
+      return;
+    }
+    // …success path
+  } catch (err) {
+    // Network-level error — the server MAY have processed the request.
+    // Keep the idempotency key so a retry de-duplicates correctly.
+  }
+};
+```
+
+**Service contract:** every service that posts money exposes a
+`mintKey()` method and accepts an optional `idempotencyKey` parameter
+on its mutating calls. The method sets both the `X-Idempotency-Key`
+header AND includes the key in the request body (belt-and-suspenders
+so the backend can dedupe even if a proxy strips headers).
+
+**Compliant services:**
+- `transferService.confirm(req, key)` — `src/services/api/transferService.ts`
+- `depositService.bookFd(req, key)` — `src/services/api/depositService.ts`
+- `loanService.disburse(req, key)` / `loanService.repay(req, key)` —
+  `src/services/api/loanService.ts`
 
 Reference: `src/services/api/apiClient.ts` (429 retry guard in response interceptor)
 
