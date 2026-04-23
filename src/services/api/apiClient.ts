@@ -221,10 +221,13 @@ apiClient.interceptors.response.use(
     if (error.response?.status === 503) {
       const errorCode = (error.response?.data as Record<string, unknown>)?.errorCode;
       const msg = (error.response?.data as Record<string, unknown>)?.message;
+      const corr = error.response?.headers?.['x-correlation-id'];
       return Promise.reject(new AppError(
         typeof errorCode === 'string' ? errorCode : 'BACKEND_UNAVAILABLE',
         typeof msg === 'string' ? msg : 'The banking server is temporarily unavailable. Please try again shortly.',
         503,
+        undefined,
+        typeof corr === 'string' ? corr : undefined,
       ));
     }
 
