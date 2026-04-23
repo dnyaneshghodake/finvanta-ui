@@ -55,44 +55,89 @@ interface ErrorState {
 }
 
 export default function LoanDisbursePage() {
-  const [loanAccount, setLoanAccount] = useState('');
-  const [amount, setAmount] = useState('');
-  const [remarks, setRemarks] = useState('');
-  const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
-  const [correlationId, setCorrelationId] = useState<string | null>(null);
-  const [submitting, setSubmitting] = useState(false);
+  const {
+    register,
+    handleSubmit,
+    formState: { errors, isSubmitting },
+    reset,
+  } = useForm<FormData>({
+    resolver: zodResolver(schema),
+    defaultValues: { loanAccount: '', amount: '', remarks: '' },
+  });
 
-  const handleDisburse = async () => {
-    if (!loanAccount.trim()) { setError('Loan account number is required'); return; }
-    if (!amount.trim() || isNaN(Number(amount))) { setError('Valid disbursement amount is required'); return; }
-    setSubmitting(true);
+  const [posted, setPosted] = useState<DisburseResponse | null>(null);
+  const [error, setError] = useState<ErrorState | null>(null);
+  // CBS: mint a stable idempotency key on the first confirm click.
+  // A network-level retry must reuse the same key so the backend
+  // de-duplicates via its Redis + DB idempotency cache.
+  const [idempotencyKey, setIdempotencyKey] = useState<string | null>(null);
+  const [showConfirm, setShowConfirm] = useState(false);
+  const [pendingData, setPendingData] = useState<FormData | null>(null);
+
+  // Step 1: Form validation passes → show confirm dialog
+  const onFormValid = (data: FormData) => {
     setError(null);
-    setSuccess(null);
+    setPendingData(data);
+    setShowConfirm(true);
+  };
+
+  // Step 2: Operator confirms in dialog → post to backend
+  const onConfirmPost = async () => {
+    if (!pendingData) return;
+    const key = idempotencyKey ?? loanService.mintKey();
+    if (!idempotencyKey) setIdempotencyKey(key);
     try {
-      // REST_API_COMPLETE_CATALOGUE §Loans:
-      //   POST /{accountNumber}/disburse — full disbursement (empty body)
-      //   POST /{accountNumber}/disburse-tranche — partial (body: { amount, narration })
-      // If amount is provided, use tranche endpoint; otherwise full disburse.
-      const acct = loanAccount.trim().toUpperCase();
-      const hasAmount = amount.trim() && !isNaN(Number(amount)) && Number(amount) > 0;
-      const endpoint = hasAmount
-        ? `/loans/${acct}/disburse-tranche`
-        : `/loans/${acct}/disburse`;
-      const body = hasAmount
-        ? { amount: Number(amount), narration: remarks.trim() || undefined }
-        : {};
-      const res = await apiClient.post(endpoint, body);
-      const corr = res.headers?.['x-correlation-id'] as string | undefined;
-      setCorrelationId(corr || null);
-      if (res.data?.status === 'SUCCESS') {
-        setSuccess(`Loan ${loanAccount} disbursed successfully. Amount credited to borrower's CASA.`);
+      const res = await loanService.disburse(
+        {
+          accountNumber: pendingData.loanAccount,
+          amount: Number(pendingData.amount),
+          narration: pendingData.remarks || undefined,
+        },
+        key,
+      );
+      if (!res.success || !res.data) {
+        // Server validation rejection — clear the key so a corrected
+        // retry is evaluated fresh, not replayed from idempotency cache.
+        setIdempotencyKey(null);
+        setShowConfirm(false);
+        setError({
+          message: res.error?.message || 'Disbursement could not be processed',
+          errorCode: res.error?.code,
+        });
+        return;
       }
+      setShowConfirm(false);
+      setPosted(res.data);
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Disbursement failed');
-    } finally {
-      setSubmitting(false);
+      // Network-level error — the server MAY have processed the request.
+      // Keep the idempotency key so a retry de-duplicates correctly.
+      setShowConfirm(false);
+      if (isAxiosError(err)) {
+        setError({
+          message:
+            err.response?.data?.message ||
+            err.response?.data?.error?.message ||
+            err.message,
+          correlationId:
+            (err.response?.headers?.['x-correlation-id'] as string) ||
+            err.response?.data?.correlationId,
+          errorCode:
+            err.response?.data?.errorCode || err.response?.data?.error?.code,
+        });
+        return;
+      }
+      setError({
+        message: err instanceof Error ? err.message : 'Disbursement failed',
+      });
     }
+  };
+
+  const onReset = () => {
+    setPosted(null);
+    setError(null);
+    setIdempotencyKey(null);
+    setPendingData(null);
+    reset();
   };
 
   return (
