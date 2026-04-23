@@ -797,31 +797,49 @@ components (all from `src/components/cbs/`):
 
 `<StatusRibbon status="..." />` (exported from
 `src/components/cbs/feedback.tsx`) is the canonical component for
-rendering entity status. It maps a status string to a tokenised
+rendering entity status. It maps a `CbsStatus` value to a tokenised
 colour pair so the palette stays consistent across modules.
 
-> **Source of truth:** the precise mapping of status strings → tones
-> lives in `feedback.tsx`'s `StatusRibbon` implementation and the
-> `CbsStatus` type. Always consult the component for the current
-> enum of accepted values.
+### CbsStatus enum
 
-**Architectural rules:**
-- Never render a raw status string (`<td>{acct.status}</td>`) —
-  always use `<StatusRibbon status={value} />`
-- Unknown status values fall back to a neutral tone rather than
-  crashing, so a new backend value won't break the UI
+The canonical enum (verified against `feedback.tsx`) covers
+workflow, account lifecycle, and loan pipeline states:
+
+| Status | Tone | Usage |
+|--------|------|-------|
+| `PENDING_APPROVAL` | gold | Maker submitted, awaiting checker |
+| `PENDING_VERIFICATION` | gold | Awaiting KYC/doc verification |
+| `PENDING_ACTIVATION` | gold | Approved but not yet active |
+| `DORMANT` | gold | Inactive account (operational hold) |
+| `APPROVED` | olive | Checker approved |
+| `POSTED` | olive | Financial entry posted to ledger |
+| `ACTIVE` | olive | Live account / customer |
+| `DISBURSED` | olive | Loan disbursed |
+| `VERIFIED` | **navy** | KYC verified (info tone, not success) |
+| `SUBMITTED` | violet | Maker-checker in-flight |
+| `DRAFT` | violet | Unsubmitted record |
+| `REJECTED` | crimson | Checker rejected |
+| `REVERSED` | crimson | Transaction reversed |
+| `FROZEN` | **crimson** | Account frozen (error tone — indicates restriction) |
+| `DECEASED` | crimson | Customer deceased |
+| `WRITTEN_OFF` | crimson | Loan write-off |
+| `INOPERATIVE` | steel | Terminal inactive state |
+| `CLOSED` | steel | Terminal closed state |
+
+### Architectural rules
+
+- Never render a raw status string (`<td>{acct.status}</td>`) — always
+  use `<StatusRibbon status={value} />`
+- Unknown status values do **not** throw — the component falls back
+  to the `DRAFT` tone (violet) when a value is outside the
+  `STATUS_TONE` map. This is a safety net, not a first-class state;
+  adapter layers SHOULD map backend values into the `CbsStatus` enum
 - When a backend returns a domain-specific status (e.g.
   `NPA_STAGE_1`, `NPA_STAGE_2`), map it to one of the canonical
   `CbsStatus` values at the service-adapter layer (`adaptX()` in
-  `*Service.ts`) — don't extend the component with per-module
-  mappings
-
-**Common tone assignments (indicative — verify against source):**
-- Success tone (olive): `ACTIVE`, `POSTED`, `APPROVED`, `VERIFIED`
-- Warning tone (gold): `PENDING*`, `HOLD`, `FROZEN`
-- Error tone (crimson): `REJECTED`, `FAILED`
-- Neutral tone (steel): `CLOSED`, `INACTIVE`
-- Info tone (navy): `DRAFT`, `NEW`
+  `*Service.ts`) — don't extend the component with per-module mappings
+- Status strings render with underscores replaced by spaces
+  (`PENDING_APPROVAL` → `PENDING APPROVAL`)
 
 ---
 
@@ -1200,45 +1218,95 @@ Reference: `app/(dashboard)/accounts/new/page.tsx` (CIF fatcaCountry → usTaxRe
 
 CBS operators process 200+ transactions per day. Mouse-driven flows
 add friction; Tier-1 CBS platforms are keyboard-first. Finvanta
-follows the Finacle/T24 convention of single-key F-shortcuts for
-frequent actions.
+follows the Finacle/T24 convention of function-key shortcuts plus
+`Alt`-key module jumps, implemented in `src/hooks/useCbsKeyboardNav.ts`.
 
-**Two hooks provide the keyboard layer:**
-- `useCbsKeyboardNav` — mounted once in `DashboardShell`; owns the
-  global navigation shortcuts and the help overlay toggle
-- `useCbsKeyboard(shortcuts)` — page-level; callers pass a map of
-  key → handler. Example (from `dashboard/page.tsx`):
-  ```tsx
-  useCbsKeyboard(useMemo(() => ({
-    F2: () => router.push('/transfers'),
-    F5: () => window.location.reload(),
-    F9: () => printScreen(),
-  }), [router]));
-  ```
+### Hook architecture
 
-> **Source of truth:** the global keymap (Alt-key module jumps,
-> Ctrl+K, Esc, F1) lives in `src/hooks/useCbsKeyboardNav.ts`. Consult
-> that file for the authoritative list — it evolves as modules are
-> added.
+- `useCbsKeyboardNav(pageKeyMap?)` — mounted once in `DashboardShell`.
+  Owns the global keymap (always active) and merges a page-level
+  override map. Returns `{ isHelpOpen, toggleHelp, activeKeyMap }` —
+  the overlay renders `activeKeyMap` grouped by category.
+- Page-level pages pass a `CbsKeyMap` (keyed by the normalised key
+  string; see `normalizeKey` in the hook) that takes priority over
+  the global map when both define the same key.
 
-**Architectural rules:**
-- Shortcuts **MUST** be displayed as `<span className="cbs-kbd">F2</span>`
-  next to their action (page header, button tooltip, or help overlay)
-  so they're discoverable without memorisation
-- The `KeyboardHelpOverlay` (opened via the global F1) reads from
-  the active keymap — new shortcuts registered via `useCbsKeyboard`
-  become discoverable automatically
-- **F-key convention** (follow this for new screens to preserve
-  cross-screen muscle memory):
-  - `F2` → primary mutating action on the current screen (Transfer,
-    Confirm, Post)
-  - `F3` → focus the screen's search input
-  - `F5` → refresh the data shown on screen
-  - `F9` → print the current screen
+Normalised key strings use `Ctrl+` / `Alt+` / `Shift+` prefixes and
+treat `Ctrl` and `Meta` (macOS ⌘) identically. Single-letter keys
+are uppercased; `' '` becomes `Space`.
+
+### F-key convention (Tier-1 CBS standard)
+
+These are the **documented** conventions per `useCbsKeyboardNav.ts`
+JSDoc. Not all pages implement every key — page-level keymaps
+declare the ones that apply:
+
+| Key | Convention |
+|-----|-----------|
+| `F1` | Help / Context Help (opens `KeyboardHelpOverlay`) |
+| `F2` | New Transaction (context-sensitive) |
+| `F3` | Find / Search (global search focus) |
+| `F4` | Close current tab / Cancel |
+| `F5` | Refresh current screen (**page-level only** — intentionally not in the global map so page handlers own it) |
+| `F7` | Previous record / Scroll up |
+| `F8` | Next record / Scroll down |
+| `F9` | Print current screen |
+| `F10` | Submit / Commit (form submission) |
+
+### Global shortcuts (always active)
+
+Registered in `useCbsKeyboardNav.ts` (category shown for help-overlay
+grouping):
+
+| Key | Action | Category |
+|-----|--------|----------|
+| `F1` | Open Help / Shortcut Reference | system |
+| `Escape` | Close dialog — closes help overlay if open, else dispatches `cbs:escape` custom event that modals listen for | system |
+| `Ctrl+/` | Toggle Shortcut Help overlay | system |
+| `Alt+D` | Go to Dashboard | navigation |
+| `Alt+T` | Go to Transfers | navigation |
+| `Alt+A` | Go to Accounts | navigation |
+| `Alt+W` | Go to Workflow | navigation |
+| `Alt+L` | Go to Loans | navigation |
+
+### Page-level registration example
+
+From `app/(dashboard)/dashboard/page.tsx`:
+
+```tsx
+import { useCbsKeyboard } from '@/hooks/useCbsKeyboard';
+
+const shortcuts = useMemo(() => ({
+  F2: () => router.push('/transfers'),
+  F5: () => { window.location.reload(); },
+  F9: () => { printScreen(); },
+}), [router]);
+useCbsKeyboard(shortcuts);
+```
+
+### Input-field exceptions
+
+The global handler skips firing when focus is inside `<input>`,
+`<textarea>`, `<select>`, or a `contentEditable` element — operators
+can type normally. Four shortcuts are **allow-listed to fire
+inside inputs** because they are form-submit actions: `Ctrl+S`,
+`Ctrl+Enter`, `F10`, `Escape`. For global (non-page) shortcuts, all
+F-keys / `Alt+*` / `Escape` / `Ctrl+/` are treated as system keys
+and fire regardless of focus.
+
+### Rules
+
+- Shortcuts visible to operators **MUST** be displayed as
+  `<span className="cbs-kbd">F2</span>` next to their action so
+  they're discoverable without memorisation
+- Dialogs / modals MUST listen for the `cbs:escape` custom event
+  and close on receipt (since `Escape` is multiplexed through the
+  global handler)
 - **Never override browser-native shortcuts** (Ctrl+C, Ctrl+V, Tab,
-  Enter-in-inputs) — operators rely on them
-- Form fields must support Enter-to-submit when there's exactly one
-  submit button and no multi-line textarea in focus
+  Enter-in-inputs). The hook skips input-field focus for exactly
+  this reason
+- New global shortcuts go in `useCbsKeyboardNav.ts`, not per-page —
+  keeps the help overlay a single source of truth
 
 ---
 
