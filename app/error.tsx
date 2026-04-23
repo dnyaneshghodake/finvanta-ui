@@ -17,7 +17,7 @@
  * passes the error and reset function as props.
  */
 
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import Link from 'next/link';
 import { AlertTriangle, RefreshCw, Home } from 'lucide-react';
 
@@ -28,21 +28,23 @@ export default function GlobalError({
   error: Error & { digest?: string };
   reset: () => void;
 }) {
-  // Stable error reference for IT support correlation.
-  // Uses useState (not useMemo/useRef) because:
-  //   - Date.now() is impure → react-hooks/purity rejects useMemo
-  //   - ref.current in JSX → react-hooks/refs rejects useRef
-  // The initial value is a safe empty string; the effect sets the
-  // real value once (per error instance) and triggers a re-render
-  // so the reference is visible to the operator.
-  const [errorRef, setErrorRef] = useState('');
-
+  // Next.js App Router supplies `error.digest` — a stable, server-
+  // generated identifier for the error that IT support can correlate
+  // with server logs. We use this as the operator-visible reference
+  // rather than a client-side timestamp, because:
+  //   1. digest is generated server-side, before the error reaches
+  //      the browser, so it is recorded in the server log at the
+  //      point of failure — the exact trace IT support needs.
+  //   2. Generating a new ID client-side (Date.now()) would be
+  //      impure during render, triggering the React Compiler's
+  //      react-hooks/purity, react-hooks/refs, and
+  //      react-hooks/set-state-in-effect rules in turn.
+  //   3. In development, digest is undefined — we show "DEV" as a
+  //      placeholder since local errors have no deployed log trace.
   useEffect(() => {
-    const ref = `ERR-${Date.now().toString(36).toUpperCase()}`;
-    setErrorRef(ref);
     // Log to console in dev; in production this would go to
     // a telemetry service (Sentry, ELK, etc.)
-    console.error('[GLOBAL_ERROR]', ref, error);
+    console.error('[GLOBAL_ERROR]', error.digest ?? 'DEV', error);
   }, [error]);
 
   return (
@@ -93,11 +95,13 @@ export default function GlobalError({
           </Link>
         </div>
 
-        {/* Error reference for IT support */}
+        {/* Error reference for IT support — the digest is a server-
+         *  generated identifier Next.js attaches to unhandled errors
+         *  in production. In development it is undefined, so we show
+         *  a placeholder. */}
         <div className="space-y-1">
           <p className="text-[10px] text-cbs-steel-500 cbs-tabular">
-            Error Ref: {errorRef}
-            {error?.digest ? ` · Digest: ${error.digest}` : ''}
+            Error Ref: {error?.digest ?? 'DEV (no digest in development)'}
           </p>
           <p className="text-[10px] text-cbs-steel-400">
             If this issue persists, contact IT support with the
