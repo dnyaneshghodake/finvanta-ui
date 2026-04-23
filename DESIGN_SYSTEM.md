@@ -409,53 +409,53 @@ Layer 6: Screens      → app/(dashboard)/*/page.tsx — composition only, no ne
 
 ---
 
-## 8d. Dark Mode
+## 8d. Theming (Light / Dark / High-Contrast)
 
-Dark mode is implemented by overriding **Layer 1 core tokens only** —
-semantic tokens (Layer 2) and component tokens (Layer 3) adapt
-automatically because they reference Layer 1 via `var()`.
+Theme switching is implemented by toggling a `data-theme` attribute
+on `<html>`. CSS custom properties in `globals.css` respond to this
+attribute via `:root[data-theme="..."]` selectors. Changing a Layer 1
+token value cascades through semantic (Layer 2) and component
+(Layer 3) tokens automatically via `var()`.
 
 ### Toggle mechanism
 
-The theme toggle lives in `src/contexts/ThemeContext.tsx` and
-applies `data-theme="dark"` on `<html>`:
+Source of truth: `src/contexts/ThemeContext.tsx`.
 
 ```tsx
-const { theme, setTheme } = useTheme();
-// theme: 'light' | 'dark' | 'system'
-// 'system' follows `prefers-color-scheme` media query
+import { useTheme } from '@/contexts/ThemeContext';
+
+const { theme, setTheme, toggleTheme } = useTheme();
+// theme: 'light' | 'dark' | 'high-contrast'
+// setTheme(next)  — jump to a specific theme
+// toggleTheme()   — cycle light → dark → high-contrast → light
 ```
 
-The theme preference is persisted to `localStorage` with the key
-`cbs-theme-preference` and hydrated on mount to avoid FOUC (flash of
-unstyled content).
+**Initial theme resolution (in order):**
+1. `localStorage` key `cbs-theme` (persisted operator preference)
+2. `prefers-color-scheme: dark` media query → `dark`
+3. `prefers-contrast: high` media query → `high-contrast`
+4. Fallback → `light`
 
-### Palette inversion rules
-
-Dark mode is **not** a mechanical invert. The palette is designed so
-information hierarchy, status tones, and amount colour-coding remain
-identical:
-
-| Token family | Light | Dark | Rule |
-|--------------|-------|------|------|
-| `cbs-paper` | white-tinted | near-black (`#0E1219`) | Canvas — must be paper-like in both |
-| `cbs-ink` | near-black | near-white | Inverts for readability |
-| `cbs-steel-*` | grey scale | **same scale, inverted direction** (steel-100 becomes darkest, steel-900 lightest) | Preserves weight hierarchy |
-| `cbs-olive` / `cbs-crimson` / `cbs-gold` | same hues | **slightly desaturated** (~10%) | Neon on black is harsh; reduce saturation |
-| `cbs-navy-*` | as-is | as-is | Navy stays saturated — it's the brand chrome |
+The `ThemeProvider` applies the theme to `<html>` via
+`setAttribute('data-theme', theme)` and sets `color-scheme` CSS
+property so the browser's native scrollbars and form controls match.
 
 ### Rules
 
-- **Never use hardcoded `#fff` / `#000`** — always reference `cbs-paper`
-  and `cbs-ink` so the theme switches correctly
-- **Charts** must re-render on theme change — grid/axis/label tokens
-  resolve to different colours in dark mode
-- **Print output is always light** — `@media print` overrides
-  `data-theme` and uses the light palette regardless of operator
-  preference (black amounts on white paper)
-- **Status colour semantics** (olive=good, crimson=bad) must hold
-  in both themes — never flip saturation or hue in dark mode to
-  the point where a success/error distinction is lost
+- **Never use hardcoded `#fff` / `#000`** in component code — always
+  reference `cbs-paper` / `cbs-ink` so theme switches cascade
+- **Three themes, three palettes** — `light` (default), `dark`
+  (reduced eye-strain for night-shift), `high-contrast` (WCAG AAA
+  / branch kiosk environments)
+- **Theme switching MUST NOT alter data presentation** — amounts,
+  dates, status codes render identically in all themes. Only chrome
+  and surface colours change (per RBI IT Governance 2023 §8 on
+  display integrity)
+- **Zero layout shift on theme change** — only colour tokens move,
+  never dimensions
+- New Layer 1 overrides belong in `globals.css` under the
+  `:root[data-theme="dark"]` / `[data-theme="high-contrast"]`
+  selectors — **never** redeclare semantic or component tokens
 
 ---
 
@@ -761,55 +761,67 @@ around the mutating API call.
 
 Per RBI IT Governance 2023 §8.3 (segregation of duties) every
 financial or master-data posting passes through maker → checker
-approval. The UI renders this workflow via the following dedicated
-components:
+approval. The codebase exports the following maker-checker UI
+components (all from `src/components/cbs/`):
 
-| Component | Purpose |
-|-----------|---------|
-| `ApprovalTrail` | Vertical timeline of maker submission → checker action(s) with timestamps, user IDs, and action remarks. Used on workflow detail pages and audit views. |
-| `AuditTrailViewer` | Expandable per-transaction audit entries with maker/checker user IDs, submitted/approved timestamps, SLA badge, and field-level change diff. |
-| `AuditHashChip` | Compact display of the SHA-256 audit hash prefix (first 12 hex chars) on transaction receipts and entry detail pages — the tamper-evidence proof. |
-| `WorkflowStatusBadge` | Ribbon-sized status indicator for workflow items (`PENDING_CHECKER`, `APPROVED`, `REJECTED`, `RECALLED`). |
-| `TransactionConfirmDialog` | Pre-submit modal showing all posting fields in read-only form; maker clicks Confirm to submit for checker approval. Bakes in correlation-ID and idempotency-key propagation. |
-| `SubmitterIdentity` / `CheckerIdentity` | Read-only display of `makerUserId`/`checkerUserId` with timestamp — visible on every posted/approved entry. |
+- `ApprovalTrail` — timeline of maker submission → checker action(s)
+  (see `feedback.tsx`)
+- `AuditTrailViewer` — expandable per-entry audit rows with
+  maker/checker identity and field-level diff
+- `AuditHashChip` — SHA-256 audit hash prefix display for
+  tamper-evidence (see `feedback.tsx`)
+- `WorkflowStatusBadge` — ribbon-sized workflow status (in
+  `src/components/molecules/`)
+- `TransactionConfirmDialog` — pre-submit confirmation modal for
+  financial postings
+
+> **Note:** the detailed behaviour (status enum values, SLA badge
+> thresholds, hash truncation length, exact props) is defined by
+> each component's JSDoc header — consult the source files for the
+> current contract. This section documents only the architectural
+> intent, not the implementation details which evolve.
 
 **Rules:**
-- Every maker-checker workflow screen MUST render `ApprovalTrail` or
-  `AuditTrailViewer` so the full chain is visible to operators
-- Financial postings MUST show `AuditHashChip` on the receipt so the
-  operator/customer can verify tamper-evidence later
+- Every maker-checker workflow screen should render `ApprovalTrail`
+  or `AuditTrailViewer` so the full chain is visible to operators
+- Financial-posting receipts should include the `AuditHashChip` so
+  operators/customers can later verify tamper-evidence
 - The maker cannot approve their own submission — this is enforced
-  server-side but the UI MUST grey out the approve button when
-  `checkerUserId === session.user.id && makerUserId === session.user.id`
-  to avoid operator confusion
+  **server-side** in Spring. UI grey-out is a UX nicety that may
+  or may not be implemented yet; rely on the server rejection as
+  the authoritative guarantee
 
 ---
 
 ## 15a. Status Vocabulary (StatusRibbon)
 
-`<StatusRibbon status="..." />` is the single source of truth for
-entity status rendering. It maps status strings to tokenised colour
-pairs so the palette stays consistent across modules.
+`<StatusRibbon status="..." />` (exported from
+`src/components/cbs/feedback.tsx`) is the canonical component for
+rendering entity status. It maps a status string to a tokenised
+colour pair so the palette stays consistent across modules.
 
-| Status value | Tone | Usage |
-|--------------|------|-------|
-| `ACTIVE`, `OPEN`, `VERIFIED` | olive (success) | Live accounts, verified KYC |
-| `POSTED`, `APPROVED`, `COMPLETED`, `SUCCESS` | olive (success) | Posted transactions, approved workflow items |
-| `PENDING`, `PENDING_APPROVAL`, `PENDING_VERIFICATION` | gold (warning) | Maker submitted, awaiting checker |
-| `HOLD`, `FROZEN`, `DORMANT` | gold (warning) | Operational holds |
-| `REJECTED`, `FAILED`, `ERROR` | crimson (error) | Checker rejection, posting failure |
-| `CLOSED`, `INACTIVE`, `DEACTIVATED` | steel (neutral) | Terminal states, archived records |
-| `DRAFT`, `NEW` | navy (info) | Unsubmitted records |
+> **Source of truth:** the precise mapping of status strings → tones
+> lives in `feedback.tsx`'s `StatusRibbon` implementation and the
+> `CbsStatus` type. Always consult the component for the current
+> enum of accepted values.
 
-**Rule:** never render a status string as plain text. Always use
-`<StatusRibbon status={value} />`. Unknown statuses fall back to
-steel (neutral) — the component never crashes on a new backend value.
+**Architectural rules:**
+- Never render a raw status string (`<td>{acct.status}</td>`) —
+  always use `<StatusRibbon status={value} />`
+- Unknown status values fall back to a neutral tone rather than
+  crashing, so a new backend value won't break the UI
+- When a backend returns a domain-specific status (e.g.
+  `NPA_STAGE_1`, `NPA_STAGE_2`), map it to one of the canonical
+  `CbsStatus` values at the service-adapter layer (`adaptX()` in
+  `*Service.ts`) — don't extend the component with per-module
+  mappings
 
-**Mapping custom values:** when a backend returns a domain-specific
-status (e.g. `NPA_STAGE_1`, `NPA_STAGE_2`, `NPA_STAGE_3`), map it to
-one of the canonical values at the service-adapter layer
-(`adaptX()` in `*Service.ts`) — don't add per-module mappings to
-`StatusRibbon`.
+**Common tone assignments (indicative — verify against source):**
+- Success tone (olive): `ACTIVE`, `POSTED`, `APPROVED`, `VERIFIED`
+- Warning tone (gold): `PENDING*`, `HOLD`, `FROZEN`
+- Error tone (crimson): `REJECTED`, `FAILED`
+- Neutral tone (steel): `CLOSED`, `INACTIVE`
+- Info tone (navy): `DRAFT`, `NEW`
 
 ---
 
@@ -822,12 +834,13 @@ and masking rules:
 
 | Primitive | Domain | Format / Rule |
 |-----------|--------|---------------|
-| `AmountInr` | INR currency | Indian grouping `1,00,000.00`, tabular-nums, blur-normalised to plain decimal for Zod (`^\d+(\.\d{1,2})?$`) |
-| `Pan` | Permanent Account Number | `AAAAA9999A` pattern, auto-uppercase, 10 chars max |
-| `Aadhaar` | Aadhaar UID | 12 digits, grouped `XXXX XXXX XXXX`, masked after blur (see §15c) |
-| `AccountNo` | Internal account number | `/^[A-Z]{2}-[A-Z0-9]{4,5}-\d{6}$/` (e.g. `SB-HQ001-000001`), uppercase, tabular-nums |
-| `Ifsc` | IFSC code | `AAAA0NNNNNN` pattern (4 letters + 0 + 6 alnum), uppercase |
-| `ValueDate` | Business date | ISO-8601 input; display DD-MMM-YYYY; validates against `businessDate` from session |
+| `AmountInr` | INR currency | Inline `INR` prefix chip, Indian lakh/crore grouping on blur (`1,50,000.00`), strip commas on focus for raw editing, blur-normalised to 2-decimal plain string for Zod (`^\d+(\.\d{0,2})?$`) |
+| `Pan` | Permanent Account Number | HTML `pattern="[A-Z]{5}[0-9]{4}[A-Z]"`, `maxLength=10`, `minLength=10` — the browser enforces validity; callers force uppercase via CSS `uppercase` utility |
+| `Aadhaar` | Aadhaar UID | HTML `pattern="\d{12}"`, `maxLength=12`, `autoComplete="off"`, rendered with `tracking-widest`. **Entry is unmasked** — masking applies only to read-only display (see §15c) |
+| `AccountNo` | CBS account identifier | HTML `pattern="[A-Z0-9][A-Z0-9-]{5,24}"`, `maxLength=25`, `autoCapitalize="characters"`. Finvanta composite keys (e.g. `SB-HQ001-000001`) are alphanumeric with hyphens — the pattern intentionally permits this shape |
+| `Ifsc` | IFSC code | HTML `pattern="[A-Z]{4}0[A-Z0-9]{6}"`, `maxLength=11`, `minLength=11`, uppercase |
+| `ValueDate` | Value date | Native `<input type="date">` (browser date picker), paired with a "Today" button that fills `new Date().toISOString().slice(0,10)`. **No client-side business-date validation** — Spring enforces cutoff, holidays, and business-day rules on submit |
+| `AmountDisplay` | Read-only amount | Render-only (not an input) — `sign="debit" | "credit" | "neutral"` picks crimson / olive / ink tone; uses `toLocaleString('en-IN')` + `INR` prefix |
 
 **Rule:** when a form field represents one of these domains, the
 primitive **MUST** be used — never a raw `<input>` with manual
@@ -843,24 +856,36 @@ the primitive's local state and never stored in form state.
 
 ## 15c. PII Masking Conventions
 
-Per RBI Cyber Security Framework 2023 §4.2 and IGA FATCA guidance:
-sensitive identifiers must be masked on display by default. The
-mask utilities in `src/components/cbs/primitives.tsx` enforce:
+Per RBI IT Governance 2023 §8.5 and UIDAI Aadhaar masking guidance:
+sensitive identifiers are masked on display by default. The mask
+utilities in `src/components/cbs/primitives.tsx` implement **last-4
+visible** (plain `X` or `*` characters, not Unicode) and truncate
+to a fixed prefix — they do not preserve the original character
+positions.
 
-| Utility | Input | Masked output | When revealed |
-|---------|-------|---------------|---------------|
-| `maskPan` | `ABCDE1234F` | `ABCDE****F` (first 5 + last 1) | Never in list views; full value only on CIF detail page with audit log |
-| `maskAadhaar` | `123456789012` | `XXXX XXXX 9012` (last 4 visible) | Never outside CIF detail; full value gated behind operator PIN re-auth |
-| `maskMobile` | `+919876543210` | `+91******3210` (last 4 visible) | Revealed on customer detail only |
-| `maskAccountNo` | `SB-HQ001-000042` | `SB-HQ001-***042` (last 3 visible) | Revealed on account detail; list views show full for internal ops |
+| Utility | Input | Masked output | Where used |
+|---------|-------|---------------|-----------|
+| `maskPan` | `ABCDE1234F` | `XXXXXX234F` | CIF list/search rows, customer detail header |
+| `maskAadhaar` | `123456789012` | `XXXXXXXX9012` | KYC verification, CIF detail |
+| `maskMobile` | `9876543210` | `XXXXXX3210` | CIF list rows (raw 10-digit, no country code) |
+| `maskAccountNo` | `SB-HQ001-000042` | `****0042` | Display-only views; internal ops may show full |
+
+All utilities are defensive: invalid-length inputs return a safe
+placeholder (`****` or `**** **** ****`) rather than leaking partial
+data. The masked form is always a plain string — consumers can
+render it in any container.
 
 **Rules:**
-- List/search result views MUST use the masked form
-- Transaction receipts use masked account numbers (printed copies)
-- Exports (CSV, PDF) MUST use masked values unless the export itself
-  is role-gated to AUDITOR/ADMIN_HO
-- The unmask action **MUST** log a correlation-id'd audit event
-- Never log unmasked PII to console/telemetry — use the masked form
+- List/search result views MUST use the masked form (`maskPan`,
+  `maskAadhaar`, `maskMobile`, `maskAccountNo`)
+- The underlying full value stays in form state / API payloads —
+  masking is a **display-only** concern, never a transport concern
+- Never log unmasked PII to console/telemetry — pass the masked
+  value to `logger.*` calls
+- The mask utilities are pure string transforms — they do not
+  perform any unmask/reveal workflow. Any future "reveal full PAN"
+  feature must be implemented as a separate role-gated, audited
+  operation (not currently implemented)
 
 ---
 
@@ -977,42 +1002,44 @@ to change locale/convention.
 
 ### Toasts (`CbsToastContainer`)
 
-Toasts are ephemeral status notifications surfaced via `useUIStore().addToast()`:
+Toasts are ephemeral status notifications dispatched via
+`useUIStore().addToast({ type, title, message, duration })`.
 
-| Type | Duration | Position | Use |
-|------|----------|----------|-----|
-| `success` | 3000ms | top-right, stacks 3 max | Posting successful, verification done |
-| `info` | 5000ms | top-right | Day-status changes, non-blocking info |
-| `warning` | 5000ms | top-right | Non-blocking validation warnings |
-| `error` | 3000ms + manual dismiss | top-right | API failures — **include correlation ID** via `CorrelationRefBadge` |
+> **Source of truth:** toast timing, stacking behaviour, and position
+> are implementation details of `src/components/cbs/ToastContainer.tsx`
+> and `src/store/uiStore.ts`. Callers pass an explicit `duration` (in
+> milliseconds) — see existing usages for conventional values
+> (3000ms for success, 3000–6000ms for error).
 
-**Rules:**
-- Success toasts auto-dismiss — no manual close required
-- Error toasts have a close button AND auto-dismiss (never sticky)
-- Toasts stack vertically; the 4th queued toast waits for the oldest
-  to expire — never pile up more than 3 visible at once
-- Toast container sits above the session timeout warning but below
-  critical error modals (`z-index` hierarchy: toasts → timeout →
-  critical)
+**Architectural rules:**
+- Every error toast surfacing an API failure **SHOULD** include the
+  correlation ID via `CorrelationRefBadge` so the operator has a
+  reference for IT support (see §16b Correlation ID Propagation)
+- Toasts are ephemeral — they are NOT the place for information the
+  operator needs to act on. Blocking decisions go in a modal; audit
+  evidence goes in a receipt; persistent status goes in a banner
+- The z-index hierarchy is: page content < toasts < session timeout
+  warning < critical error modals — defined in `globals.css`, not
+  per-component
 
 ### Modals (`CbsModal`)
 
-Modals use three size tokens (`sm` 400px / `md` 560px / `lg` 720px,
-see §4). The `ModalRole` type selects between `dialog` (confirmation,
-non-critical) and `alertdialog` (blocking decision required).
+`CbsModal` is exported from `src/components/cbs/Modal.tsx`. Size
+tokens `sm` (400px), `md` (560px), `lg` (720px) are defined in §4.
+The `ModalRole` prop selects between `dialog` (non-critical) and
+`alertdialog` (critical / blocking).
 
-**Rules:**
-- Use `role="alertdialog"` (via `ModalRole='alert'`) for CRITICAL
-  decisions that block transaction flow — "Transaction may have been
-  submitted", "Unsaved changes will be lost"
+**Architectural rules:**
+- Use `role="alertdialog"` for CRITICAL decisions that block
+  transaction flow (e.g. "Transaction may have been submitted",
+  "Unsaved changes will be lost") — the ARIA role signals to
+  screen readers that immediate user attention is required
 - Use `role="dialog"` for confirmations, forms, and inquiry overlays
-- Every modal MUST close on `Esc` and focus-trap while open
+- Every modal MUST close on `Esc` and focus-trap while open (WCAG)
 - Confirmation modals for financial postings use
-  `TransactionConfirmDialog` which bakes in maker-checker messaging,
-  amount display, and accept/cancel buttons
-- Modal backdrop is `rgba(0,0,0,0.4)` and **MUST NOT** close on
-  backdrop click when the modal is `alertdialog` — only Esc / explicit
-  cancel button (prevents accidental dismissal of CRITICAL decisions)
+  `TransactionConfirmDialog` — do not hand-roll a posting modal
+- Backdrop click behaviour is the component's responsibility, not
+  the caller's — consult `Modal.tsx` for the current contract
 
 ---
 
@@ -1174,39 +1201,42 @@ Reference: `app/(dashboard)/accounts/new/page.tsx` (CIF fatcaCountry → usTaxRe
 CBS operators process 200+ transactions per day. Mouse-driven flows
 add friction; Tier-1 CBS platforms are keyboard-first. Finvanta
 follows the Finacle/T24 convention of single-key F-shortcuts for
-frequent actions, registered per-page via `useCbsKeyboard(shortcuts)`
-and surfaced in the `KeyboardHelpOverlay` (F1).
+frequent actions.
 
-### Global Shortcuts (via `useCbsKeyboardNav` in DashboardShell)
+**Two hooks provide the keyboard layer:**
+- `useCbsKeyboardNav` — mounted once in `DashboardShell`; owns the
+  global navigation shortcuts and the help overlay toggle
+- `useCbsKeyboard(shortcuts)` — page-level; callers pass a map of
+  key → handler. Example (from `dashboard/page.tsx`):
+  ```tsx
+  useCbsKeyboard(useMemo(() => ({
+    F2: () => router.push('/transfers'),
+    F5: () => window.location.reload(),
+    F9: () => printScreen(),
+  }), [router]));
+  ```
 
-| Key | Action |
-|-----|--------|
-| `F1` | Toggle Keyboard Help overlay |
-| `Alt+D` | Go to Dashboard |
-| `Alt+A` | Go to Accounts (Inquiry) |
-| `Alt+C` | Go to Customers |
-| `Alt+T` | Go to Transfers |
-| `Ctrl+K` | Focus sidebar search |
-| `Esc` | Close topmost modal/toast |
+> **Source of truth:** the global keymap (Alt-key module jumps,
+> Ctrl+K, Esc, F1) lives in `src/hooks/useCbsKeyboardNav.ts`. Consult
+> that file for the authoritative list — it evolves as modules are
+> added.
 
-### Per-Page Shortcuts (registered via `useCbsKeyboard`)
-
-| Key | Convention | Example screens |
-|-----|-----------|-----------------|
-| `F2` | Primary action (new/transfer/post) | Dashboard → Transfer, Transfer page → Confirm |
-| `F3` | Focus search input | Any list/inquiry screen |
-| `F5` | Refresh current data | Dashboard, Account list, Workflow queue |
-| `F9` | Print current screen | Dashboard, Transaction Receipt |
-| `Enter` | Trigger primary button in focused row | Customer search, CIF lookup |
-
-### Rules:
-
+**Architectural rules:**
 - Shortcuts **MUST** be displayed as `<span className="cbs-kbd">F2</span>`
   next to their action (page header, button tooltip, or help overlay)
-- The `KeyboardHelpOverlay` (F1) reads from the active keymap — new
-  shortcuts become discoverable automatically
+  so they're discoverable without memorisation
+- The `KeyboardHelpOverlay` (opened via the global F1) reads from
+  the active keymap — new shortcuts registered via `useCbsKeyboard`
+  become discoverable automatically
+- **F-key convention** (follow this for new screens to preserve
+  cross-screen muscle memory):
+  - `F2` → primary mutating action on the current screen (Transfer,
+    Confirm, Post)
+  - `F3` → focus the screen's search input
+  - `F5` → refresh the data shown on screen
+  - `F9` → print the current screen
 - **Never override browser-native shortcuts** (Ctrl+C, Ctrl+V, Tab,
-  Enter in inputs) — operators rely on them
+  Enter-in-inputs) — operators rely on them
 - Form fields must support Enter-to-submit when there's exactly one
   submit button and no multi-line textarea in focus
 
