@@ -1294,7 +1294,7 @@ the `useScreenAudit()` hook mounted once in `DashboardShell`.
 | Route matching | Dynamic routes resolved via sentinel split (prefix + suffix) from the registry at `src/config/routes.ts`. Static routes match by exact equality. |
 | CSRF | Raw `fetch` (not apiClient, to avoid recursion) but reads `NEXT_PUBLIC_CBS_CSRF_COOKIE` and sets `X-CSRF-Token` so the BFF accepts the POST. |
 | Failure mode | Fire-and-forget. Audit never blocks the operator. The server-side correlation ID provides a secondary audit trail if the POST fails. |
-| Screen codes | Every route entry in the registry has a `screenCode` (Finacle convention: `MODULE.ACTION`). Logged alongside `operatorId`, `branchCode`, `timestamp`, `pathname` by the backend. |
+| Screen codes | Every route entry in the registry has a `screenCode` using the `MODULE.ACTION` naming convention standard across Tier-1 CBS platforms. Logged alongside `operatorId`, `branchCode`, `timestamp`, `pathname` by the backend. |
 
 ### Correlation ID Propagation
 
@@ -1428,7 +1428,7 @@ Reference: `app/(dashboard)/accounts/new/page.tsx` (CIF fatcaCountry → usTaxRe
 
 CBS operators process 200+ transactions per day. Mouse-driven flows
 add friction; Tier-1 CBS platforms are keyboard-first. Finvanta
-follows the Finacle/T24 convention of function-key shortcuts plus
+follows the industry-standard function-key shortcut convention plus
 `Alt`-key module jumps, implemented in `src/hooks/useCbsKeyboardNav.ts`.
 
 ### Hook architecture
