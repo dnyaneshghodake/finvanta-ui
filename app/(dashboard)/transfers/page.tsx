@@ -41,7 +41,6 @@ import {
   CbsFieldset,
   CbsTextarea,
   Breadcrumb,
-  CbsDatePicker,
   TransactionConfirmDialog,
 } from '@/components/cbs';
 import { useCbsKeyboard } from '@/hooks/useCbsKeyboard';
@@ -65,7 +64,6 @@ const schema = z.object({
     .regex(/^\d+(\.\d{1,2})?$/, 'Enter a valid amount')
     .refine((v) => Number(v) > 0, 'Amount must be greater than zero'),
   narration: z.string().max(140, 'Narration is too long').optional(),
-  valueDate: z.string().optional(),
 });
 
 type FormData = z.infer<typeof schema>;
@@ -90,8 +88,7 @@ function formEquals(a: FormData, b: FormData): boolean {
     a.fromAccountNumber === b.fromAccountNumber &&
     a.toAccountNumber === b.toAccountNumber &&
     a.amount === b.amount &&
-    (a.narration || '') === (b.narration || '') &&
-    (a.valueDate || '') === (b.valueDate || '')
+    (a.narration || '') === (b.narration || '')
   );
 }
 
@@ -109,7 +106,6 @@ export default function TransfersPage() {
       toAccountNumber: '',
       amount: '',
       narration: '',
-      valueDate: '',
     },
   });
 
@@ -140,7 +136,6 @@ export default function TransfersPage() {
     toAccountNumber: f.toAccountNumber.trim().toUpperCase(),
     amount: Number(f.amount),
     narration: f.narration || undefined,
-    valueDate: f.valueDate || undefined,
   });
 
   // Step 1: Form validation passes → show confirm dialog.
@@ -276,19 +271,6 @@ export default function TransfersPage() {
             <CbsFieldset legend="Transaction Details">
               <div className="grid md:grid-cols-2 gap-4">
                 <AmountInr label="Amount" {...register('amount')} error={errors.amount?.message} />
-                {(() => {
-                  const r = register('valueDate');
-                  return (
-                    <CbsDatePicker
-                      label="Value date"
-                      hint="Defaults to today if left blank. Weekends and 2nd/4th Saturdays are greyed."
-                      name={r.name}
-                      onChange={r.onChange}
-                      onBlur={r.onBlur}
-                      ref={r.ref}
-                    />
-                  );
-                })()}
                 <div className="md:col-span-2">
                   <CbsTextarea
                     label="Narration"
@@ -299,6 +281,11 @@ export default function TransfersPage() {
                   />
                 </div>
               </div>
+              {/* Value-date input intentionally omitted: Spring
+                  `/v1/accounts/transfer` posts on the server's
+                  businessDate and ignores any client-supplied date.
+                  Surfacing an input here would mislead the operator
+                  per RBI §8.2 display-integrity guidance. */}
             </CbsFieldset>
 
             <div className="text-xs text-cbs-steel-600 border-t border-cbs-steel-100 pt-3">
@@ -332,7 +319,6 @@ export default function TransfersPage() {
             { label: 'Debit Account', value: pendingData.fromAccountNumber },
             { label: 'Credit Account', value: pendingData.toAccountNumber },
             { label: 'Amount', value: Number(pendingData.amount), isAmount: true },
-            ...(pendingData.valueDate ? [{ label: 'Value Date', value: pendingData.valueDate }] : []),
             ...(pendingData.narration ? [{ label: 'Narration', value: pendingData.narration }] : []),
           ]}
         />

@@ -28,7 +28,15 @@ export interface TransferRequest {
   toAccountNumber: string;
   amount: number;
   narration?: string;
-  valueDate?: string;
+  // NOTE: `valueDate` is intentionally NOT in this contract. The Spring
+  // `/v1/accounts/transfer` endpoint does not accept a value-date
+  // parameter — the posting date is always `businessDate` from the
+  // server's day-status context (per RBI §8.2 on display integrity:
+  // the UI must never imply control over a field the backend ignores).
+  // If a future rail (NEFT future-dated, RTGS warehoused) requires it,
+  // add the field here, wire it into the POST body, and add a
+  // contract test — do not surface a value-date input before the
+  // backend supports it.
 }
 
 export interface TransferResponse {
