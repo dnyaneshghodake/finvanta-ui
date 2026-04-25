@@ -13,6 +13,17 @@
  * The FD enters PENDING_APPROVAL until checker authorises.
  * Interest rate is determined server-side by the product + tenure slab.
  * UI does NOT compute interest — that is TransactionEngine's job.
+ *
+ * CBS two-step financial-safety flow (DESIGN_SYSTEM §14b + §16b):
+ *   1. CAPTURE — operator fills the form; Zod validates shape.
+ *   2. CONFIRM — `TransactionConfirmDialog` renders a read-only
+ *      summary with an explicit "I confirm" checkbox. The idempotency
+ *      key is minted once on first Confirm click and re-used for any
+ *      transient-retry attempts. On server-side validation rejection
+ *      (INSUFFICIENT_FUNDS, PRODUCT_INACTIVE, etc.) the key is cleared
+ *      so the corrected request is evaluated fresh; on network error
+ *      the key is preserved so the backend idempotency cache can dedupe.
+ *   3. POSTED — router navigates to the FD list on success.
  */
 
 import { useState } from 'react';
@@ -20,8 +31,14 @@ import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { apiClient } from '@/services/api/apiClient';
-import { AmountInr, AccountNo, ValueDate, Breadcrumb } from '@/components/cbs';
+import { depositService } from '@/services/api/depositService';
+import {
+  AmountInr,
+  AccountNo,
+  Breadcrumb,
+  CorrelationRefBadge,
+  TransactionConfirmDialog,
+} from '@/components/cbs';
 import { Button } from '@/components/atoms';
 import { useAuthStore } from '@/store/authStore';
 import Link from 'next/link';
@@ -39,16 +56,47 @@ const fdSchema = z.object({
 
 type FdForm = z.infer<typeof fdSchema>;
 
+interface ErrorState {
+  message: string;
+  correlationId?: string;
+  errorCode?: string;
+}
+
+/**
+ * Shallow structural equality for FdForm. Used to detect whether the
+ * operator edited any field between the first confirm click and a
+ * subsequent retry — if yes, the idempotency key is invalidated so
+ * the new data is evaluated fresh rather than replayed from cache.
+ */
+function fdFormEquals(a: FdForm, b: FdForm): boolean {
+  return (
+    a.customerId === b.customerId &&
+    a.linkedAccountNumber === b.linkedAccountNumber &&
+    a.depositAmount === b.depositAmount &&
+    a.tenureMonths === b.tenureMonths &&
+    a.autoRenew === b.autoRenew &&
+    (a.nomineeName || '') === (b.nomineeName || '')
+  );
+}
+
 export default function BookFdPage() {
   const router = useRouter();
   const user = useAuthStore((s) => s.user);
-  const [error, setError] = useState<string | null>(null);
-  const [correlationId, setCorrelationId] = useState<string | null>(null);
+  const [error, setError] = useState<ErrorState | null>(null);
+
+  // CBS: mint a stable idempotency key on the first confirm click.
+  // A network-level retry must reuse the same key so the backend
+  // de-duplicates via its Redis + DB idempotency cache.
+  const [idempotencyKey, setIdempotencyKey] = useState<string | null>(null);
+  // CBS two-step confirmation: capture → confirm dialog → post
+  const [showConfirm, setShowConfirm] = useState(false);
+  const [pendingData, setPendingData] = useState<FdForm | null>(null);
 
   const {
     register,
     handleSubmit,
     formState: { errors, isSubmitting },
+    reset,
   } = useForm<FdForm>({
     resolver: zodResolver(fdSchema),
     defaultValues: {
@@ -57,32 +105,65 @@ export default function BookFdPage() {
     },
   });
 
-  const onSubmit = async (data: FdForm) => {
+  // Step 1: Form validation passes → show confirm dialog.
+  // If the operator edited any field since the last attempt, invalidate
+  // the idempotency key — otherwise a stale key paired with different
+  // data would cause the backend's idempotency cache to replay the
+  // original response instead of evaluating the corrected request.
+  const onFormValid = (data: FdForm) => {
     setError(null);
-    try {
-      // Map form fields → Spring REST_API_COMPLETE_CATALOGUE §FD Module.
-      // Spring expects `principalAmount` (not `depositAmount`),
-      // `tenureDays` (not `tenureMonths`), `autoRenewalMode` (YES/NO),
-      // and requires `branchId` + `interestRate`.
-      const res = await apiClient.post('/fixed-deposits/book', {
-        customerId: Number(data.customerId),
-        branchId: user?.branchId || 1,
-        linkedAccountNumber: data.linkedAccountNumber.toUpperCase(),
-        principalAmount: Number(data.depositAmount),
-        interestRate: 0, // Server determines from product + tenure slab
-        tenureDays: Number(data.tenureMonths) * 30, // Approximate; server recalculates exact
-        interestPayoutMode: 'MATURITY',
-        autoRenewalMode: data.autoRenew ? 'YES' : 'NO',
-        nomineeName: data.nomineeName || undefined,
-      });
-      const corr = res.headers?.['x-correlation-id'] as string | undefined;
-      setCorrelationId(corr || null);
-      if (res.data?.status === 'SUCCESS') {
-        router.push('/deposits');
-      }
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'FD booking failed');
+    if (pendingData && !fdFormEquals(pendingData, data)) {
+      setIdempotencyKey(null);
     }
+    setPendingData(data);
+    setShowConfirm(true);
+  };
+
+  // Step 2: Operator confirms in dialog → post to backend.
+  // `depositService.bookFd` never throws — it always returns an
+  // ApiResponse envelope with `correlationId` populated from the
+  // BFF's `x-correlation-id` header (for both server validation
+  // rejections and AppError-wrapped HTTP failures).
+  const onConfirmPost = async () => {
+    if (!pendingData) return;
+    const key = idempotencyKey ?? depositService.mintKey();
+    if (!idempotencyKey) setIdempotencyKey(key);
+    const res = await depositService.bookFd(
+      {
+        customerId: Number(pendingData.customerId),
+        branchId: user?.branchId || 1,
+        linkedAccountNumber: pendingData.linkedAccountNumber.toUpperCase(),
+        principalAmount: Number(pendingData.depositAmount),
+        tenureDays: Number(pendingData.tenureMonths) * 30, // server recalculates exact
+        interestPayoutMode: 'MATURITY',
+        autoRenewalMode: pendingData.autoRenew ? 'YES' : 'NO',
+        nomineeName: pendingData.nomineeName || undefined,
+      },
+      key,
+    );
+    if (!res.success || !res.data) {
+      // Per DESIGN_SYSTEM §16b: a 4xx response means the server
+      // definitively rejected the request before posting, so clear
+      // the key and let the operator's corrected retry be evaluated
+      // fresh. A 5xx or network error (statusCode 0 / >=500) means
+      // the server MAY have processed — preserve the key so a retry
+      // de-duplicates via the backend's idempotency cache.
+      const status = res.error?.statusCode ?? 0;
+      const safeToClearKey = status >= 400 && status < 500;
+      if (safeToClearKey) setIdempotencyKey(null);
+      setShowConfirm(false);
+      setError({
+        message: res.error?.message || 'FD booking could not be processed',
+        errorCode: res.error?.code,
+        correlationId: res.correlationId,
+      });
+      return;
+    }
+    setShowConfirm(false);
+    reset();
+    setPendingData(null);
+    setIdempotencyKey(null);
+    router.push('/deposits');
   };
 
   return (
@@ -102,14 +183,19 @@ export default function BookFdPage() {
       </div>
 
       {error && (
-        <div className="border border-cbs-crimson-600 bg-cbs-crimson-50 text-cbs-crimson-700 p-3 text-sm">
+        <div
+          role="alert"
+          className="border border-cbs-crimson-600 bg-cbs-crimson-50 text-cbs-crimson-700 p-3 text-sm"
+        >
           <div className="font-semibold">FD booking failed</div>
-          <div>{error}</div>
-          {correlationId && <div className="mt-1 text-xs cbs-tabular">Ref: {correlationId}</div>}
+          <div>{error.message}</div>
+          {error.correlationId && (
+            <div className="mt-2"><CorrelationRefBadge value={error.correlationId} /></div>
+          )}
         </div>
       )}
 
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+      <form onSubmit={handleSubmit(onFormValid)} className="space-y-4">
         {/* Customer & Account */}
         <section className="cbs-surface">
           <div className="cbs-surface-header">
@@ -177,12 +263,41 @@ export default function BookFdPage() {
           The rate is applied server-side — the UI does not compute interest.
         </div>
 
-        {/* Submit */}
+        {/* Submit — two-step: clicking this shows the Confirm dialog;
+            the actual financial post happens from inside the dialog. */}
         <div className="flex gap-2 justify-end border-t border-cbs-steel-200 pt-3">
           <Link href="/deposits" className="cbs-btn cbs-btn-secondary">Cancel</Link>
-          <Button type="submit" isLoading={isSubmitting}>Submit for Approval</Button>
+          <Button type="submit" isLoading={isSubmitting}>Review &amp; Confirm</Button>
         </div>
       </form>
+
+      {/* CBS two-step confirmation dialog (Step 2) */}
+      {pendingData && (
+        <TransactionConfirmDialog
+          isOpen={showConfirm}
+          onCancel={() => setShowConfirm(false)}
+          onConfirm={onConfirmPost}
+          transactionType="Fixed Deposit Booking"
+          amount={Number(pendingData.depositAmount)}
+          fields={[
+            { label: 'Customer ID (CIF)', value: pendingData.customerId },
+            { label: 'Linked CASA', value: pendingData.linkedAccountNumber.toUpperCase() },
+            { label: 'Principal Amount', value: Number(pendingData.depositAmount), isAmount: true },
+            // Disclose BOTH the operator-entered tenure (months) AND the
+            // value that will actually be posted to Spring (days), so the
+            // two-step confirmation honours RBI §8.2 "what-you-see-is-
+            // what-you-post". The backend recalculates the exact maturity
+            // date from product master + posting date.
+            {
+              label: 'Tenure',
+              value: `${pendingData.tenureMonths} month(s) — posted as ${Number(pendingData.tenureMonths) * 30} day(s)`,
+            },
+            { label: 'Auto-Renew', value: pendingData.autoRenew ? 'Yes' : 'No' },
+            ...(pendingData.nomineeName ? [{ label: 'Nominee', value: pendingData.nomineeName }] : []),
+          ]}
+          warning="Tenure is posted to the server as months × 30 days (approximation); the exact maturity date is recalculated server-side from product master and posting date. Interest rate is determined server-side by the product + tenure slab. Maturity amount appears after approval."
+        />
+      )}
     </div>
   );
 }

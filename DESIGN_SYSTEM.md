@@ -818,6 +818,13 @@ mandatory on error toasts per §16b.
   it is a **self-contained data-fetching component**, not a
   reusable primitive. Import directly:
   `import { AuditTrailViewer } from '@/components/cbs/AuditTrailViewer'`
+- **Every money-moving flow MUST render `TransactionConfirmDialog`
+  between form submit and the actual POST.** The dialog owns the
+  explicit "I confirm" checkbox that RBI §8.2 requires. Page compliance
+  audit: `app/(dashboard)/transfers/page.tsx` (internal transfer),
+  `app/(dashboard)/deposits/new/page.tsx` (FD booking),
+  `app/(dashboard)/loans/disburse/page.tsx` (disbursement),
+  `app/(dashboard)/loans/repay/page.tsx` (EMI / prepayment).
 
 ---
 
@@ -1287,7 +1294,7 @@ the `useScreenAudit()` hook mounted once in `DashboardShell`.
 | Route matching | Dynamic routes resolved via sentinel split (prefix + suffix) from the registry at `src/config/routes.ts`. Static routes match by exact equality. |
 | CSRF | Raw `fetch` (not apiClient, to avoid recursion) but reads `NEXT_PUBLIC_CBS_CSRF_COOKIE` and sets `X-CSRF-Token` so the BFF accepts the POST. |
 | Failure mode | Fire-and-forget. Audit never blocks the operator. The server-side correlation ID provides a secondary audit trail if the POST fails. |
-| Screen codes | Every route entry in the registry has a `screenCode` (Finacle convention: `MODULE.ACTION`). Logged alongside `operatorId`, `branchCode`, `timestamp`, `pathname` by the backend. |
+| Screen codes | Every route entry in the registry has a `screenCode` using the `MODULE.ACTION` naming convention standard across Tier-1 CBS platforms. Logged alongside `operatorId`, `branchCode`, `timestamp`, `pathname` by the backend. |
 
 ### Correlation ID Propagation
 
@@ -1322,9 +1329,87 @@ The Axios interceptor only retries 429 (rate-limited) requests when
 Retrying a mutating call without an idempotency key can produce
 duplicate postings because the BFF generates a new server-side
 fallback key per request. Callers performing a financial posting
-(transfer, FD booking, loan disbursement) **MUST** mint a stable
-idempotency key at the point of the first "Confirm" click and pass
-it via headers.
+(transfer, FD booking, loan disbursement, loan repayment) **MUST**
+mint a stable idempotency key at the point of the first "Confirm"
+click and pass it via headers.
+
+**Canonical UI pattern:**
+
+```tsx
+// State — mint once, re-use across retries.
+const [idempotencyKey, setIdempotencyKey] = useState<string | null>(null);
+const [pendingData, setPendingData] = useState<FormData | null>(null);
+
+// Step 1: Validated form submit → show confirm dialog.
+// If the operator edited any field since the last attempt, invalidate
+// the key so the corrected request is evaluated fresh rather than
+// replayed from the backend's idempotency cache.
+const onFormValid = (data: FormData) => {
+  if (pendingData && !formEquals(pendingData, data)) {
+    setIdempotencyKey(null);
+  }
+  setPendingData(data);
+  setShowConfirm(true);
+};
+
+// Step 2: Operator confirms → post. Services never throw — they
+// always return an ApiResponse envelope with `correlationId`
+// populated from the BFF's x-correlation-id header.
+const onConfirmPost = async () => {
+  if (!pendingData) return;
+  const key = idempotencyKey ?? service.mintKey();
+  if (!idempotencyKey) setIdempotencyKey(key);
+  const res = await service.call(toReq(pendingData), key);
+  if (!res.success || !res.data) {
+    // A 4xx response means the server definitively rejected the
+    // request before posting — clear the key so the corrected retry
+    // is evaluated fresh. A 5xx or network error (statusCode 0 or
+    // >=500) means the server MAY have processed — preserve the
+    // key so a retry de-duplicates via the backend's idempotency
+    // cache.
+    const status = res.error?.statusCode ?? 0;
+    const safeToClearKey = status >= 400 && status < 500;
+    if (safeToClearKey) setIdempotencyKey(null);
+    setError({
+      message: res.error?.message || 'Could not be processed',
+      errorCode: res.error?.code,
+      correlationId: res.correlationId,
+    });
+    return;
+  }
+  // …success path (posted receipt / route push). Clear the key.
+  setIdempotencyKey(null);
+};
+```
+
+**Key-clearing rules (summary):**
+
+| Event | Key action | Why |
+|-------|-----------|-----|
+| Server 4xx (validation rejection) | Clear | Request was rejected before posting; corrected retry must be evaluated fresh |
+| Server 5xx or network / timeout | **Keep** | Posting may have succeeded; retry must dedupe via backend cache |
+| Operator edits form between attempts | Clear (in `onFormValid`) | Stale key paired with new data would replay the original response |
+| Successful post | Clear | Posting is finalised; next flow starts clean |
+
+**Service contract:** every service that posts money exposes a
+`mintKey()` method and accepts an optional `idempotencyKey` parameter
+on its mutating calls. The method:
+
+1. Sets both the `X-Idempotency-Key` header **AND** includes the key
+   in the request body (belt-and-suspenders so the backend can dedupe
+   even if a proxy strips headers).
+2. **Never throws.** `AxiosError` is wrapped by the `apiClient`
+   response interceptor into an `AppError` which carries
+   `correlationId` from the response headers; the service catches it
+   and returns a uniform `errEnvelope` with `correlationId` set. UI
+   pages therefore only need a single `!res.success` branch — no
+   `isAxiosError` / `instanceof AppError` checks in the page layer.
+
+**Compliant services:**
+- `transferService.confirm(req, key)` — `src/services/api/transferService.ts`
+- `depositService.bookFd(req, key)` — `src/services/api/depositService.ts`
+- `loanService.disburse(req, key)` / `loanService.repay(req, key)` —
+  `src/services/api/loanService.ts`
 
 Reference: `src/services/api/apiClient.ts` (429 retry guard in response interceptor)
 
@@ -1343,7 +1428,7 @@ Reference: `app/(dashboard)/accounts/new/page.tsx` (CIF fatcaCountry → usTaxRe
 
 CBS operators process 200+ transactions per day. Mouse-driven flows
 add friction; Tier-1 CBS platforms are keyboard-first. Finvanta
-follows the Finacle/T24 convention of function-key shortcuts plus
+follows the industry-standard function-key shortcut convention plus
 `Alt`-key module jumps, implemented in `src/hooks/useCbsKeyboardNav.ts`.
 
 ### Hook architecture

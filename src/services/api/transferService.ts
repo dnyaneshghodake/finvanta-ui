@@ -21,13 +21,22 @@
  */
 import { apiClient } from './apiClient';
 import type { ApiResponse } from '@/types/api';
+import { AppError } from '@/utils/errorHandler';
 
 export interface TransferRequest {
   fromAccountNumber: string;
   toAccountNumber: string;
   amount: number;
   narration?: string;
-  valueDate?: string;
+  // NOTE: `valueDate` is intentionally NOT in this contract. The Spring
+  // `/v1/accounts/transfer` endpoint does not accept a value-date
+  // parameter — the posting date is always `businessDate` from the
+  // server's day-status context (per RBI §8.2 on display integrity:
+  // the UI must never imply control over a field the backend ignores).
+  // If a future rail (NEFT future-dated, RTGS warehoused) requires it,
+  // add the field here, wire it into the POST body, and add a
+  // contract test — do not surface a value-date input before the
+  // backend supports it.
 }
 
 export interface TransferResponse {
@@ -74,13 +83,36 @@ function okEnvelope<T>(data: T): ApiResponse<T> {
   };
 }
 
-function errEnvelope<T>(code: string, message: string, status: number): ApiResponse<T> {
+function errEnvelope<T>(
+  code: string,
+  message: string,
+  status: number,
+  correlationId?: string,
+): ApiResponse<T> {
   return {
     success: false,
     error: { code, message, statusCode: status },
+    correlationId,
     timestamp: new Date().toISOString(),
     requestId: '',
   };
+}
+
+/**
+ * Translate an AppError (produced by the apiClient response interceptor,
+ * which wraps every AxiosError) into a uniform errEnvelope so callers
+ * never see a thrown error — they get a single `{success:false}` shape
+ * with the correlation id preserved for <CorrelationRefBadge />.
+ *
+ * Mirrors the helper in depositService / loanService so every money-
+ * moving service follows the "never throws" contract documented in
+ * DESIGN_SYSTEM §16b.
+ */
+function fromAppError<T>(err: unknown, fallbackCode: string, fallbackMsg: string): ApiResponse<T> {
+  if (err instanceof AppError) {
+    return errEnvelope<T>(err.code || fallbackCode, err.message || fallbackMsg, err.statusCode, err.correlationId);
+  }
+  return errEnvelope<T>(fallbackCode, err instanceof Error ? err.message : fallbackMsg, 500);
 }
 
 class TransferService {
@@ -98,41 +130,46 @@ class TransferService {
     idempotencyKey?: string,
   ): Promise<ApiResponse<TransferResponse>> {
     const key = idempotencyKey || freshIdempotencyKey();
-    const response = await apiClient.post<SpringEnvelope<SpringTxnResponse>>(
-      '/accounts/transfer',
-      {
-        fromAccount: req.fromAccountNumber,
-        toAccount: req.toAccountNumber,
-        amount: req.amount,
-        narration: req.narration,
-        idempotencyKey: key,
-      },
-      {
-        headers: { 'X-Idempotency-Key': key },
-      },
-    );
-    const body = response.data;
-    const correlationId =
-      (response.headers?.['x-correlation-id'] as string | undefined) || undefined;
-    if (body.status === 'SUCCESS' && body.data) {
-      const amount =
-        typeof body.data.amount === 'number' ? body.data.amount : Number(body.data.amount);
-      return okEnvelope<TransferResponse>({
-        transactionRef: body.data.transactionRef,
-        auditHashPrefix: body.data.auditHashPrefix || undefined,
-        fromAccountNumber: req.fromAccountNumber,
-        toAccountNumber: req.toAccountNumber,
-        amount: Number.isFinite(amount) ? Math.abs(amount) : req.amount,
-        status: 'POSTED',
-        postedAt: body.data.postingDate || undefined,
+    try {
+      const response = await apiClient.post<SpringEnvelope<SpringTxnResponse>>(
+        '/accounts/transfer',
+        {
+          fromAccount: req.fromAccountNumber,
+          toAccount: req.toAccountNumber,
+          amount: req.amount,
+          narration: req.narration,
+          idempotencyKey: key,
+        },
+        {
+          headers: { 'X-Idempotency-Key': key },
+        },
+      );
+      const body = response.data;
+      const correlationId =
+        (response.headers?.['x-correlation-id'] as string | undefined) || undefined;
+      if (body.status === 'SUCCESS' && body.data) {
+        const amount =
+          typeof body.data.amount === 'number' ? body.data.amount : Number(body.data.amount);
+        return okEnvelope<TransferResponse>({
+          transactionRef: body.data.transactionRef,
+          auditHashPrefix: body.data.auditHashPrefix || undefined,
+          fromAccountNumber: req.fromAccountNumber,
+          toAccountNumber: req.toAccountNumber,
+          amount: Number.isFinite(amount) ? Math.abs(amount) : req.amount,
+          status: 'POSTED',
+          postedAt: body.data.postingDate || undefined,
+          correlationId,
+        });
+      }
+      return errEnvelope<TransferResponse>(
+        body.errorCode || 'TRANSFER_FAILED',
+        body.message || 'Transfer could not be processed',
+        400,
         correlationId,
-      });
+      );
+    } catch (err) {
+      return fromAppError<TransferResponse>(err, 'TRANSFER_FAILED', 'Transfer could not be processed');
     }
-    return errEnvelope<TransferResponse>(
-      body.errorCode || 'TRANSFER_FAILED',
-      body.message || 'Transfer could not be processed',
-      400,
-    );
   }
 
   /** Generate a fresh idempotency key at the point of "Confirm" click. */
