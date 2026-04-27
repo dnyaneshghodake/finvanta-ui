@@ -31,6 +31,7 @@ import {
 } from './transfer';
 import { bookFdEnvelopeSchema } from './deposit';
 import { loanTransactionEnvelopeSchema } from './loan';
+import { accountTransferEnvelopeSchema } from './accountTransfer';
 
 export interface ResponseSchemaRule {
   /** Regex string matched against the request URL (as seen by axios). */
@@ -139,19 +140,20 @@ export const RESPONSE_SCHEMAS: ReadonlyArray<ResponseSchemaRule> = [
   },
 
   // Account-to-account transfer — Spring POST /v1/accounts/transfer.
-  // Consumed by transferService.confirm. Returns a TransactionResponse
-  // (transactionRef + amount + postingDate + auditHashPrefix), which
-  // is structurally identical to the loan transaction envelope, so we
-  // reuse `loanTransactionEnvelopeSchema` rather than duplicating it.
-  // The existing `transferEnvelopeSchema` describes a richer
-  // `TransferResponse` (referenceNumber/channel/...) emitted by the
-  // /transfers/* endpoints — not by /accounts/transfer — so it would
-  // not match this response shape.
+  // Consumed by accountService.transfer. Returns a TransactionResponse
+  // (transactionRef + amount + postingDate + auditHashPrefix). The
+  // shape is structurally identical to the loan transaction envelope
+  // *today*, but the two endpoints belong to unrelated bounded
+  // contexts (account ledger vs. loan servicing). Use a dedicated
+  // alias so a future change to either schema does not silently
+  // propagate across domains. The existing `transferEnvelopeSchema`
+  // describes a richer `TransferResponse` emitted by /transfers/* —
+  // not by /accounts/transfer — so it would not match here.
   {
     name: 'accountTransfer',
     urlPattern: '^/accounts/transfer$',
     methods: ['POST'],
-    schema: loanTransactionEnvelopeSchema,
+    schema: accountTransferEnvelopeSchema,
   },
 
   // Fixed Deposit booking — Spring POST /v1/fixed-deposits/book.
@@ -223,3 +225,4 @@ export * from './account';
 export * from './transfer';
 export * from './deposit';
 export * from './loan';
+export * from './accountTransfer';
