@@ -451,14 +451,12 @@ class AccountService {
         // If the backend ever moves to async settlement, this must
         // be downgraded to 'PENDING' and reconciled via webhook.
         status: 'COMPLETED',
-        // Preserve the user's narration verbatim for RBI audit trail;
-        // mark a system-generated default distinguishably so reviewers
-        // can tell user vs. system-supplied descriptions in reports.
-        description: data.description || '[SYSTEM] Account transfer',
-        // Audit hash prefix (first 12 hex of SHA-256 over the posting)
-        // is the tamper-evident reference shown on receipts (§14b
-        // AuditHashChip) — preserve it instead of dropping silently.
-        voucherNumber: t.auditHashPrefix || undefined,
+        // Receipt narration MUST equal ledger narration byte-for-byte
+        // (RBI Master Direction on Customer Service). Fall back to the
+        // same default the JSP path uses so the optimistic Transaction
+        // shown post-submit matches the value the next mini-statement
+        // fetch returns.
+        description: data.description || 'Account transfer',
         valueDate: posting,
         postingDate: posting,
         referenceNumber: t.transactionRef,

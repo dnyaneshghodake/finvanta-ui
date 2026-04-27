@@ -79,7 +79,11 @@ describe('accountService.transfer', () => {
     expect(postMock).toHaveBeenCalledOnce();
   });
 
-  it('preserves auditHashPrefix as voucherNumber for tamper-evident receipt', async () => {
+  it('does not conflate auditHashPrefix with voucherNumber', async () => {
+    // voucherNumber is reserved for the Finacle VCH/{branch}/{YYYYMMDD}/{seq}
+    // token resolved by Txn360; auditHashPrefix is a separate SHA-256 prefix.
+    // Conflating them would 404 the /txn360/voucher/{voucherNumber} lookup.
+    // Surfacing auditHashPrefix on the Transaction is tracked as a follow-up.
     getMock.mockResolvedValueOnce({ data: { status: 'SUCCESS',
       data: { accountNumber: 'SB-001', accountType: 'SAVINGS', status: 'ACTIVE',
         ledgerBalance: 0, availableBalance: 0, currencyCode: 'INR' } } });
@@ -89,7 +93,7 @@ describe('accountService.transfer', () => {
       toAccountNumber: 'SB-002', amount: 1500, description: 'X',
     } as never);
 
-    expect(r.data?.voucherNumber).toBe('a1b2c3d4e5f6');
+    expect(r.data?.voucherNumber).toBeUndefined();
   });
 
   it('records DEBIT with negative amount on the source account', async () => {
@@ -107,10 +111,9 @@ describe('accountService.transfer', () => {
     expect(r.data?.amount).toBe(-1500);
   });
 
-  it('uses [SYSTEM]-tagged default when description is empty (current behaviour)', async () => {
-    // NOTE: this pins the *current* behaviour. Per review feedback the
-    // user-visible '[SYSTEM]' prefix is contested; if it is removed,
-    // update this assertion to the agreed default.
+  it('uses neutral default when description is empty (matches JSP path)', async () => {
+    // Default must equal what the JSP path would store on the ledger so
+    // the optimistic receipt and the next mini-statement fetch agree.
     getMock.mockResolvedValueOnce({ data: { status: 'SUCCESS',
       data: { accountNumber: 'SB-001', accountType: 'SAVINGS', status: 'ACTIVE',
         ledgerBalance: 0, availableBalance: 0, currencyCode: 'INR' } } });
@@ -120,7 +123,7 @@ describe('accountService.transfer', () => {
       toAccountNumber: 'SB-002', amount: 1500, description: '',
     } as never);
 
-    expect(r.data?.description).toBe('[SYSTEM] Account transfer');
+    expect(r.data?.description).toBe('Account transfer');
   });
 
   it('sends X-Idempotency-Key header and echoes it in the request body', async () => {
