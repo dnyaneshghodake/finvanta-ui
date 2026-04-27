@@ -391,6 +391,18 @@ class AccountService {
     data: UiTransferRequest,
   ): Promise<ApiResponse<Transaction>> {
     const idempotencyKey = crypto.randomUUID();
+    // Source currency from the debiting account rather than a hard-
+    // coded literal so multi-currency / NRE / NRO / FCNR bookings stamp
+    // the correct ISO-4217 code on the resulting Transaction. Falls
+    // back to INR only if the lookup fails (offline / first-load).
+    let sourceCurrency = 'INR';
+    try {
+      const acct = await this.getAccount(accountNumber);
+      if (acct.success && acct.data?.currency) sourceCurrency = acct.data.currency;
+    } catch {
+      // Non-fatal — proceed with INR fallback; the transfer itself is
+      // authoritative server-side and currency is presentation metadata.
+    }
     // Spring `POST /v1/accounts/transfer` returns the minimal
     // TransactionResponse envelope (transactionRef, amount,
     // postingDate, auditHashPrefix) -- NOT the full 19-field TxnResponse
@@ -430,11 +442,23 @@ class AccountService {
         transactionId: t.transactionRef,
         accountId: accountNumber,
         amount: -abs,
-        currency: 'INR',
+        currency: sourceCurrency,
         transactionType: 'DEBIT',
         debitCredit: 'DR',
+        // Spring's TransactionResponse confirms the posting succeeded
+        // synchronously via TransactionEngine.execute(); the ledger
+        // entry is durable at this point, so COMPLETED is correct.
+        // If the backend ever moves to async settlement, this must
+        // be downgraded to 'PENDING' and reconciled via webhook.
         status: 'COMPLETED',
-        description: data.description || 'Account transfer',
+        // Preserve the user's narration verbatim for RBI audit trail;
+        // mark a system-generated default distinguishably so reviewers
+        // can tell user vs. system-supplied descriptions in reports.
+        description: data.description || '[SYSTEM] Account transfer',
+        // Audit hash prefix (first 12 hex of SHA-256 over the posting)
+        // is the tamper-evident reference shown on receipts (§14b
+        // AuditHashChip) — preserve it instead of dropping silently.
+        voucherNumber: t.auditHashPrefix || undefined,
         valueDate: posting,
         postingDate: posting,
         referenceNumber: t.transactionRef,
