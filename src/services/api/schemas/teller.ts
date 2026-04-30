@@ -266,28 +266,6 @@ export const cashDepositResponseSchema = cashPostingBaseSchema.extend({
 
 export const cashDepositEnvelopeSchema = springEnvelope(cashDepositResponseSchema);
 
-/**
- * Discriminated union for the `/v2/teller/cash-deposit` POST endpoint.
- *
- * On HTTP 200 the response is a SUCCESS envelope wrapping
- * `cashDepositResponseSchema`.
- *
- * On HTTP 422 with `errorCode: "CBS-TELLER-008"` the response is an
- * ERROR envelope wrapping `ficnAcknowledgementResponseSchema` — the
- * customer slip required by RBI Master Direction on Counterfeit Notes.
- *
- * The service-layer caller uses axios `validateStatus` to keep BOTH
- * 200 and 422 in the success branch so the FICN slip body survives the
- * default error interceptor; this union schema is what the response-
- * validator middleware (`apiClient.ts:155-186`) checks against. Any
- * other 4xx (CBS-TELLER-001, CBS-TELLER-004, CBS-COMP-002, etc.) flows
- * through the standard error path and is wrapped as `AppError`.
- */
-export const cashDepositOrFicnEnvelopeSchema = z.union([
-  cashDepositEnvelopeSchema,
-  ficnAcknowledgementEnvelopeSchema,
-]);
-
 export const cashWithdrawalResponseSchema = cashPostingBaseSchema.extend({
   chequeNumber: z.string().nullish(),
 }).passthrough();
@@ -334,3 +312,30 @@ export const ficnAcknowledgementResponseSchema = z.object({
 export const ficnAcknowledgementEnvelopeSchema = springEnvelope(
   ficnAcknowledgementResponseSchema,
 );
+
+/**
+ * Discriminated union for the `/v2/teller/cash-deposit` POST endpoint.
+ *
+ * On HTTP 200 the response is a SUCCESS envelope wrapping
+ * `cashDepositResponseSchema`.
+ *
+ * On HTTP 422 with `errorCode: "CBS-TELLER-008"` the response is an
+ * ERROR envelope wrapping `ficnAcknowledgementResponseSchema` — the
+ * customer slip required by RBI Master Direction on Counterfeit Notes.
+ *
+ * The service-layer caller uses axios `validateStatus` to keep BOTH
+ * 200 and 422 in the success branch so the FICN slip body survives the
+ * default error interceptor; this union schema is what the response-
+ * validator middleware (`apiClient.ts:155-186`) checks against. Any
+ * other 4xx (CBS-TELLER-001, CBS-TELLER-004, CBS-COMP-002, etc.) flows
+ * through the standard error path and is wrapped as `AppError`.
+ *
+ * NOTE: declared AFTER `ficnAcknowledgementEnvelopeSchema` so the
+ * `const` reference below is no longer in the temporal dead zone.
+ * Earlier placement caused a `ReferenceError` at module load and
+ * blocked `tsc` with TS2448 (block-scoped-var used before declaration).
+ */
+export const cashDepositOrFicnEnvelopeSchema = z.union([
+  cashDepositEnvelopeSchema,
+  ficnAcknowledgementEnvelopeSchema,
+]);
