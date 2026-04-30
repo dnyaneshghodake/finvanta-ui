@@ -20,7 +20,6 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Loader2, ShieldCheck } from 'lucide-react';
-import { useAuthStore } from '@/store/authStore';
 import type { User } from '@/types/entities';
 
 const loginSchema = z.object({
@@ -196,19 +195,28 @@ function LoginInner() {
         return;
       }
 
-      useAuthStore.setState({
-        user: response.data.data.user,
-        csrfToken: response.data.data.csrfToken,
-        expiresAt: response.data.data.expiresAt,
-        businessDate: response.data.data.businessDate ?? null,
-        businessDay: response.data.data.businessDay ?? null,
-        operationalConfig: response.data.data.operationalConfig ?? null,
-        isAuthenticated: true,
-        isHydrated: true,
-        isLoading: false,
-        error: null,
-      });
-      router.push('/dashboard');
+      // Tier-1 CBS pattern: cross the auth boundary with a full-page
+      // navigation, NOT router.push. router.push triggers an RSC
+      // payload fetch that races the just-set fv_sid cookie under
+      // Turbopack dev — producing "TypeError: Failed to fetch RSC
+      // payload for /dashboard", a fallback browser navigation that
+      // hits the proxy session-check WITHOUT the cookie attached, and
+      // a redirect to /login?reason=session_expired right after a
+      // successful login. window.location.assign forces the browser
+      // to re-evaluate cookies before the next request fires.
+      // Mirrors apiClient.ts:212 which uses window.location.href for
+      // the inverse 401 → /login redirect — both directions of the
+      // auth boundary cross via full browser navigation. Also matches
+      // the JSP login → server-side redirect pattern documented in
+      // JSP_NAVIGATION_AUDIT.md §1.
+      //
+      // No client-side useAuthStore.setState here: the navigation below
+      // destroys the JS context before any subscriber would observe it
+      // (the store has no `persist` middleware). The dashboard rehydrates
+      // authoritatively from `/api/cbs/auth/me` via `loadSession()`
+      // against the just-set fv_sid cookie — that is the single source
+      // of truth post-login.
+      window.location.assign('/dashboard');
     } catch (err) {
       if (isAxiosError(err)) {
         const msg = err.response?.data?.message || err.message;

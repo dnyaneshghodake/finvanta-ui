@@ -11,8 +11,8 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { apiClient } from '@/services/api/apiClient';
-import { StatusRibbon, AmountDisplay, Breadcrumb } from '@/components/cbs';
-import { Button, Spinner } from '@/components/atoms';
+import { StatusRibbon, Breadcrumb } from '@/components/cbs';
+import { Spinner } from '@/components/atoms';
 import { formatCbsDate } from '@/utils/formatters';
 
 interface FdRecord {

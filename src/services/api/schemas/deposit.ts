@@ -16,7 +16,7 @@
  * strictly required.
  */
 import { z } from 'zod';
-import { numericString, springEnvelope } from './common';
+import { isoDate, isoInstant, numericString, springEnvelope } from './common';
 
 export const bookFdResponseSchema = z.object({
   fdAccountNumber: z.string().min(1),
@@ -28,10 +28,11 @@ export const bookFdResponseSchema = z.object({
   // Spring may serialise maturityDate as a `LocalDate` (`YYYY-MM-DD`)
   // OR as a full `LocalDateTime` instant (`YYYY-MM-DDTHH:mm:ss[Z]`)
   // depending on the @JsonFormat config of the booking response DTO.
-  // Validate leniently as a non-empty string (mirrors the loan
-  // schema's treatment of `postingDate`) so a successfully booked FD
-  // is never rejected with a false CONTRACT_MISMATCH.
-  maturityDate: z.string().min(1).nullish(),
+  // Accept both shapes via a strict union so a successfully booked FD
+  // is never rejected with a false CONTRACT_MISMATCH, while still
+  // catching genuinely malformed values (RBI: maturity date drives
+  // interest accrual and TDS — must not be a free-form string).
+  maturityDate: z.union([isoDate, isoInstant.regex(/^\d{4}-\d{2}-\d{2}T/)]).nullish(),
   status: z.string().nullish(),
 }).passthrough();
 

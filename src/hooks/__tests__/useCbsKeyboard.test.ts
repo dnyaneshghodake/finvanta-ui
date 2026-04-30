@@ -9,7 +9,7 @@
  *   - Disabled state prevents all shortcuts
  *   - kbdLabel maps keys correctly
  */
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import { kbdLabel } from '../useCbsKeyboard';
 
 describe('kbdLabel', () => {

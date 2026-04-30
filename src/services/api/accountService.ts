@@ -242,6 +242,14 @@ function mapTxn(t: SpringTxn, accountNumber: string): Transaction {
     transactionId: t.transactionRef,
     accountId: accountNumber,
     amount: signed,
+    // TODO(backend): Spring `TxnResponse` does not carry `currencyCode`
+    // per the SpringTxn interface above. Mini-statement / statement
+    // therefore cannot stamp the true ISO-4217 code on a per-txn basis,
+    // so the source-account currency stamped on the optimistic transfer
+    // Transaction (accountService.ts:445) is overwritten with 'INR' on
+    // the next list refresh — a visible flip on NRE/NRO/FCNR accounts.
+    // Fix path: add `currencyCode` to TxnResponse on the Spring side
+    // (the field lives on DepositAccount already), then derive here.
     currency: 'INR',
     transactionType: isDebit ? 'DEBIT' : 'CREDIT',
     debitCredit: (t.debitCredit === 'DR' || t.debitCredit === 'D') ? 'DR' : 'CR',
@@ -391,12 +399,33 @@ class AccountService {
     data: UiTransferRequest,
   ): Promise<ApiResponse<Transaction>> {
     const idempotencyKey = crypto.randomUUID();
+    // Source currency from the debiting account rather than a hard-
+    // coded literal so multi-currency / NRE / NRO / FCNR bookings stamp
+    // the correct ISO-4217 code on the resulting Transaction. Falls
+    // back to INR only if the lookup fails (offline / first-load).
+    //
+    // TODO(perf): this adds a sequential GET before every transfer POST
+    // — ~doubles hot-path latency on WAN-tier branch links for what is
+    // presentation-only metadata. Caller (accountStore.transfer at
+    // src/store/accountStore.ts:200) already holds the source account
+    // in its in-memory `accounts[]` cache. Plumb the currency through
+    // the store wrapper (signature change) to skip this round-trip on
+    // the warm path; keep this network fallback for cold-load callers
+    // (deep link to /transfer with no prior account fetch).
+    let sourceCurrency = 'INR';
+    try {
+      const acct = await this.getAccount(accountNumber);
+      if (acct.success && acct.data?.currency) sourceCurrency = acct.data.currency;
+    } catch {
+      // Non-fatal — proceed with INR fallback; the transfer itself is
+      // authoritative server-side and currency is presentation metadata.
+    }
     // Spring `POST /v1/accounts/transfer` returns the minimal
     // TransactionResponse envelope (transactionRef, amount,
     // postingDate, auditHashPrefix) -- NOT the full 19-field TxnResponse
     // emitted by the mini-statement endpoints. Type the response to the
     // shape that's actually on the wire so the schema validation in
-    // `RESPONSE_SCHEMAS.accountTransfer` (loanTransactionEnvelopeSchema)
+    // `RESPONSE_SCHEMAS.accountTransfer` (accountTransferEnvelopeSchema)
     // and the runtime mapping below stay in lockstep. Going through
     // `mapTxn` here previously coerced every transfer to CREDIT because
     // `debitCredit` is absent in this response -- a silent data bug.
@@ -430,10 +459,20 @@ class AccountService {
         transactionId: t.transactionRef,
         accountId: accountNumber,
         amount: -abs,
-        currency: 'INR',
+        currency: sourceCurrency,
         transactionType: 'DEBIT',
         debitCredit: 'DR',
+        // Spring's TransactionResponse confirms the posting succeeded
+        // synchronously via TransactionEngine.execute(); the ledger
+        // entry is durable at this point, so COMPLETED is correct.
+        // If the backend ever moves to async settlement, this must
+        // be downgraded to 'PENDING' and reconciled via webhook.
         status: 'COMPLETED',
+        // Receipt narration MUST equal ledger narration byte-for-byte
+        // (RBI Master Direction on Customer Service). Fall back to the
+        // same default the JSP path uses so the optimistic Transaction
+        // shown post-submit matches the value the next mini-statement
+        // fetch returns.
         description: data.description || 'Account transfer',
         valueDate: posting,
         postingDate: posting,
@@ -452,6 +491,10 @@ class AccountService {
    * Returning an empty success envelope keeps the accounts store
    * happy and the UI render path stable.
    */
+  /**
+   * Stub for future implementation.
+   * @TODO Implement in a later vertical slice.
+   */
   async getBeneficiaries(_params?: PaginationParams): Promise<ApiResponse<PaginatedResponse<Beneficiary>>> {
     return okEnvelope<PaginatedResponse<Beneficiary>>({
       items: [],
@@ -464,6 +507,10 @@ class AccountService {
     });
   }
 
+  /**
+   * Stub for future implementation.
+   * @TODO Implement in a later vertical slice.
+   */
   async addBeneficiary(
     _data: Omit<Beneficiary, 'id' | 'customerId' | 'createdAt' | 'updatedAt'>,
   ): Promise<ApiResponse<Beneficiary>> {
@@ -474,6 +521,10 @@ class AccountService {
     );
   }
 
+  /**
+   * Stub for future implementation.
+   * @TODO Implement in a later vertical slice.
+   */
   async removeBeneficiary(_beneficiaryId: string): Promise<ApiResponse<null>> {
     return errEnvelope<null>(
       'NOT_IMPLEMENTED',
