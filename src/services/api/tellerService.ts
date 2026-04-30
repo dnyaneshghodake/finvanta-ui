@@ -21,7 +21,13 @@
  */
 import { apiClient } from './apiClient';
 import type { ApiResponse } from '@/types/api';
-import type { TellerTill } from '@/types/teller.types';
+import type {
+  CashDepositReceipt,
+  DenominationInput,
+  DenominationLine,
+  FicnAcknowledgement,
+  TellerTill,
+} from '@/types/teller.types';
 import { AppError } from '@/utils/errorHandler';
 
 // ---------------------------------------------------------------------------
@@ -37,6 +43,58 @@ interface SpringEnvelope<T> {
   errorCode?: string;
   message?: string;
   timestamp?: string;
+}
+
+interface SpringDenominationLine {
+  denomination: DenominationLine['denomination'];
+  unitCount: number | string;
+  counterfeitCount: number | string;
+  totalValue: number | string;
+}
+
+interface SpringCashDeposit {
+  transactionRef: string;
+  voucherNumber?: string | null;
+  accountNumber: string;
+  amount: number | string;
+  balanceBefore?: number | string | null;
+  balanceAfter?: number | string | null;
+  valueDate?: string | null;
+  postingDate?: string | null;
+  narration?: string | null;
+  channel?: string | null;
+  pendingApproval: boolean;
+  tillBalanceAfter?: number | string | null;
+  tillId?: number | string | null;
+  tellerUserId?: string | null;
+  denominations: SpringDenominationLine[];
+  ctrTriggered: boolean;
+  ficnTriggered: boolean;
+}
+
+interface SpringFicnImpoundLine {
+  denomination: DenominationLine['denomination'];
+  counterfeitCount: number | string;
+  totalFaceValue: number | string;
+}
+
+interface SpringFicnAcknowledgement {
+  registerRef: string;
+  originatingTxnRef: string;
+  branchCode: string;
+  branchName?: string | null;
+  detectionDate: string;
+  detectionTimestamp: string;
+  detectedByTeller: string;
+  depositorName?: string | null;
+  depositorIdType?: string | null;
+  depositorIdNumber?: string | null;
+  depositorMobile?: string | null;
+  impoundedDenominations: SpringFicnImpoundLine[];
+  totalFaceValue: number | string;
+  firRequired: boolean;
+  chestDispatchStatus: FicnAcknowledgement['chestDispatchStatus'];
+  remarks?: string | null;
 }
 
 interface SpringTill {
@@ -72,6 +130,62 @@ function toNumber(v: number | string | null | undefined): number {
 function toNullableNumber(v: number | string | null | undefined): number | null {
   if (v === null || v === undefined) return null;
   return toNumber(v);
+}
+
+function mapDenominationLine(d: SpringDenominationLine): DenominationLine {
+  return {
+    denomination: d.denomination,
+    unitCount: toNumber(d.unitCount),
+    counterfeitCount: toNumber(d.counterfeitCount),
+    totalValue: toNumber(d.totalValue),
+  };
+}
+
+function mapCashDeposit(d: SpringCashDeposit): CashDepositReceipt {
+  return {
+    transactionRef: d.transactionRef,
+    voucherNumber: d.voucherNumber ?? null,
+    accountNumber: d.accountNumber,
+    amount: toNumber(d.amount),
+    balanceBefore: toNullableNumber(d.balanceBefore),
+    balanceAfter: toNullableNumber(d.balanceAfter),
+    valueDate: d.valueDate ?? null,
+    postingDate: d.postingDate ?? null,
+    narration: d.narration ?? null,
+    channel: d.channel ?? null,
+    pendingApproval: d.pendingApproval,
+    tillBalanceAfter: toNullableNumber(d.tillBalanceAfter),
+    tillId: d.tillId === null || d.tillId === undefined ? null : Number(d.tillId),
+    tellerUserId: d.tellerUserId ?? null,
+    denominations: d.denominations.map(mapDenominationLine),
+    ctrTriggered: d.ctrTriggered,
+    ficnTriggered: d.ficnTriggered,
+  };
+}
+
+function mapFicn(f: SpringFicnAcknowledgement): FicnAcknowledgement {
+  return {
+    registerRef: f.registerRef,
+    originatingTxnRef: f.originatingTxnRef,
+    branchCode: f.branchCode,
+    branchName: f.branchName ?? null,
+    detectionDate: f.detectionDate,
+    detectionTimestamp: f.detectionTimestamp,
+    detectedByTeller: f.detectedByTeller,
+    depositorName: f.depositorName ?? null,
+    depositorIdType: f.depositorIdType ?? null,
+    depositorIdNumber: f.depositorIdNumber ?? null,
+    depositorMobile: f.depositorMobile ?? null,
+    impoundedDenominations: f.impoundedDenominations.map((line) => ({
+      denomination: line.denomination,
+      counterfeitCount: toNumber(line.counterfeitCount),
+      totalFaceValue: toNumber(line.totalFaceValue),
+    })),
+    totalFaceValue: toNumber(f.totalFaceValue),
+    firRequired: f.firRequired,
+    chestDispatchStatus: f.chestDispatchStatus,
+    remarks: f.remarks ?? null,
+  };
 }
 
 function mapTill(t: SpringTill): TellerTill {
