@@ -18,7 +18,6 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Loader2 } from 'lucide-react';
-import { useAuthStore } from '@/store/authStore';
 import type { User } from '@/types/entities';
 
 const mfaSchema = z.object({
@@ -138,31 +137,16 @@ export default function MfaPage() {
         return;
       }
 
-      // See app/login/page.tsx — this setState is intentionally dead;
-      // `window.location.assign` below destroys the JS context and the
-      // dashboard rehydrates from `/api/cbs/auth/me` against the
-      // just-set fv_sid cookie. Kept as defensive scaffolding only.
-      useAuthStore.setState({
-        user: response.data.data.user,
-        csrfToken: response.data.data.csrfToken,
-        expiresAt: response.data.data.expiresAt,
-        businessDate: response.data.data.businessDate ?? null,
-        businessDay: response.data.data.businessDay ?? null,
-        operationalConfig: response.data.data.operationalConfig ?? null,
-        isAuthenticated: true,
-        isHydrated: true,
-        isLoading: false,
-        error: null,
-      });
       // Tier-1 CBS pattern: cross the auth boundary with a full-page
-      // navigation, NOT router.push. See app/login/page.tsx:211 for the
+      // navigation, NOT router.push. See app/login/page.tsx for the
       // same fix on the password flow — router.push triggers an RSC
       // payload fetch that races the just-set fv_sid cookie under
       // Turbopack dev, producing "TypeError: Failed to fetch RSC
       // payload" and a fallback redirect to ?reason=session_expired
       // immediately after a SUCCESSFUL MFA verify. window.location
       // forces the browser to re-evaluate cookies before the next
-      // request fires.
+      // request fires. Authoritative auth state is rehydrated by the
+      // dashboard via `loadSession()` against the fv_sid cookie.
       window.location.assign('/dashboard');
     } catch (err) {
       if (isAxiosError(err)) {

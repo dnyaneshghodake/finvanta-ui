@@ -20,7 +20,6 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Loader2, ShieldCheck } from 'lucide-react';
-import { useAuthStore } from '@/store/authStore';
 import type { User } from '@/types/entities';
 
 const loginSchema = z.object({
@@ -196,28 +195,6 @@ function LoginInner() {
         return;
       }
 
-      // NOTE: this setState is effectively dead — `window.location.assign`
-      // below destroys the JS context before any subscriber observes it,
-      // and `useAuthStore` (src/store/authStore.ts:36) has no `persist`
-      // middleware. The dashboard rehydrates from `/api/cbs/auth/me` via
-      // `loadSession()` against the just-set fv_sid cookie. Kept as
-      // defensive scaffolding ONLY in case the auth-boundary navigation
-      // pattern is ever reverted to client-side `router.push` (which
-      // would preserve the JS context and make this state observable);
-      // see the comment immediately below for why that revert MUST NOT
-      // happen on the password / MFA verify success path.
-      useAuthStore.setState({
-        user: response.data.data.user,
-        csrfToken: response.data.data.csrfToken,
-        expiresAt: response.data.data.expiresAt,
-        businessDate: response.data.data.businessDate ?? null,
-        businessDay: response.data.data.businessDay ?? null,
-        operationalConfig: response.data.data.operationalConfig ?? null,
-        isAuthenticated: true,
-        isHydrated: true,
-        isLoading: false,
-        error: null,
-      });
       // Tier-1 CBS pattern: cross the auth boundary with a full-page
       // navigation, NOT router.push. router.push triggers an RSC
       // payload fetch that races the just-set fv_sid cookie under
@@ -232,6 +209,13 @@ function LoginInner() {
       // auth boundary cross via full browser navigation. Also matches
       // the JSP login → server-side redirect pattern documented in
       // JSP_NAVIGATION_AUDIT.md §1.
+      //
+      // No client-side useAuthStore.setState here: the navigation below
+      // destroys the JS context before any subscriber would observe it
+      // (the store has no `persist` middleware). The dashboard rehydrates
+      // authoritatively from `/api/cbs/auth/me` via `loadSession()`
+      // against the just-set fv_sid cookie — that is the single source
+      // of truth post-login.
       window.location.assign('/dashboard');
     } catch (err) {
       if (isAxiosError(err)) {
