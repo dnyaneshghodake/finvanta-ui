@@ -138,6 +138,10 @@ export default function MfaPage() {
         return;
       }
 
+      // See app/login/page.tsx — this setState is intentionally dead;
+      // `window.location.assign` below destroys the JS context and the
+      // dashboard rehydrates from `/api/cbs/auth/me` against the
+      // just-set fv_sid cookie. Kept as defensive scaffolding only.
       useAuthStore.setState({
         user: response.data.data.user,
         csrfToken: response.data.data.csrfToken,

@@ -196,6 +196,16 @@ function LoginInner() {
         return;
       }
 
+      // NOTE: this setState is effectively dead — `window.location.assign`
+      // below destroys the JS context before any subscriber observes it,
+      // and `useAuthStore` (src/store/authStore.ts:36) has no `persist`
+      // middleware. The dashboard rehydrates from `/api/cbs/auth/me` via
+      // `loadSession()` against the just-set fv_sid cookie. Kept as
+      // defensive scaffolding ONLY in case the auth-boundary navigation
+      // pattern is ever reverted to client-side `router.push` (which
+      // would preserve the JS context and make this state observable);
+      // see the comment immediately below for why that revert MUST NOT
+      // happen on the password / MFA verify success path.
       useAuthStore.setState({
         user: response.data.data.user,
         csrfToken: response.data.data.csrfToken,
