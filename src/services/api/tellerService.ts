@@ -296,23 +296,46 @@ class TellerService {
    * `CBS-TELLER-001` when no till is open — caller should drive the
    * operator into the open-till form.
    *
+   * `validateStatus: () => true` keeps non-2xx responses in the
+   * success branch so the Spring envelope's flat `errorCode` field
+   * (e.g. `CBS-TELLER-001`) is preserved verbatim. Without this the
+   * default error interceptor calls `errorHandler.handleApiError`
+   * which reads `data?.error?.code` (a NESTED shape that Spring
+   * doesn't emit) and falls through to the generic HTTP-status
+   * mapping (`HTTP_409` / "This record has been modified by another
+   * user…") at `errorHandler.ts:87-92`. The store's check for
+   * `CBS-TELLER-001` would never match and the operator would see
+   * the wrong error message instead of the open-till form. Mirrors
+   * the pattern at `app/login/page.tsx:116` and
+   * `authService.ts:84` where Spring error codes need to flow
+   * through to the caller. Network failures and 5xx still throw
+   * (caught in the catch block) since `apiClient.get` itself can
+   * still reject if the request never lands.
+   *
    * Role: TELLER, MAKER, CHECKER, ADMIN, AUDITOR
    */
   async getMyTill(): Promise<ApiResponse<TellerTill>> {
     try {
       const response = await apiClient.get<SpringEnvelope<SpringTill>>(
         '/v2/teller/till/me',
+        { validateStatus: () => true },
       );
       const correlationId =
         (response.headers?.['x-correlation-id'] as string | undefined) || undefined;
       const body = response.data;
-      if (body.status === 'SUCCESS' && body.data) {
+      if (response.status === 200 && body.status === 'SUCCESS' && body.data) {
         return okEnvelope(mapTill(body.data), correlationId);
       }
+      // Spring 409 + CBS-TELLER-001 on /till/me means "no till open
+      // today" — surface the code verbatim so the store can route the
+      // operator into the open-till form. Anything else (5xx, 401,
+      // 403, malformed body) falls through to a generic failure.
+      const errorCode = body?.errorCode || 'TILL_NOT_FOUND';
+      const errorMessage = body?.message || 'No till open for today';
       return errEnvelope<TellerTill>(
-        body.errorCode || 'TILL_NOT_FOUND',
-        body.message || 'No till open for today',
-        body.errorCode === 'CBS-TELLER-001' ? 409 : 400,
+        errorCode,
+        errorMessage,
+        response.status || 400,
         correlationId,
       );
     } catch (err) {
