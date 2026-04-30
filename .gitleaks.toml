@@ -8,18 +8,9 @@
         "dist/.*",
         "\\.next/.*",
     ]
-    
-    # Allow JWT test tokens and common test patterns
-    [[allowlist.regexes]]
-    regex = "eyJ[a-zA-Z0-9_-]*\\.eyJ[a-zA-Z0-9_-]*\\.[a-zA-Z0-9_-]*"
-    description = "Allow JWT test tokens with proper structure"
-    
-    # Allow GHES sample tokens in docs
-    [[allowlist.regexes]]
-    regex = "ghp_[a-zA-Z0-9]{36}"
-    description = "Allow GHES sample token pattern (false positive)"
-    
-    # Allow generic test patterns
-    [[allowlist.regexes]]
-    regex = "test[_-]?token"
-    description = "Allow test tokens"
+    # Allow JWT test tokens - comma-separated regex strings
+    regexes = [
+        "eyJ[a-zA-Z0-9_-]*\\.eyJ[a-zA-Z0-9_-]*\\.[a-zA-Z0-9_-]*",
+        "ghp_[a-zA-Z0-9]{36}",
+        "test[_-]?token",
+    ]
