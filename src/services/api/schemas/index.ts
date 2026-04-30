@@ -288,9 +288,11 @@ export const RESPONSE_SCHEMAS: ReadonlyArray<ResponseSchemaRule> = [
     schema: cashWithdrawalEnvelopeSchema,
   },
 
-  // Vault lifecycle — B1: backend prose says DTO, signatures say entity.
-  // Schema matches the DTO shape per prose; CONTRACT_MISMATCH will fire
-  // if backend actually emits raw entities.
+  // Vault lifecycle — B1 resolved per TELLER_API_CONTRACT.md §"Vault
+  // Operations": wire format is the DTO (VaultPositionResponse /
+  // TellerCashMovementResponse), enforced by ArchUnit on the Spring
+  // side. Schemas below match the DTO shape; CONTRACT_MISMATCH fires
+  // if backend ever regresses to raw-entity exposure.
   {
     name: 'tellerVaultMovementsPending',
     urlPattern: '^/v2/teller/vault/movements/pending$',
