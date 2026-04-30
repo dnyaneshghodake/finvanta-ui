@@ -183,6 +183,12 @@ class Logger {
     this.emit('debug', message, data);
   }
 
+  /** Security audit events (login, MFA, token theft, etc.) */
+  security(category: string, data?: unknown): void {
+    this.addLog('info', `[SECURITY] ${category}`);
+    this.emit('security', category, data);
+  }
+
   info(message: string, data?: unknown): void {
     this.addLog('info', message);
     this.emit('info', message, data);
