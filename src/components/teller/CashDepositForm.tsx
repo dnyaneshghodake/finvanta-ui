@@ -293,7 +293,7 @@ export function CashDepositForm() {
             </div>
             <div className="mt-1 text-sm">
               This deposit meets the ₹50,000 reporting threshold. Ensure
-              the customer's PAN (or Form 60/61) is on file.
+              the customer&apos;s PAN (or Form 60/61) is on file.
             </div>
           </div>
         )}

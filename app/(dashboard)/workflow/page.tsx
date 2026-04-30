@@ -7,7 +7,6 @@
  */
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import Link from 'next/link';
 import { useUIStore } from '@/store/uiStore';
 import { Breadcrumb, CbsTableSkeleton } from '@/components/cbs';
 import { AuditTrailViewer } from '@/components/cbs/AuditTrailViewer';
@@ -16,7 +15,7 @@ import { canApprove } from '@/security/roleGuard';
 import { useCbsKeyboard } from '@/hooks/useCbsKeyboard';
 import { formatCbsTimestamp } from '@/utils/formatters';
 import { R } from '@/config/routes';
-import { CheckCircle, XCircle, Clock, ChevronRight, Search, Loader2, X } from 'lucide-react';
+import { CheckCircle, XCircle, Clock, Search, Loader2, X } from 'lucide-react';
 
 const STATUS_TONE: Record<string, string> = {
   PENDING_APPROVAL: 'text-cbs-gold-700 bg-cbs-gold-50 border-cbs-gold-600',

@@ -491,6 +491,10 @@ class AccountService {
    * Returning an empty success envelope keeps the accounts store
    * happy and the UI render path stable.
    */
+  /**
+   * Stub for future implementation.
+   * @TODO Implement in a later vertical slice.
+   */
   async getBeneficiaries(_params?: PaginationParams): Promise<ApiResponse<PaginatedResponse<Beneficiary>>> {
     return okEnvelope<PaginatedResponse<Beneficiary>>({
       items: [],
@@ -503,6 +507,10 @@ class AccountService {
     });
   }
 
+  /**
+   * Stub for future implementation.
+   * @TODO Implement in a later vertical slice.
+   */
   async addBeneficiary(
     _data: Omit<Beneficiary, 'id' | 'customerId' | 'createdAt' | 'updatedAt'>,
   ): Promise<ApiResponse<Beneficiary>> {
@@ -513,6 +521,10 @@ class AccountService {
     );
   }
 
+  /**
+   * Stub for future implementation.
+   * @TODO Implement in a later vertical slice.
+   */
   async removeBeneficiary(_beneficiaryId: string): Promise<ApiResponse<null>> {
     return errEnvelope<null>(
       'NOT_IMPLEMENTED',

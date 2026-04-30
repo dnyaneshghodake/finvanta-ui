@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { useAccountStore } from '@/store/accountStore';
 import { accountService } from '@/services/api/accountService';
 import { StatisticCard, TransactionRow } from '@/components/molecules';
-import { Button, Spinner } from '@/components/atoms';
+import { Button } from '@/components/atoms';
 import { StatusRibbon, KeyValue } from '@/components/cbs/feedback';
 import { Breadcrumb, CbsTabs, CbsTabPanel, CbsFormSkeleton } from '@/components/cbs';
 import { AuditTrailViewer } from '@/components/cbs/AuditTrailViewer';

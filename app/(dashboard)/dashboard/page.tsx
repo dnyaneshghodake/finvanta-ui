@@ -22,7 +22,7 @@ import { Breadcrumb } from '@/components/cbs';
 import { WidgetErrorBoundary } from '@/components/cbs/CbsErrorBoundary';
 import { formatCbsDate, formatCbsTimestamp } from '@/utils/formatters';
 import { useCbsKeyboard } from '@/hooks/useCbsKeyboard';
-import { ShieldCheck, Printer, Download } from 'lucide-react';
+import { ShieldCheck, Printer } from 'lucide-react';
 import { printScreen } from '@/utils/cbsPrint';
 import {
   getVisibleWidgets,
