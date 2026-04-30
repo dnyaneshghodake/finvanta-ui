@@ -16,7 +16,7 @@
 import { useState } from 'react';
 import { useTellerStore } from '@/store/tellerStore';
 import type { TellerTill } from '@/types/teller.types';
-import { formatInr } from '@/utils/format';
+import { formatCurrency } from '@/utils/formatters';
 
 export function CloseTillForm({ till }: { till: TellerTill }) {
   const requestClose = useTellerStore((s) => s.requestClose);
@@ -64,7 +64,7 @@ export function CloseTillForm({ till }: { till: TellerTill }) {
         <p className="text-sm text-cbs-steel-600">
           Count the physical cash in your drawer and enter the total.
           The system will compute variance against the current ledger
-          balance ({formatInr(till.currentBalance)}). A CHECKER must
+          balance ({formatCurrency(till.currentBalance)}). A CHECKER must
           approve before the till is permanently CLOSED.
         </p>
 
@@ -99,7 +99,7 @@ export function CloseTillForm({ till }: { till: TellerTill }) {
               }`}
             >
               Variance preview: {variancePreview >= 0 ? '+' : ''}
-              {formatInr(variancePreview)}
+              {formatCurrency(variancePreview)}
               {variancePreview === 0 ? ' (balanced)' : ''}
             </div>
           )}
