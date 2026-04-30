@@ -339,7 +339,7 @@ class TellerService {
         correlationId,
       );
     } catch (err) {
-      return fromAppError<TellerTill>(err, 'TILL_NOT_FOUND', 'No till open for today');
+      return fromAppError<TellerTill>(err, 'TILL_FETCH_ERROR', 'Could not load till');
     }
   }
 
