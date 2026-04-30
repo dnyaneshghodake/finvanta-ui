@@ -408,7 +408,7 @@ class AccountService {
     // postingDate, auditHashPrefix) -- NOT the full 19-field TxnResponse
     // emitted by the mini-statement endpoints. Type the response to the
     // shape that's actually on the wire so the schema validation in
-    // `RESPONSE_SCHEMAS.accountTransfer` (loanTransactionEnvelopeSchema)
+    // `RESPONSE_SCHEMAS.accountTransfer` (accountTransferEnvelopeSchema)
     // and the runtime mapping below stay in lockstep. Going through
     // `mapTxn` here previously coerced every transfer to CREDIT because
     // `debitCredit` is absent in this response -- a silent data bug.

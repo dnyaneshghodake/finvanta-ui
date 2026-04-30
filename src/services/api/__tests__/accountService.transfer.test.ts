@@ -4,7 +4,7 @@
  * Pins the new contract introduced in PR #15:
  *   1. Currency is sourced from the debiting account.
  *   2. INR fallback when the lookup fails (non-fatal).
- *   3. `voucherNumber` is populated from `auditHashPrefix`.
+ *   3. `voucherNumber` is NOT conflated with `auditHashPrefix`.
  *   4. Default narration when `data.description` is empty.
  *   5. Outbound transfer is unambiguously a DEBIT on the source.
  *   6. X-Idempotency-Key is sent and echoed in the body.
