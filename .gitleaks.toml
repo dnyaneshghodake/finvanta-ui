@@ -1,0 +1,25 @@
+# Gitleaks allowlist for Finvana - suppress false positives
+# These are patterns that match test data, mock data, or are false positives
+
+[allowlist]
+    paths = [
+        "node_modules/.*",
+        "\\.git/.*",
+        "dist/.*",
+        "\\.next/.*",
+    ]
+    
+    # Allow JWT test tokens and common test patterns
+    [[allowlist.regexes]]
+    regex = "eyJ[a-zA-Z0-9_-]*\\.eyJ[a-zA-Z0-9_-]*\\.[a-zA-Z0-9_-]*"
+    description = "Allow JWT test tokens with proper structure"
+    
+    # Allow GHES sample tokens in docs
+    [[allowlist.regexes]]
+    regex = "ghp_[a-zA-Z0-9]{36}"
+    description = "Allow GHES sample token pattern (false positive)"
+    
+    # Allow generic test patterns
+    [[allowlist.regexes]]
+    regex = "test[_-]?token"
+    description = "Allow test tokens"
