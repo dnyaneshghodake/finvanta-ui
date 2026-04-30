@@ -17,34 +17,44 @@
  * schemas and reject unknown status / movementType enum values.
  *
  * ========================================================================
- * OUTSTANDING CONTRACT BLOCKERS (must be resolved before UI implementation)
+ * CONTRACT BLOCKERS — STATUS (all resolved upstream at TELLER_API_CONTRACT.md)
  * ========================================================================
  *
- * B1 — Vault endpoint return types contradict themselves in the spec.
- *      Prose: "all endpoints return DTOs (VaultPositionResponse /
- *      TellerCashMovementResponse) via VaultMapper". Endpoint
- *      signatures: `ApiResponse<VaultPosition>` /
- *      `ApiResponse<TellerCashMovement>` (JPA entity names).
- *      We schema the DTO shape per the prose; if the backend actually
- *      emits raw entities this will CONTRACT_MISMATCH until fixed.
+ * B1 (RESOLVED) — Vault endpoint wire format is the DTO
+ *      (VaultPositionResponse / TellerCashMovementResponse) per the
+ *      "Vault Operations" section of TELLER_API_CONTRACT.md. ArchUnit
+ *      rules on the backend enforce DTO-only exposure at build time
+ *      (cashDenominationRepository_onlyAccessedFromTellerService and
+ *      the entity-import rule on TellerApiController).
  *
- * B2 — Idempotency-key lifecycle is unspecified: TTL, retry semantics,
- *      header-vs-body parity, scope of uniqueness all undocumented.
- *      For cash postings this is stricter than account transfers — a
- *      double-post against physical cash count produces an EOD
- *      variance. Pinned as a schema requirement; runtime lifecycle
- *      must be contracted.
+ * B2 (RESOLVED) — Idempotency lifecycle is fully specified in the
+ *      "Idempotency Contract" section: body-field transport (NOT
+ *      header), per `(tenant_id, idempotency_key)` uniqueness scope,
+ *      indefinite retention, lock-then-check ordering, byte-for-byte
+ *      prior-receipt on retry, plus four other named retry outcomes.
+ *      Frontend implementation MUST mint the key per logical action
+ *      (page render / form mount) — NOT per service-method call —
+ *      to mirror the JSP channel and avoid the F1-React class of
+ *      regression seen in PR #15 on accountService.transfer.
  *
- * B3 — `denominations[]` has different shapes on request (3 fields)
- *      vs response (4 fields, `totalValue` added). Handled by two
- *      distinct schemas below (denominationInput / denominationLine).
+ * B3 (DOCUMENTED) — `denominations[]` request and response shapes are
+ *      DELIBERATELY asymmetric per the "Denomination row shape" table
+ *      in the spec (`totalValue` is server-computed and absent from
+ *      requests). Handled by two distinct schemas here:
+ *      denominationInputSchema (request) and denominationLineSchema
+ *      (response). BFF consumers MUST NOT deduplicate.
  *
- * B4 — `pendingApproval: true` responses still include
- *      `transactionRef`, `voucherNumber`, `balanceAfter`, `tillBalanceAfter`
- *      even though "ledger and till UNCHANGED". Semantics for
- *      /txn360/voucher/{voucherNumber} on a not-yet-posted voucher
- *      are undefined. Schema accepts the shape but the UI MUST gate
- *      receipt rendering on `pendingApproval === false`.
+ * B4 (RESOLVED) — `pendingApproval: true` is structurally unreachable
+ *      on /cash-deposit and /cash-withdrawal under the current engine
+ *      configuration (above-limit hard-rejected at Step 6 before the
+ *      Step 7 maker-checker gate; CASH_DEPOSIT and CASH_WITHDRAWAL
+ *      are not in ALWAYS_REQUIRE_APPROVAL). The field is retained as
+ *      forward-compatible defensive scaffolding. When/if it ever flips
+ *      to true: voucherNumber will be `null`, balances unchanged,
+ *      denominations[] empty — see the "Response field behaviour when
+ *      pendingApproval is true" table in the spec for the full
+ *      forward-compat contract. UI MUST still gate receipt rendering
+ *      on `pendingApproval === false`.
  * ========================================================================
  */
 import { z } from 'zod';
