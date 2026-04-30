@@ -53,6 +53,43 @@ describe('accountTransferResponseSchema', () => {
       .toThrow();
   });
 
+  it('accepts ISO calendar date YYYY-MM-DD on postingDate (LocalDate)', () => {
+    expect(() => accountTransferResponseSchema.parse({
+      ...validData, postingDate: '2026-04-19',
+    })).not.toThrow();
+  });
+
+  it('REJECTS malformed postingDate (dd-MM-yyyy / time-only / empty)', () => {
+    // Mirrors the maturityDate strictness on bookFdResponseSchema.
+    expect(() => accountTransferResponseSchema.parse({
+      ...validData, postingDate: '19-04-2026',
+    })).toThrow();
+    expect(() => accountTransferResponseSchema.parse({
+      ...validData, postingDate: '10:15:30Z',
+    })).toThrow();
+    expect(() => accountTransferResponseSchema.parse({
+      ...validData, postingDate: '',
+    })).toThrow();
+  });
+
+  it('REJECTS malformed auditHashPrefix (not 12 lowercase hex chars)', () => {
+    // Uppercase hex — Spring emits lowercase only.
+    expect(() => accountTransferResponseSchema.parse({
+      ...validData, auditHashPrefix: 'A1B2C3D4E5F6',
+    })).toThrow();
+    // Wrong length (10 / 16 chars).
+    expect(() => accountTransferResponseSchema.parse({
+      ...validData, auditHashPrefix: 'a1b2c3d4e5',
+    })).toThrow();
+    expect(() => accountTransferResponseSchema.parse({
+      ...validData, auditHashPrefix: 'a1b2c3d4e5f6a1b2',
+    })).toThrow();
+    // Non-hex character.
+    expect(() => accountTransferResponseSchema.parse({
+      ...validData, auditHashPrefix: 'g1b2c3d4e5f6',
+    })).toThrow();
+  });
+
   it('passthrough: tolerates additive backend fields without CONTRACT_MISMATCH', () => {
     const r = accountTransferResponseSchema.parse({
       ...validData,
