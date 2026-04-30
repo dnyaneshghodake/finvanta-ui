@@ -114,10 +114,7 @@ export const useTellerStore = create<TellerState>((set) => ({
         set({ myTill: response.data, noTillOpen: false, isLoading: false });
         return;
       }
-      set({
-        isLoading: false,
-        error: response.error?.message || 'Could not open till',
-      });
+      // Error state is set in the catch block below.
       throw new Error(response.error?.message || 'Could not open till');
     } catch (error) {
       logger.error('Open till error', error);
@@ -135,10 +132,7 @@ export const useTellerStore = create<TellerState>((set) => ({
         set({ myTill: response.data, isLoading: false });
         return;
       }
-      set({
-        isLoading: false,
-        error: response.error?.message || 'Could not request close',
-      });
+      // Error state is set in the catch block below.
       throw new Error(response.error?.message || 'Could not request close');
     } catch (error) {
       logger.error('Request close error', error);

@@ -318,7 +318,7 @@ class TellerService {
     try {
       const response = await apiClient.get<SpringEnvelope<SpringTill>>(
         '/v2/teller/till/me',
-        { validateStatus: () => true },
+        { validateStatus: (s) => s === 200 || s === 409 },
       );
       const correlationId =
         (response.headers?.['x-correlation-id'] as string | undefined) || undefined;
@@ -328,8 +328,9 @@ class TellerService {
       }
       // Spring 409 + CBS-TELLER-001 on /till/me means "no till open
       // today" — surface the code verbatim so the store can route the
-      // operator into the open-till form. Anything else (5xx, 401,
-      // 403, malformed body) falls through to a generic failure.
+      // operator into the open-till form. 401 is handled by the
+      // apiClient error interceptor which redirects to /login. 5xx,
+      // 403, and malformed body fall through to generic failure.
       const errorCode = body?.errorCode || 'TILL_NOT_FOUND';
       const errorMessage = body?.message || 'No till open for today';
       return errEnvelope<TellerTill>(

@@ -119,17 +119,18 @@ export default function MfaPage() {
         }
 
         // Track failed OTP attempts per API_LOGIN_CONTRACT.md §5.
-        const attempts = otpAttempts + 1;
-        setOtpAttempts(attempts);
+        // Use functional updater to avoid stale closure value on rapid resubmits.
+        const newAttempts = otpAttempts + 1;
+        setOtpAttempts(newAttempts);
 
-        if (attempts >= MAX_OTP_ATTEMPTS) {
+        if (newAttempts >= MAX_OTP_ATTEMPTS) {
           setError('Too many invalid attempts. Please sign in again.');
           // Brief delay so the operator sees the message before redirect.
           setTimeout(() => router.push('/login'), 2000);
           return;
         }
 
-        const remaining = MAX_OTP_ATTEMPTS - attempts;
+        const remaining = MAX_OTP_ATTEMPTS - newAttempts;
         const msg = err?.message || 'Invalid OTP code.';
         setError(`${msg} ${remaining} attempt${remaining === 1 ? '' : 's'} remaining.`);
         // Clear the OTP input and re-focus for retry.
