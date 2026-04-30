@@ -403,6 +403,15 @@ class AccountService {
     // coded literal so multi-currency / NRE / NRO / FCNR bookings stamp
     // the correct ISO-4217 code on the resulting Transaction. Falls
     // back to INR only if the lookup fails (offline / first-load).
+    //
+    // TODO(perf): this adds a sequential GET before every transfer POST
+    // — ~doubles hot-path latency on WAN-tier branch links for what is
+    // presentation-only metadata. Caller (accountStore.transfer at
+    // src/store/accountStore.ts:200) already holds the source account
+    // in its in-memory `accounts[]` cache. Plumb the currency through
+    // the store wrapper (signature change) to skip this round-trip on
+    // the warm path; keep this network fallback for cold-load callers
+    // (deep link to /transfer with no prior account fetch).
     let sourceCurrency = 'INR';
     try {
       const acct = await this.getAccount(accountNumber);
