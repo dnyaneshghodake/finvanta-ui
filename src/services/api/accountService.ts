@@ -242,6 +242,14 @@ function mapTxn(t: SpringTxn, accountNumber: string): Transaction {
     transactionId: t.transactionRef,
     accountId: accountNumber,
     amount: signed,
+    // TODO(backend): Spring `TxnResponse` does not carry `currencyCode`
+    // per the SpringTxn interface above. Mini-statement / statement
+    // therefore cannot stamp the true ISO-4217 code on a per-txn basis,
+    // so the source-account currency stamped on the optimistic transfer
+    // Transaction (accountService.ts:445) is overwritten with 'INR' on
+    // the next list refresh — a visible flip on NRE/NRO/FCNR accounts.
+    // Fix path: add `currencyCode` to TxnResponse on the Spring side
+    // (the field lives on DepositAccount already), then derive here.
     currency: 'INR',
     transactionType: isDebit ? 'DEBIT' : 'CREDIT',
     debitCredit: (t.debitCredit === 'DR' || t.debitCredit === 'D') ? 'DR' : 'CR',
