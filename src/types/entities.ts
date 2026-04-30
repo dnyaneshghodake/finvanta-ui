@@ -41,3 +41,13 @@ export type {
   OccupationCode, AnnualIncomeBand, SourceOfFunds,
   KycRiskCategory, KycMode, CustomerErrorCode,
 } from './customer.types';
+
+// Teller (cash counter) domain
+export type {
+  IndianCurrencyDenomination,
+  TillStatus, VaultStatus, MovementType, MovementStatus, ChestDispatchStatus,
+  DenominationInput, DenominationLine,
+  TellerTill, VaultPosition, TellerCashMovement,
+  CashPostingReceipt, CashDepositReceipt, CashWithdrawalReceipt,
+  FicnImpoundLine, FicnAcknowledgement,
+} from './teller.types';
