@@ -118,11 +118,20 @@ export const denominationInputSchema = z.object({
   counterfeitCount: z.number().int().nonnegative(),
 });
 
-/** Response-side denomination line (adds server-computed `totalValue`). */
+/**
+ * Response-side denomination line (adds server-computed `totalValue`).
+ *
+ * `unitCount` and `counterfeitCount` are REQUIRED on posted lines per
+ * TELLER_API_CONTRACT.md §"Denomination row shape". Schemas must not
+ * be weaker than the contract — a missing `unitCount` on a POSTED cash
+ * deposit is a Tier-1 cash-reconciliation defect (ledger value without
+ * a physical count breakdown) and should fail closed at CONTRACT_MISMATCH
+ * rather than render as a denomination row with no count.
+ */
 export const denominationLineSchema = z.object({
   denomination: denominationSchema,
-  unitCount: z.number().int().nonnegative().nullish(),
-  counterfeitCount: z.number().int().nonnegative().nullish(),
+  unitCount: z.number().int().nonnegative(),
+  counterfeitCount: z.number().int().nonnegative(),
   totalValue: numericString,
 });
 
@@ -170,8 +179,9 @@ export const tellerTillListEnvelopeSchema = springEnvelope(
 );
 
 // ---------------------------------------------------------------------------
-// Vault lifecycle — B1: prose says DTOs, signatures say entities.
-// We schema the DTO shape per the prose.
+// Vault lifecycle — B1 resolved per TELLER_API_CONTRACT.md §"Vault Operations":
+// wire format is the DTO (VaultPositionResponse / TellerCashMovementResponse),
+// enforced at build time by ArchUnit rules on the Spring side.
 // ---------------------------------------------------------------------------
 
 export const vaultPositionResponseSchema = z.object({

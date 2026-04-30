@@ -190,6 +190,21 @@ describe('denominationLineSchema (response shape)', () => {
       denomination: 'NOTE_500', unitCount: 5, totalValue: '2500.00', counterfeitCount: 0,
     })).not.toThrow();
   });
+
+  it('REJECTS missing unitCount on a POSTED line (cash-reconciliation defect)', () => {
+    // Contract: unitCount is REQUIRED on response lines. A posted line
+    // without a physical count breakdown is a Tier-1 audit defect —
+    // must fail closed at CONTRACT_MISMATCH, not render as 0 or blank.
+    expect(() => denominationLineSchema.parse({
+      denomination: 'NOTE_500', totalValue: 2500.00, counterfeitCount: 0,
+    })).toThrow();
+  });
+
+  it('REJECTS missing counterfeitCount on a POSTED line (FICN audit trail)', () => {
+    expect(() => denominationLineSchema.parse({
+      denomination: 'NOTE_500', unitCount: 5, totalValue: 2500.00,
+    })).toThrow();
+  });
 });
 
 // Till lifecycle.
@@ -269,6 +284,18 @@ describe('cashDepositResponseSchema', () => {
     // pendingApproval === false per the contract's forward-compat table.
     expect(() => cashDepositResponseSchema.parse({
       ...cashDepositExample, pendingApproval: true, voucherNumber: null,
+    })).not.toThrow();
+  });
+
+  it('accepts pendingApproval=true with empty denominations[] (B4 forward-compat)', () => {
+    // Per TELLER_API_CONTRACT.md §"Response field behaviour when
+    // pendingApproval is true": denominations[] is empty on pending
+    // lines (no physical count persisted until approval posts).
+    expect(() => cashDepositResponseSchema.parse({
+      ...cashDepositExample,
+      pendingApproval: true,
+      voucherNumber: null,
+      denominations: [],
     })).not.toThrow();
   });
 
