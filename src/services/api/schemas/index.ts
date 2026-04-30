@@ -33,7 +33,7 @@ import { bookFdEnvelopeSchema } from './deposit';
 import { loanTransactionEnvelopeSchema } from './loan';
 import { accountTransferEnvelopeSchema } from './accountTransfer';
 import {
-  cashDepositEnvelopeSchema,
+  cashDepositOrFicnEnvelopeSchema,
   cashWithdrawalEnvelopeSchema,
   tellerCashMovementEnvelopeSchema,
   tellerCashMovementListEnvelopeSchema,
@@ -270,16 +270,18 @@ export const RESPONSE_SCHEMAS: ReadonlyArray<ResponseSchemaRule> = [
   },
 
   // Cash postings.
-  // The FICN-rejection path returns HTTP 422 with `FicnAcknowledgementResponse`
-  // inside the envelope `data` field — the response interceptor routes on
-  // status code, not schema, so the success-path schema below is only
-  // applied to HTTP 200 responses. FICN rejection is handled as an
-  // AppError by the error path.
+  // /cash-deposit uses a UNION schema because the FICN-rejection path
+  // returns HTTP 422 with a `FicnAcknowledgement` slip in `data` —
+  // the service layer (`tellerService.cashDeposit`) sets axios
+  // `validateStatus` so both 200 and 422 land in the success branch,
+  // and the response-validator middleware (apiClient.ts:155-186) needs
+  // a schema that accepts either shape. Other 4xx codes (CBS-TELLER-001,
+  // -004, CBS-COMP-002, etc.) flow through the standard error path.
   {
     name: 'tellerCashDeposit',
     urlPattern: '^/v2/teller/cash-deposit$',
     methods: ['POST'],
-    schema: cashDepositEnvelopeSchema,
+    schema: cashDepositOrFicnEnvelopeSchema,
   },
   {
     name: 'tellerCashWithdrawal',

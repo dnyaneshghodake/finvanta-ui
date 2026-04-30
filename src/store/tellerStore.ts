@@ -15,8 +15,21 @@
  */
 import { create } from 'zustand';
 import { tellerService } from '@/services/api/tellerService';
-import type { TellerTill } from '@/types/teller.types';
+import type {
+  CashDepositReceipt,
+  FicnAcknowledgement,
+  TellerTill,
+} from '@/types/teller.types';
 import { logger } from '@/utils/logger';
+
+/**
+ * Result of the most recent cash-deposit submission. The form reads
+ * this to drive the post-submit UI (success receipt vs FICN slip).
+ * `null` means "no submission yet on this form mount".
+ */
+export type CashDepositOutcome =
+  | { kind: 'POSTED'; receipt: CashDepositReceipt }
+  | { kind: 'FICN'; slip: FicnAcknowledgement; message: string };
 
 interface TellerState {
   /** Current operator's till for today (null when none open). */
@@ -30,9 +43,24 @@ interface TellerState {
    */
   noTillOpen: boolean;
 
+  /**
+   * Last cash-deposit outcome (POSTED receipt or FICN slip). Cleared
+   * by `resetDeposit` when the operator dismisses the receipt panel
+   * to start a fresh capture (which also forces a NEW idempotency
+   * key — see `CashDepositForm`).
+   */
+  lastDeposit: CashDepositOutcome | null;
+  /** True while a cash-deposit POST is in flight. Distinct from
+   *  `isLoading` so till-fetch and deposit-submit don't collide. */
+  isDepositing: boolean;
+  /** Last deposit-submit failure message (non-FICN). */
+  depositError: string | null;
+
   fetchMyTill: () => Promise<void>;
   openTill: (req: Parameters<typeof tellerService.openTill>[0]) => Promise<void>;
   requestClose: (req: Parameters<typeof tellerService.requestClose>[0]) => Promise<void>;
+  cashDeposit: (req: Parameters<typeof tellerService.cashDeposit>[0]) => Promise<CashDepositOutcome | null>;
+  resetDeposit: () => void;
   clearError: () => void;
 }
 
@@ -41,6 +69,9 @@ export const useTellerStore = create<TellerState>((set) => ({
   isLoading: false,
   error: null,
   noTillOpen: false,
+  lastDeposit: null,
+  isDepositing: false,
+  depositError: null,
 
   fetchMyTill: async () => {
     set({ isLoading: true, error: null });
@@ -116,6 +147,48 @@ export const useTellerStore = create<TellerState>((set) => ({
       throw error;
     }
   },
+
+  /**
+   * Submit a cash deposit. The caller (CashDepositForm) is responsible
+   * for minting the `idempotencyKey` at form-mount and reusing it for
+   * any retry — fresh-key-per-call would defeat server-side dedup.
+   *
+   * On a network/server failure (NOT a FICN rejection), `lastDeposit`
+   * stays null and `depositError` carries the operator-facing message.
+   * The form keeps the same `idempotencyKey` so the operator can
+   * retry safely; the server treats both calls as the same logical
+   * deposit and returns the prior receipt verbatim if the first call
+   * actually committed.
+   *
+   * Returns the outcome (POSTED | FICN) on success, `null` on failure.
+   */
+  cashDeposit: async (req) => {
+    set({ isDepositing: true, depositError: null });
+    try {
+      const response = await tellerService.cashDeposit(req);
+      if (response.success && response.data) {
+        set({ lastDeposit: response.data, isDepositing: false });
+        // POSTED also mutated the till — refresh balance/state. We
+        // intentionally don't await this so the form's success render
+        // is not blocked on the secondary fetch.
+        if (response.data.kind === 'POSTED') {
+          void useTellerStore.getState().fetchMyTill();
+        }
+        return response.data;
+      }
+      const message = response.error?.message || 'Cash deposit could not be processed';
+      set({ isDepositing: false, depositError: message });
+      return null;
+    } catch (error) {
+      logger.error('Cash deposit error', error);
+      const message = error instanceof Error ? error.message : 'Cash deposit could not be processed';
+      set({ isDepositing: false, depositError: message });
+      return null;
+    }
+  },
+
+  resetDeposit: () =>
+    set({ lastDeposit: null, depositError: null, isDepositing: false }),
 
   clearError: () => set({ error: null }),
 }));

@@ -320,6 +320,137 @@ class TellerService {
     }
   }
 
+  // ── Cash deposit ──────────────────────────────────────────────────────
+
+  /**
+   * Post a customer cash deposit with denomination breakdown.
+   *
+   * The `idempotencyKey` MUST be minted at the FORM-MOUNT level (per
+   * logical action) and reused verbatim on every retry of that action,
+   * per the contract's "Idempotency Contract" — a fresh key per service-
+   * method call defeats server-side dedup and would let a double-click
+   * double-post against physical cash, creating a EOD till variance.
+   *
+   * Outcome dispatch:
+   *   - `kind: 'POSTED'`  — HTTP 200 with `CashDepositReceipt`. Ledger
+   *                          and till mutated; `pendingApproval === false`
+   *                          on the current engine config.
+   *   - `kind: 'FICN'`    — HTTP 422 `CBS-TELLER-008` with a
+   *                          `FicnAcknowledgement` customer slip. The
+   *                          deposit is REJECTED; counterfeit notes are
+   *                          impounded and the FICN register row is
+   *                          permanent (REQUIRES_NEW sub-transaction).
+   *                          UI MUST render the slip prominently and,
+   *                          when `firRequired === true`, show "FIR
+   *                          mandatory per RBI (count >= 5)".
+   *   - error envelope    — any other 4xx/5xx; surfaced as `success: false`
+   *                          via `fromAppError` with the correlation id.
+   *
+   * Role: TELLER, MAKER, ADMIN
+   */
+  async cashDeposit(req: {
+    accountNumber: string;
+    amount: number;
+    denominations: DenominationInput[];
+    idempotencyKey: string;
+    depositorName?: string | null;
+    depositorMobile?: string | null;
+    panNumber?: string | null;
+    narration?: string | null;
+    form60Reference?: string | null;
+  }): Promise<
+    ApiResponse<
+      | { kind: 'POSTED'; receipt: CashDepositReceipt }
+      | { kind: 'FICN'; slip: FicnAcknowledgement; message: string }
+    >
+  > {
+    if (!req.idempotencyKey || req.idempotencyKey.trim() === '') {
+      // Defence-in-depth: should never happen because the form mints
+      // the key on mount, but a missing key is a Tier-1 audit defect
+      // (would let server-side dedup mint a per-request fallback that
+      // does not survive a network retry). Fail closed at the boundary.
+      return errEnvelope(
+        'IDEMPOTENCY_KEY_MISSING',
+        'Cash deposit requires a stable idempotency key minted at form mount.',
+        400,
+      );
+    }
+    try {
+      const response = await apiClient.post<
+        | SpringEnvelope<SpringCashDeposit>
+        | SpringEnvelope<SpringFicnAcknowledgement>
+      >(
+        '/v2/teller/cash-deposit',
+        {
+          accountNumber: req.accountNumber,
+          amount: req.amount,
+          denominations: req.denominations,
+          idempotencyKey: req.idempotencyKey,
+          depositorName: req.depositorName ?? null,
+          depositorMobile: req.depositorMobile ?? null,
+          panNumber: req.panNumber ?? null,
+          narration: req.narration ?? null,
+          form60Reference: req.form60Reference ?? null,
+        },
+        {
+          headers: { 'X-Idempotency-Key': req.idempotencyKey },
+          // Keep HTTP 422 in the success branch so the FICN slip body
+          // survives the default error interceptor. Other 4xx (insufficient
+          // funds, account closed, validation, etc.) still throw and
+          // flow through `fromAppError` below.
+          validateStatus: (s) => s === 200 || s === 422,
+        },
+      );
+      const correlationId =
+        (response.headers?.['x-correlation-id'] as string | undefined) || undefined;
+      const body = response.data;
+
+      // FICN rejection — HTTP 422 + ERROR envelope + CBS-TELLER-008.
+      if (response.status === 422 && body.status === 'ERROR' && body.errorCode === 'CBS-TELLER-008' && body.data) {
+        return okEnvelope(
+          {
+            kind: 'FICN' as const,
+            slip: mapFicn(body.data as SpringFicnAcknowledgement),
+            message: body.message || 'Counterfeit notes detected and impounded.',
+          },
+          correlationId,
+        );
+      }
+
+      // Some other 422 the schema accepted (defensive — shouldn't reach
+      // here on the current contract, but if a non-FICN 422 ever sneaks
+      // through the union schema it must NOT be treated as POSTED).
+      if (response.status === 422) {
+        return errEnvelope(
+          body.errorCode || 'CASH_DEPOSIT_FAILED',
+          body.message || 'Cash deposit could not be processed',
+          422,
+          correlationId,
+        );
+      }
+
+      // POSTED success path.
+      if (body.status === 'SUCCESS' && body.data) {
+        return okEnvelope(
+          {
+            kind: 'POSTED' as const,
+            receipt: mapCashDeposit(body.data as SpringCashDeposit),
+          },
+          correlationId,
+        );
+      }
+
+      return errEnvelope(
+        body.errorCode || 'CASH_DEPOSIT_FAILED',
+        body.message || 'Cash deposit could not be processed',
+        400,
+        correlationId,
+      );
+    } catch (err) {
+      return fromAppError(err, 'CASH_DEPOSIT_FAILED', 'Cash deposit could not be processed');
+    }
+  }
+
   /**
    * Teller requests close with physical cash count. Transitions the
    * till to `PENDING_CLOSE` with computed `varianceAmount`. Requires
