@@ -138,22 +138,6 @@ export const RESPONSE_SCHEMAS: ReadonlyArray<ResponseSchemaRule> = [
     schema: transferEnvelopeSchema,
   },
 
-  // Account-to-account transfer — Spring POST /v1/accounts/transfer.
-  // Consumed by transferService.confirm. Returns a TransactionResponse
-  // (transactionRef + amount + postingDate + auditHashPrefix), which
-  // is structurally identical to the loan transaction envelope, so we
-  // reuse `loanTransactionEnvelopeSchema` rather than duplicating it.
-  // The existing `transferEnvelopeSchema` describes a richer
-  // `TransferResponse` (referenceNumber/channel/...) emitted by the
-  // /transfers/* endpoints — not by /accounts/transfer — so it would
-  // not match this response shape.
-  {
-    name: 'accountTransfer',
-    urlPattern: '^/accounts/transfer$',
-    methods: ['POST'],
-    schema: loanTransactionEnvelopeSchema,
-  },
-
   // Fixed Deposit booking — Spring POST /v1/fixed-deposits/book.
   // Validates the shape consumed by depositService.bookFd so a drifted
   // or forged FD booking response is rejected before the UI renders it.

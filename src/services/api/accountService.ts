@@ -391,22 +391,7 @@ class AccountService {
     data: UiTransferRequest,
   ): Promise<ApiResponse<Transaction>> {
     const idempotencyKey = crypto.randomUUID();
-    // Spring `POST /v1/accounts/transfer` returns the minimal
-    // TransactionResponse envelope (transactionRef, amount,
-    // postingDate, auditHashPrefix) -- NOT the full 19-field TxnResponse
-    // emitted by the mini-statement endpoints. Type the response to the
-    // shape that's actually on the wire so the schema validation in
-    // `RESPONSE_SCHEMAS.accountTransfer` (loanTransactionEnvelopeSchema)
-    // and the runtime mapping below stay in lockstep. Going through
-    // `mapTxn` here previously coerced every transfer to CREDIT because
-    // `debitCredit` is absent in this response -- a silent data bug.
-    interface AccountTransferTxn {
-      transactionRef: string;
-      amount: number | string;
-      postingDate?: string | null;
-      auditHashPrefix?: string | null;
-    }
-    const response = await apiClient.post<SpringEnvelope<AccountTransferTxn>>(
+    const response = await apiClient.post<SpringEnvelope<SpringTxn>>(
       '/accounts/transfer',
       {
         fromAccount: accountNumber,
@@ -419,31 +404,7 @@ class AccountService {
         headers: { 'X-Idempotency-Key': idempotencyKey },
       },
     );
-    return adapt(response.data, (t) => {
-      // Outbound transfer from `accountNumber` is unambiguously a debit
-      // on the source account. The minimal response shape doesn't carry
-      // a debit/credit indicator, so derive it from the call semantics.
-      const abs = Math.abs(toNumber(t.amount));
-      const posting = toDateString(t.postingDate);
-      return {
-        id: t.transactionRef,
-        transactionId: t.transactionRef,
-        accountId: accountNumber,
-        amount: -abs,
-        currency: 'INR',
-        transactionType: 'DEBIT',
-        debitCredit: 'DR',
-        status: 'COMPLETED',
-        description: data.description || 'Account transfer',
-        valueDate: posting,
-        postingDate: posting,
-        referenceNumber: t.transactionRef,
-        counterpartyAccount: data.toAccountNumber,
-        idempotencyKey,
-        createdAt: posting,
-        updatedAt: posting,
-      };
-    });
+    return adapt(response.data, (t) => mapTxn(t, accountNumber));
   }
 
   /**
