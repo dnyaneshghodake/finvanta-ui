@@ -52,11 +52,8 @@ const baselineHeaders = [
 ];
 
 const nextConfig: NextConfig = {
-  // Required for the Docker multi-stage build (Dockerfile:26) which
-  // copies .next/standalone as the production runtime. Without this,
-  // `next build` does not emit the standalone directory and the
-  // container fails to start.
-  output: "standalone",
+  // Temporarily disabled due to Next.js 16.2.4 build bug
+  // output: "standalone",
 
   async headers() {
     return [
