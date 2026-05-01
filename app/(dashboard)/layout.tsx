@@ -41,9 +41,12 @@ export default async function DashboardLayout({
   children: React.ReactNode;
 }) {
   const session = await readSession();
+  console.warn(`[DashboardLayout] readSession result: ${session ? 'SESSION FOUND - userId=' + session.user.id : 'SESSION NULL'}`);
   if (!session) {
+    console.warn('[DashboardLayout] No session - redirecting to login');
     redirect('/login?reason=session_expired');
   }
+  console.warn(`[DashboardLayout] Session valid - expiresAt=${session.expiresAt}`);
 
   return <DashboardShell>{children}</DashboardShell>;
 }

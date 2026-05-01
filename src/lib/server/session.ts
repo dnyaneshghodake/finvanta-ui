@@ -146,10 +146,18 @@ export async function readSession(): Promise<CbsSession | null> {
     }
     return null;
   }
-  const session = decryptSession<CbsSession>(sid);
+  let session: CbsSession | null = null;
+  try {
+    session = decryptSession<CbsSession>(sid);
+  } catch (err) {
+    if (process.env.NODE_ENV !== "production") {
+      console.warn(`[readSession] decrypt threw — cookie length=${sid?.length ?? 0}:`, err);
+    }
+    return null;
+  }
   if (!session) {
     if (process.env.NODE_ENV !== "production") {
-      console.warn(`[readSession] decrypt failed — cookie length=${sid.length}`);
+      console.warn(`[readSession] decrypt returned null — cookie length=${sid.length}`);
     }
     return null;
   }
