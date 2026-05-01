@@ -31,16 +31,6 @@ import {
 } from './transfer';
 import { bookFdEnvelopeSchema } from './deposit';
 import { loanTransactionEnvelopeSchema } from './loan';
-import { accountTransferEnvelopeSchema } from './accountTransfer';
-import {
-  cashDepositOrFicnEnvelopeSchema,
-  cashWithdrawalEnvelopeSchema,
-  tellerCashMovementEnvelopeSchema,
-  tellerCashMovementListEnvelopeSchema,
-  tellerTillEnvelopeSchema,
-  tellerTillListEnvelopeSchema,
-  vaultPositionEnvelopeSchema,
-} from './teller';
 
 export interface ResponseSchemaRule {
   /** Regex string matched against the request URL (as seen by axios). */
@@ -149,20 +139,19 @@ export const RESPONSE_SCHEMAS: ReadonlyArray<ResponseSchemaRule> = [
   },
 
   // Account-to-account transfer — Spring POST /v1/accounts/transfer.
-  // Consumed by accountService.transfer. Returns a TransactionResponse
-  // (transactionRef + amount + postingDate + auditHashPrefix). The
-  // shape is structurally identical to the loan transaction envelope
-  // *today*, but the two endpoints belong to unrelated bounded
-  // contexts (account ledger vs. loan servicing). Use a dedicated
-  // alias so a future change to either schema does not silently
-  // propagate across domains. The existing `transferEnvelopeSchema`
-  // describes a richer `TransferResponse` emitted by /transfers/* —
-  // not by /accounts/transfer — so it would not match here.
+  // Consumed by transferService.confirm. Returns a TransactionResponse
+  // (transactionRef + amount + postingDate + auditHashPrefix), which
+  // is structurally identical to the loan transaction envelope, so we
+  // reuse `loanTransactionEnvelopeSchema` rather than duplicating it.
+  // The existing `transferEnvelopeSchema` describes a richer
+  // `TransferResponse` (referenceNumber/channel/...) emitted by the
+  // /transfers/* endpoints — not by /accounts/transfer — so it would
+  // not match this response shape.
   {
     name: 'accountTransfer',
     urlPattern: '^/accounts/transfer$',
     methods: ['POST'],
-    schema: accountTransferEnvelopeSchema,
+    schema: loanTransactionEnvelopeSchema,
   },
 
   // Fixed Deposit booking — Spring POST /v1/fixed-deposits/book.
@@ -209,140 +198,6 @@ export const RESPONSE_SCHEMAS: ReadonlyArray<ResponseSchemaRule> = [
     methods: ['POST'],
     schema: loanTransactionEnvelopeSchema,
   },
-
-  // ----- Teller module (Spring v2 /api/v2/teller/**) -----
-  // The BFF mounts v2 endpoints under /api/cbs/v2 so the axios-visible
-  // URL is '/v2/teller/...'. Patterns below are anchored at '^/v2/teller'
-  // to avoid accidental collisions with v1 routes.
-  //
-  // More-specific paths (supervisor queue, vault movement actions) are
-  // declared BEFORE generic /{id}/... patterns so the first-match-wins
-  // resolver picks them up correctly.
-
-  // Till lifecycle
-  {
-    name: 'tellerTillPending',
-    urlPattern: '^/v2/teller/till/pending$',
-    methods: ['GET'],
-    schema: tellerTillListEnvelopeSchema,
-  },
-  {
-    name: 'tellerTillMe',
-    urlPattern: '^/v2/teller/till/me$',
-    methods: ['GET'],
-    schema: tellerTillEnvelopeSchema,
-  },
-  {
-    name: 'tellerTillOpen',
-    urlPattern: '^/v2/teller/till/open$',
-    methods: ['POST'],
-    schema: tellerTillEnvelopeSchema,
-  },
-  {
-    name: 'tellerTillClose',
-    urlPattern: '^/v2/teller/till/close$',
-    methods: ['POST'],
-    schema: tellerTillEnvelopeSchema,
-  },
-  {
-    name: 'tellerTillApproveClose',
-    urlPattern: '^/v2/teller/till/[^/]+/approve-close$',
-    methods: ['POST'],
-    schema: tellerTillEnvelopeSchema,
-  },
-  {
-    name: 'tellerTillRejectOpen',
-    urlPattern: '^/v2/teller/till/[^/]+/reject-open(\\?.*)?$',
-    methods: ['POST'],
-    schema: tellerTillEnvelopeSchema,
-  },
-  {
-    name: 'tellerTillRejectClose',
-    urlPattern: '^/v2/teller/till/[^/]+/reject-close(\\?.*)?$',
-    methods: ['POST'],
-    schema: tellerTillEnvelopeSchema,
-  },
-  {
-    name: 'tellerTillApprove',
-    urlPattern: '^/v2/teller/till/[^/]+/approve$',
-    methods: ['POST'],
-    schema: tellerTillEnvelopeSchema,
-  },
-
-  // Cash postings.
-  // /cash-deposit uses a UNION schema because the FICN-rejection path
-  // returns HTTP 422 with a `FicnAcknowledgement` slip in `data` —
-  // the service layer (`tellerService.cashDeposit`) sets axios
-  // `validateStatus` so both 200 and 422 land in the success branch,
-  // and the response-validator middleware (apiClient.ts:155-186) needs
-  // a schema that accepts either shape. Other 4xx codes (CBS-TELLER-001,
-  // -004, CBS-COMP-002, etc.) flow through the standard error path.
-  {
-    name: 'tellerCashDeposit',
-    urlPattern: '^/v2/teller/cash-deposit$',
-    methods: ['POST'],
-    schema: cashDepositOrFicnEnvelopeSchema,
-  },
-  {
-    name: 'tellerCashWithdrawal',
-    urlPattern: '^/v2/teller/cash-withdrawal$',
-    methods: ['POST'],
-    schema: cashWithdrawalEnvelopeSchema,
-  },
-
-  // Vault lifecycle — B1 resolved per TELLER_API_CONTRACT.md §"Vault
-  // Operations": wire format is the DTO (VaultPositionResponse /
-  // TellerCashMovementResponse), enforced by ArchUnit on the Spring
-  // side. Schemas below match the DTO shape; CONTRACT_MISMATCH fires
-  // if backend ever regresses to raw-entity exposure.
-  {
-    name: 'tellerVaultMovementsPending',
-    urlPattern: '^/v2/teller/vault/movements/pending$',
-    methods: ['GET'],
-    schema: tellerCashMovementListEnvelopeSchema,
-  },
-  {
-    name: 'tellerVaultMovementApprove',
-    urlPattern: '^/v2/teller/vault/movement/[^/]+/approve$',
-    methods: ['POST'],
-    schema: tellerCashMovementEnvelopeSchema,
-  },
-  {
-    name: 'tellerVaultMovementReject',
-    urlPattern: '^/v2/teller/vault/movement/[^/]+/reject(\\?.*)?$',
-    methods: ['POST'],
-    schema: tellerCashMovementEnvelopeSchema,
-  },
-  {
-    name: 'tellerVaultBuy',
-    urlPattern: '^/v2/teller/vault/buy(\\?.*)?$',
-    methods: ['POST'],
-    schema: tellerCashMovementEnvelopeSchema,
-  },
-  {
-    name: 'tellerVaultSell',
-    urlPattern: '^/v2/teller/vault/sell(\\?.*)?$',
-    methods: ['POST'],
-    schema: tellerCashMovementEnvelopeSchema,
-  },
-  {
-    name: 'tellerVaultMe',
-    urlPattern: '^/v2/teller/vault/me$',
-    methods: ['GET'],
-    schema: vaultPositionEnvelopeSchema,
-  },
-  {
-    name: 'tellerVaultOpen',
-    urlPattern: '^/v2/teller/vault/open(\\?.*)?$',
-    methods: ['POST'],
-    schema: vaultPositionEnvelopeSchema,
-  },
-  {
-    name: 'tellerVaultClose',
-    urlPattern: '^/v2/teller/vault/close(\\?.*)?$',
-    methods: ['POST'],
-    schema: vaultPositionEnvelopeSchema,
-  },
 ];
 
 /**
@@ -368,5 +223,3 @@ export * from './account';
 export * from './transfer';
 export * from './deposit';
 export * from './loan';
-export * from './accountTransfer';
-export * from './teller';

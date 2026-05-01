@@ -15,7 +15,7 @@
  */
 
 import { useEffect, useState } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { apiClient } from '@/services/api/apiClient';
 import {
@@ -41,6 +41,7 @@ interface CustomerDetail {
 }
 
 export default function KycVerificationPage() {
+  const router = useRouter();
   const search = useSearchParams();
   const customerId = search.get('id');
 

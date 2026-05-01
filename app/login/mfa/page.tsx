@@ -18,6 +18,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Loader2 } from 'lucide-react';
+import { useAuthStore } from '@/store/authStore';
 import type { User } from '@/types/entities';
 
 const mfaSchema = z.object({
@@ -119,18 +120,17 @@ export default function MfaPage() {
         }
 
         // Track failed OTP attempts per API_LOGIN_CONTRACT.md §5.
-        // Use functional updater to avoid stale closure value on rapid resubmits.
-        const newAttempts = otpAttempts + 1;
-        setOtpAttempts(newAttempts);
+        const attempts = otpAttempts + 1;
+        setOtpAttempts(attempts);
 
-        if (newAttempts >= MAX_OTP_ATTEMPTS) {
+        if (attempts >= MAX_OTP_ATTEMPTS) {
           setError('Too many invalid attempts. Please sign in again.');
           // Brief delay so the operator sees the message before redirect.
           setTimeout(() => router.push('/login'), 2000);
           return;
         }
 
-        const remaining = MAX_OTP_ATTEMPTS - newAttempts;
+        const remaining = MAX_OTP_ATTEMPTS - attempts;
         const msg = err?.message || 'Invalid OTP code.';
         setError(`${msg} ${remaining} attempt${remaining === 1 ? '' : 's'} remaining.`);
         // Clear the OTP input and re-focus for retry.
@@ -138,17 +138,19 @@ export default function MfaPage() {
         return;
       }
 
-      // Tier-1 CBS pattern: cross the auth boundary with a full-page
-      // navigation, NOT router.push. See app/login/page.tsx for the
-      // same fix on the password flow — router.push triggers an RSC
-      // payload fetch that races the just-set fv_sid cookie under
-      // Turbopack dev, producing "TypeError: Failed to fetch RSC
-      // payload" and a fallback redirect to ?reason=session_expired
-      // immediately after a SUCCESSFUL MFA verify. window.location
-      // forces the browser to re-evaluate cookies before the next
-      // request fires. Authoritative auth state is rehydrated by the
-      // dashboard via `loadSession()` against the fv_sid cookie.
-      window.location.assign('/dashboard');
+      useAuthStore.setState({
+        user: response.data.data.user,
+        csrfToken: response.data.data.csrfToken,
+        expiresAt: response.data.data.expiresAt,
+        businessDate: response.data.data.businessDate ?? null,
+        businessDay: response.data.data.businessDay ?? null,
+        operationalConfig: response.data.data.operationalConfig ?? null,
+        isAuthenticated: true,
+        isHydrated: true,
+        isLoading: false,
+        error: null,
+      });
+      router.push('/dashboard');
     } catch (err) {
       if (isAxiosError(err)) {
         setError(err.response?.data?.message || err.message);
