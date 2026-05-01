@@ -17,7 +17,7 @@
  *     and server bundles.
  */
 
-type LogLevel = 'debug' | 'info' | 'warn' | 'error';
+type LogLevel = 'debug' | 'info' | 'warn' | 'error' | 'security';
 
 interface LogEntry {
   level: LogLevel;
@@ -43,6 +43,7 @@ const LEVEL_NUM: Record<LogLevel, number> = {
   info: 30,
   warn: 40,
   error: 50,
+  security: 35,
 };
 
 function isServer(): boolean {
