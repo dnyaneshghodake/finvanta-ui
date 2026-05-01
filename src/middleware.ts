@@ -16,8 +16,9 @@ const ROLE_ROUTES: Record<string, string[]> = {
   '/customer': ['ADMIN', 'MAKER', 'CHECKER', 'TELLER', 'CUSTOMER'],
 };
 
-function getSessionCookie() {
-  return cookies().get('__session');
+async function getSessionCookie() {
+  const cookieStore = await cookies();
+  return cookieStore.get('__session');
 }
 
 function decodeSessionPayload(payload: string): { accessToken?: string; tenantId?: string; role?: string; exp?: number } | null {
@@ -57,14 +58,15 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  const sessionCookie = getSessionCookie();
+  const sessionCookie = await getSessionCookie();
   if (!sessionCookie?.value) {
     return redirectToLogin(pathname);
   }
 
   const session = decodeSessionPayload(sessionCookie.value);
   if (!session?.accessToken || isSessionExpired(session.exp)) {
-    const refreshToken = cookies().get('__refresh')?.value;
+    const cookieStore = await cookies();
+    const refreshToken = cookieStore.get('__refresh')?.value;
     if (!refreshToken) {
       return redirectToLogin(pathname);
     }

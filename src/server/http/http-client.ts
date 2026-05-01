@@ -5,11 +5,11 @@ export interface HttpClientOptions extends RequestInit {
 
 export interface HttpClientResponse<T = unknown> {
   data: T | null;
-  error: HttpClientError | null;
+  error: HttpClientErrorType | null;
   status: number;
 }
 
-export interface HttpClientError {
+export interface HttpClientErrorType {
   code: string;
   message: string;
   status: number;
@@ -17,7 +17,6 @@ export interface HttpClientError {
 }
 
 const DEFAULT_TIMEOUT = 30000;
-const MAX_RETRIES = 1;
 
 export class HttpClientError extends Error {
   constructor(
@@ -31,14 +30,13 @@ export class HttpClientError extends Error {
   }
 }
 
-export async function createHttpClient(baseUrl: string) {
+export function createHttpClient(baseUrl: string) {
   async function request<T = unknown>(
     endpoint: string,
     options: HttpClientOptions = {}
   ): Promise<HttpClientResponse<T>> {
     const {
       timeout = DEFAULT_TIMEOUT,
-      retryOnUnauthorized = false,
       ...fetchOptions
     } = options;
 
@@ -149,14 +147,14 @@ export async function createHttpClient(baseUrl: string) {
     });
   }
 
-  async function delete<T = unknown>(
+  async function del<T = unknown>(
     endpoint: string,
     options?: HttpClientOptions
   ): Promise<HttpClientResponse<T>> {
     return request<T>(endpoint, { ...options, method: 'DELETE' });
   }
 
-  return { request, get, post, put, patch, delete };
+  return { request, get, post, put, patch, del };
 }
 
 export const httpClient = createHttpClient(process.env.BACKEND_API_URL || 'http://localhost:8080');

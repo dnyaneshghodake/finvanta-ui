@@ -1,5 +1,5 @@
 import { cookies } from 'next/headers';
-import { createHttpClient, type HttpClientResponse, type HttpClientOptions } from './http-client';
+import { type HttpClientResponse, type HttpClientOptions } from './http-client';
 import { httpClient } from './http-client';
 
 const BACKEND_URL = process.env.BACKEND_API_URL || 'http://localhost:8080';
@@ -32,8 +32,8 @@ async function getAccessToken(): Promise<string | null> {
   }
 }
 
-function getTenantId(): string | null {
-  const cookieStore = cookies();
+async function getTenantId(): Promise<string | null> {
+  const cookieStore = await cookies();
   return cookieStore.get('X-Tenant-Id')?.value || null;
 }
 
@@ -49,7 +49,7 @@ export async function apiClient<T = unknown>(
   } = options;
 
   const authToken = skipAuth ? null : await getAccessToken();
-  const tenantId = providedTenantId || getTenantId();
+  const tenantId = providedTenantId || await getTenantId();
 
   const requestHeaders: Record<string, string> = {
     'Content-Type': 'application/json',
@@ -118,13 +118,25 @@ export const api = {
     apiClient<T>(endpoint, { ...options, method: 'GET' }),
   
   post: <T = unknown>(endpoint: string, body?: unknown, options?: ApiClientOptions) => 
-    apiClient<T>(endpoint, { ...options, method: 'POST', body }),
+    apiClient<T>(endpoint, { 
+      ...options, 
+      method: 'POST', 
+      body: body ? JSON.stringify(body) as unknown as BodyInit : undefined 
+    }),
   
   put: <T = unknown>(endpoint: string, body?: unknown, options?: ApiClientOptions) => 
-    apiClient<T>(endpoint, { ...options, method: 'PUT', body }),
+    apiClient<T>(endpoint, { 
+      ...options, 
+      method: 'PUT', 
+      body: body ? JSON.stringify(body) as unknown as BodyInit : undefined 
+    }),
   
   patch: <T = unknown>(endpoint: string, body?: unknown, options?: ApiClientOptions) => 
-    apiClient<T>(endpoint, { ...options, method: 'PATCH', body }),
+    apiClient<T>(endpoint, { 
+      ...options, 
+      method: 'PATCH', 
+      body: body ? JSON.stringify(body) as unknown as BodyInit : undefined 
+    }),
   
   delete: <T = unknown>(endpoint: string, options?: ApiClientOptions) => 
     apiClient<T>(endpoint, { ...options, method: 'DELETE' }),

@@ -1,5 +1,5 @@
 import { cookies } from 'next/headers';
-import { encryptSession, decryptSession } from '../encryption';
+import { encryptSession, decryptSession } from './encryption';
 
 const SESSION_COOKIE_NAME = '__session';
 const REFRESH_COOKIE_NAME = '__refresh';
