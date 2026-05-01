@@ -139,9 +139,9 @@ jobs:
         env:
           # Required for the action to annotate the PR.
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # Use repo gitleaks config for allowlist
+          # Public OSS-friendly rule set; no org licence required.
           GITLEAKS_ENABLE_COMMENTS: 'true'
-          GITLEAKS_CONFIG: '.gitleaks.toml'
+          GITLEAKS_CONFIG: ''
 
   sast-codeql:
     name: CodeQL (javascript / typescript)

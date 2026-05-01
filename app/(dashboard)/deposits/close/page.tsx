@@ -12,12 +12,14 @@
  */
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { apiClient } from '@/services/api/apiClient';
-import { CorrelationRefBadge, Breadcrumb } from '@/components/cbs';
+import { AmountInr, AccountNo, CorrelationRefBadge, Breadcrumb } from '@/components/cbs';
 import { Button } from '@/components/atoms';
 import Link from 'next/link';
 
 export default function FdPrematureClosePage() {
+  const router = useRouter();
   const [fdNumber, setFdNumber] = useState('');
   const [remarks, setRemarks] = useState('');
   const [error, setError] = useState<string | null>(null);
