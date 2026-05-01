@@ -17,7 +17,7 @@
  *     and server bundles.
  */
 
-type LogLevel = 'debug' | 'info' | 'warn' | 'error' | 'security';
+type LogLevel = 'debug' | 'info' | 'warn' | 'error';
 
 interface LogEntry {
   level: LogLevel;
@@ -43,7 +43,6 @@ const LEVEL_NUM: Record<LogLevel, number> = {
   info: 30,
   warn: 40,
   error: 50,
-  security: 35,
 };
 
 function isServer(): boolean {
@@ -182,12 +181,6 @@ class Logger {
   debug(message: string, data?: unknown): void {
     this.addLog('debug', message);
     this.emit('debug', message, data);
-  }
-
-  /** Security audit events (login, MFA, token theft, etc.) */
-  security(category: string, data?: unknown): void {
-    this.addLog('info', `[SECURITY] ${category}`);
-    this.emit('security', category, data);
   }
 
   info(message: string, data?: unknown): void {
